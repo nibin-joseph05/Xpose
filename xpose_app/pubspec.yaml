@@ -29,4 +29,6 @@ flutter:
 
   assets:
     - assets/logo/xpose-logo.png
+    - assets/logo/xpose-logo-round.png
+
 
