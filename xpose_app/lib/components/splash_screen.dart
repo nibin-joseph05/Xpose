@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math; // Add this import for math functions
+import 'dart:math' as math;
 import 'package:Xpose/main.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -13,43 +13,63 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
-  // Logo animations
   late Animation<double> _logoScaleAnimation;
   late Animation<double> _logoOpacityAnimation;
   late Animation<Offset> _logoPositionAnimation;
 
-  // Quote animations
   late Animation<double> _quoteOpacityAnimation;
   late Animation<Offset> _quotePositionAnimation;
 
-  // Background animations
   late Animation<Color?> _bgGradientStartAnimation;
   late Animation<Color?> _bgGradientEndAnimation;
+
+  late Animation<double> _loadingOpacityAnimation;
+  late Animation<double> _loadingScaleAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 4500),
+      duration: const Duration(milliseconds: 5000),
       vsync: this,
     );
 
     _setupAnimations();
 
     _controller.forward().then((_) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+      Future.delayed(const Duration(milliseconds: 500), () {
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 1000),
+            pageBuilder: (context, animation, secondaryAnimation) => const HomePage(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(0.0, 0.1);
+              const end = Offset.zero;
+              const curve = Curves.easeOutCirc;
+
+              var slideTween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+              var fadeTween = Tween<double>(begin: 0.0, end: 1.0).chain(CurveTween(curve: Curves.easeInQuad));
+
+              return SlideTransition(
+                position: slideTween.animate(animation),
+                child: FadeTransition(
+                  opacity: fadeTween.animate(animation),
+                  child: child,
+                ),
+              );
+            },
+          ),
+        );
+      });
     });
   }
 
   void _setupAnimations() {
-    // Logo scales up with overshoot, then settles
     _logoScaleAnimation = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.5, end: 1.2)
             .chain(CurveTween(curve: Curves.elasticOut)),
-        weight: 40,
+        weight: 30,
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.2, end: 1.0)
@@ -61,13 +81,12 @@ class _SplashScreenState extends State<SplashScreen>
         weight: 30,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.7)
+        tween: Tween<double>(begin: 1.0, end: 0.8)
             .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 10,
+        weight: 20,
       ),
     ]).animate(_controller);
 
-    // Logo fades in, stays visible, then fades out
     _logoOpacityAnimation = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.0, end: 1.0)
@@ -76,16 +95,15 @@ class _SplashScreenState extends State<SplashScreen>
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 1.0),
-        weight: 60,
+        weight: 50,
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 0.0)
             .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 20,
+        weight: 30,
       ),
     ]).animate(_controller);
 
-    // Logo slides up slightly, then stays, then moves up more
     _logoPositionAnimation = TweenSequence<Offset>([
       TweenSequenceItem(
         tween: Tween<Offset>(begin: const Offset(0.0, 0.3), end: Offset.zero)
@@ -94,16 +112,15 @@ class _SplashScreenState extends State<SplashScreen>
       ),
       TweenSequenceItem(
         tween: Tween<Offset>(begin: Offset.zero, end: Offset.zero),
-        weight: 50,
+        weight: 40,
       ),
       TweenSequenceItem(
-        tween: Tween<Offset>(begin: Offset.zero, end: const Offset(0.0, -0.4))
+        tween: Tween<Offset>(begin: Offset.zero, end: const Offset(0.0, -0.5))
             .chain(CurveTween(curve: Curves.easeIn)),
-        weight: 20,
+        weight: 30,
       ),
     ]).animate(_controller);
 
-    // Quote fades in later and stays visible
     _quoteOpacityAnimation = TweenSequence<double>([
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.0, end: 0.0),
@@ -115,12 +132,12 @@ class _SplashScreenState extends State<SplashScreen>
         weight: 30,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.0),
+        tween: Tween<double>(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
         weight: 30,
       ),
     ]).animate(_controller);
 
-    // Quote slides up slightly when appearing
     _quotePositionAnimation = TweenSequence<Offset>([
       TweenSequenceItem(
         tween: Tween<Offset>(begin: const Offset(0.0, 0.2), end: const Offset(0.0, 0.2)),
@@ -132,12 +149,12 @@ class _SplashScreenState extends State<SplashScreen>
         weight: 30,
       ),
       TweenSequenceItem(
-        tween: Tween<Offset>(begin: Offset.zero, end: Offset.zero),
+        tween: Tween<Offset>(begin: Offset.zero, end: const Offset(0.0, 0.1))
+            .chain(CurveTween(curve: Curves.easeIn)),
         weight: 30,
       ),
     ]).animate(_controller);
 
-    // Background gradient color shift
     _bgGradientStartAnimation = ColorTween(
       begin: const Color(0xFF0F2027),
       end: const Color(0xFF1A2E39),
@@ -153,6 +170,20 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _controller,
       curve: const Interval(0.0, 0.5, curve: Curves.easeInOutSine),
     ));
+
+    _loadingOpacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.7, 1.0, curve: Curves.easeIn),
+      ),
+    );
+
+    _loadingScaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.7, 1.0, curve: Curves.easeOutBack),
+      ),
+    );
   }
 
   @override
@@ -169,7 +200,6 @@ class _SplashScreenState extends State<SplashScreen>
         builder: (context, child) {
           return Stack(
             children: [
-              // Animated background
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
@@ -186,7 +216,6 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
               ),
 
-              // Subtle animated particles in background
               Positioned.fill(
                 child: IgnorePointer(
                   child: Opacity(
@@ -202,7 +231,6 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo with multiple animations
                     Transform.translate(
                       offset: _logoPositionAnimation.value * (MediaQuery.of(context).size.height / 2),
                       child: Transform.scale(
@@ -220,7 +248,6 @@ class _SplashScreenState extends State<SplashScreen>
 
                     const SizedBox(height: 30),
 
-                    // Quote with animations
                     Transform.translate(
                       offset: _quotePositionAnimation.value * 20,
                       child: Opacity(
@@ -266,7 +293,6 @@ class _SplashScreenState extends State<SplashScreen>
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              // Author attribution
                               Opacity(
                                 opacity: _quoteOpacityAnimation.value * 0.9,
                                 child: Text(
@@ -283,6 +309,24 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                     ),
+
+                    Padding(
+                      padding: const EdgeInsets.only(top: 50),
+                      child: Opacity(
+                        opacity: _loadingOpacityAnimation.value,
+                        child: Transform.scale(
+                          scale: _loadingScaleAnimation.value,
+                          child: const SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -294,7 +338,6 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-// Background particle animation
 class _ParticlePainter extends CustomPainter {
   final double progress;
 
