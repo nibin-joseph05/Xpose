@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'package:Xpose/main.dart';
+import 'package:Xpose/pages/home/home.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
