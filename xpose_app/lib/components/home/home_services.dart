@@ -1,4 +1,3 @@
-// home_services.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 
@@ -21,6 +20,7 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
     {'icon': Icons.balance, 'label': 'Corruption'},
     {'icon': Icons.contact_support, 'label': 'Support'},
     {'icon': Icons.medical_services, 'label': 'Emergency'},
+    {'icon': Icons.more_horiz, 'label': 'More'},
   ];
 
   @override
@@ -64,20 +64,14 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 3.2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+              crossAxisCount: 3, // Changed to 3 items per row
+              childAspectRatio: 1.0, // Adjusted aspect ratio for square-like items
+              crossAxisSpacing: 12, // Adjusted spacing
+              mainAxisSpacing: 12,   // Adjusted spacing
             ),
             itemCount: _services.length,
             itemBuilder: (context, index) {
-              // Calculate a slightly different blue shade for each item
-              final Color baseColor = Colors.lightBlue.shade300;
-              final Color itemColor = Color.lerp(
-                baseColor,
-                Colors.blue.shade800, // Darker blue for subtle variation
-                index / _services.length * 0.3, // Vary the darkness
-              )!;
+              final Color itemColor = Theme.of(context).colorScheme.primary.withOpacity(0.8);
 
               return _buildServiceButton(
                 context,
@@ -99,8 +93,6 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
         required Color color,
       }) {
     return Material(
-      borderRadius: BorderRadius.circular(16),
-      elevation: 6,
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -108,42 +100,30 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
         splashColor: color.withOpacity(0.3),
         highlightColor: color.withOpacity(0.2),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                color.withOpacity(0.2),
-                color.withOpacity(0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: Colors.transparent, // Background color removed
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: color.withOpacity(0.4),
-              width: 1.2,
+              color: color.withOpacity(0.3), // Lighter border
+              width: 1.0, // Thinner border
             ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
-          child: Row(
+          child: Column( // Changed to Column for vertical arrangement
+            mainAxisAlignment: MainAxisAlignment.center, // Center content vertically
             children: [
-              Icon(icon, size: 26, color: color),
-              const SizedBox(width: 12),
+              Icon(icon, size: 36, color: color), // Larger icon
+              const SizedBox(height: 8), // Spacing between icon and label
               Flexible(
                 child: Text(
                   label,
+                  textAlign: TextAlign.center, // Center align text
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 13, // Slightly smaller font for label
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: Colors.white70, // Softer white
                   ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 2, // Allow label to wrap if needed
                 ),
               ),
             ],
