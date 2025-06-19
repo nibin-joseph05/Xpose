@@ -53,13 +53,6 @@ class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateM
           ),
           const Spacer(),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
-            color: Colors.white,
-            iconSize: 28,
-          ),
-          const SizedBox(width: 8),
-          IconButton(
             onPressed: () {
               showSearch(
                 context: context,
@@ -67,6 +60,13 @@ class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateM
               );
             },
             icon: const Icon(Icons.search),
+            color: Colors.white,
+            iconSize: 28,
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none),
             color: Colors.white,
             iconSize: 28,
           ),

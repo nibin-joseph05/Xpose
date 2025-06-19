@@ -13,14 +13,14 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   final List<Map<String, dynamic>> _services = [
-    {'icon': Icons.report, 'label': 'Report Incident', 'color': Colors.blue},
-    {'icon': Icons.folder_open, 'label': 'My Reports', 'color': Colors.amber},
-    {'icon': Icons.local_police, 'label': 'Harassment', 'color': Colors.purple},
-    {'icon': Icons.warning, 'label': 'Drug Abuse', 'color': Colors.red},
-    {'icon': Icons.money_off, 'label': 'Theft', 'color': Colors.green},
-    {'icon': Icons.gavel, 'label': 'Corruption', 'color': Colors.deepOrange},
-    {'icon': Icons.help_outline, 'label': 'Support', 'color': Colors.deepPurple},
-    {'icon': Icons.emergency, 'label': 'Emergency', 'color': Colors.redAccent},
+    {'icon': Icons.description, 'label': 'Report Incident'},
+    {'icon': Icons.folder_shared, 'label': 'My Reports'},
+    {'icon': Icons.gavel, 'label': 'Harassment'},
+    {'icon': Icons.local_pharmacy, 'label': 'Drug Abuse'},
+    {'icon': Icons.security, 'label': 'Theft'},
+    {'icon': Icons.balance, 'label': 'Corruption'},
+    {'icon': Icons.contact_support, 'label': 'Support'},
+    {'icon': Icons.medical_services, 'label': 'Emergency'},
   ];
 
   @override
@@ -53,7 +53,10 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
         children: [
           Text(
             'Report Crime',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
           GridView.builder(
@@ -68,15 +71,19 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             ),
             itemCount: _services.length,
             itemBuilder: (context, index) {
+              // Calculate a slightly different blue shade for each item
+              final Color baseColor = Colors.lightBlue.shade300;
+              final Color itemColor = Color.lerp(
+                baseColor,
+                Colors.blue.shade800, // Darker blue for subtle variation
+                index / _services.length * 0.3, // Vary the darkness
+              )!;
+
               return _buildServiceButton(
                 context,
                 icon: _services[index]['icon'],
                 label: _services[index]['label'],
-                color: Color.lerp(
-                  _services[index]['color'],
-                  Colors.black,
-                  0.2,
-                )!,
+                color: itemColor,
               );
             },
           ),
@@ -93,32 +100,46 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
       }) {
     return Material(
       borderRadius: BorderRadius.circular(16),
-      elevation: 4,
+      elevation: 6,
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {},
-        splashColor: color.withOpacity(0.2),
-        highlightColor: color.withOpacity(0.1),
+        splashColor: color.withOpacity(0.3),
+        highlightColor: color.withOpacity(0.2),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            gradient: LinearGradient(
+              colors: [
+                color.withOpacity(0.2),
+                color.withOpacity(0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: color.withOpacity(0.3),
-              width: 1,
+              color: color.withOpacity(0.4),
+              width: 1.2,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              Icon(icon, size: 24, color: color),
+              Icon(icon, size: 26, color: color),
               const SizedBox(width: 12),
               Flexible(
                 child: Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: const TextStyle(
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
