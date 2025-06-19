@@ -1,4 +1,3 @@
-// home_footer.dart
 import 'package:flutter/material.dart';
 
 class HomeFooter extends StatelessWidget {
@@ -6,52 +5,142 @@ class HomeFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final double footerHeight = 70.0;
+    final double navIconSize = 24.0;
+    final double sosButtonDiameter = 60.0;
+    final double sosIconSize = 36.0;
+
+    final double sosButtonTopOffset = -sosButtonDiameter / 2;
+
+    return Container(
+      height: footerHeight,
+      alignment: Alignment.bottomCenter,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey[900]?.withOpacity(0.8),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(25),
+          topRight: Radius.circular(25),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 15,
+            spreadRadius: 3,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
         children: [
-          _buildNavItem(context, Icons.home_filled, 'Home', isActive: true),
-          _buildNavItem(context, Icons.assignment, 'Reports'),
-          _buildNavItem(context, Icons.emergency_share, 'Emergency'),
-          _buildNavItem(context, Icons.person, 'Profile'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Expanded(child: _buildNavItem(context, Icons.home_filled, 'Home', navIconSize, isActive: true)),
+              Expanded(child: _buildNavItem(context, Icons.assignment, 'Reports', navIconSize)),
+              SizedBox(width: sosButtonDiameter + 20),
+              Expanded(child: _buildNavItem(context, Icons.person, 'Profile', navIconSize)),
+              Expanded(child: _buildNavItem(context, Icons.more_horiz, 'More', navIconSize)),
+            ],
+          ),
+          Positioned(
+            top: sosButtonTopOffset,
+            child: _buildSosButton(context, sosButtonDiameter, sosIconSize),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, String label, {bool isActive = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isActive
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
-                : Colors.transparent,
+  Widget _buildNavItem(BuildContext context, IconData icon, String label, double iconSize, {bool isActive = false}) {
+    return InkWell(
+      onTap: () {
+        print('$label tapped!');
+      },
+      borderRadius: BorderRadius.circular(30),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                    : Colors.transparent,
+              ),
+              padding: const EdgeInsets.all(8),
+              child: Icon(
+                icon,
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.white70,
+                size: iconSize,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.white70,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSosButton(BuildContext context, double diameter, double iconSize) {
+    return Container(
+      width: diameter,
+      height: diameter,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            Colors.red[600]!,
+            Colors.red[800]!,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.7),
+            blurRadius: 20,
+            spreadRadius: 5,
+            offset: const Offset(0, 8),
           ),
-          padding: const EdgeInsets.all(8),
-          child: Icon(
-            icon,
-            color: isActive
-                ? Theme.of(context).colorScheme.primary
-                : Colors.white70,
-            size: 24,
+        ],
+        border: Border.all(
+          color: Colors.red[300]!,
+          width: 3,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            print('SOS button tapped!');
+          },
+          borderRadius: BorderRadius.circular(diameter / 2),
+          child: Center(
+            child: Icon(
+              Icons.sos,
+              color: Colors.white,
+              size: iconSize,
+            ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive
-                ? Theme.of(context).colorScheme.primary
-                : Colors.white70,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
