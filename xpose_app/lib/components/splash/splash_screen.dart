@@ -22,6 +22,11 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<Offset> _logoPositionAnimation;
   late Animation<double> _logoRotationAnimation;
 
+  // App name animations
+  late Animation<double> _appNameOpacityAnimation;
+  late Animation<Offset> _appNamePositionAnimation;
+  late Animation<double> _appNameScaleAnimation;
+
   // Quote animations
   late Animation<double> _quoteOpacityAnimation;
   late Animation<Offset> _quotePositionAnimation;
@@ -77,22 +82,22 @@ class _SplashScreenState extends State<SplashScreen>
     // Logo animations
     _logoScaleAnimation = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.2)
+        tween: Tween<double>(begin: 0.0, end: 1.1)
             .chain(CurveTween(curve: Curves.elasticOut.flipped)),
         weight: 25,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.3, end: 1.0)
+        tween: Tween<double>(begin: 1.1, end: 0.9)
             .chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 20,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.05)
+        tween: Tween<double>(begin: 0.9, end: 0.95)
             .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 35,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.05, end: 0.85)
+        tween: Tween<double>(begin: 0.95, end: 0.75)
             .chain(CurveTween(curve: Curves.easeInCubic)),
         weight: 20,
       ),
@@ -138,6 +143,62 @@ class _SplashScreenState extends State<SplashScreen>
         curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
       ),
     );
+
+    // App name animations
+    _appNameOpacityAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 0.0),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOutQuint)),
+        weight: 15,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.0),
+        weight: 30,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeInExpo)),
+        weight: 15,
+      ),
+    ]).animate(_mainController);
+
+    _appNamePositionAnimation = TweenSequence<Offset>([
+      TweenSequenceItem(
+        tween: Tween<Offset>(begin: const Offset(0.0, 0.2), end: const Offset(0.0, 0.2)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 15,
+      ),
+      TweenSequenceItem(
+        tween: Tween<Offset>(begin: Offset.zero, end: const Offset(0.0, -0.8))
+            .chain(CurveTween(curve: Curves.easeInCubic)),
+        weight: 45,
+      ),
+    ]).animate(_mainController);
+
+    _appNameScaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.8, end: 0.8),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.8, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 15,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.85)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 45,
+      ),
+    ]).animate(_mainController);
 
     // Quote animations
     _quoteOpacityAnimation = TweenSequence<double>([
@@ -386,8 +447,8 @@ class _SplashScreenState extends State<SplashScreen>
                                 child: Opacity(
                                   opacity: _rippleOpacityAnimation.value,
                                   child: Container(
-                                    width: 240,
-                                    height: 240,
+                                    width: 200,
+                                    height: 200,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
@@ -411,8 +472,8 @@ class _SplashScreenState extends State<SplashScreen>
                                 child: Opacity(
                                   opacity: _logoOpacityAnimation.value,
                                   child: Container(
-                                    width: 200,
-                                    height: 200,
+                                    width: 150,
+                                    height: 150,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(100),
                                       boxShadow: [
@@ -440,8 +501,8 @@ class _SplashScreenState extends State<SplashScreen>
                                       borderRadius: BorderRadius.circular(100),
                                       child: Image.asset(
                                         'assets/logo/xpose-logo-round.png',
-                                        width: 200,
-                                        height: 200,
+                                        width: 150,
+                                        height: 150,
                                         fit: BoxFit.cover,
                                       ),
                                     ),
@@ -451,6 +512,34 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // App name
+                      Transform.translate(
+                        offset: _appNamePositionAnimation.value * (MediaQuery.of(context).size.height * 0.3),
+                        child: Opacity(
+                          opacity: _appNameOpacityAnimation.value,
+                          child: Transform.scale(
+                            scale: _appNameScaleAnimation.value,
+                            child: Text(
+                              'Xpose',
+                              style: TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 1.5,
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withOpacity(0.5),
+                                    offset: const Offset(2, 2),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 40),
 
@@ -652,10 +741,7 @@ class _ShimmerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-
     canvas.save();
-
-    // Rotate the canvas around its center
     canvas.translate(size.width / 2, size.height / 2);
     canvas.rotate(progress * math.pi * 0.5);
     canvas.translate(-size.width / 2, -size.height / 2);
@@ -677,8 +763,6 @@ class _ShimmerPainter extends CustomPainter {
       ..shader = gradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
-
-
     canvas.restore();
   }
 
