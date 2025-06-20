@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "46001093394",
+    "project_id": "x-pose-95a07",
+    "storage_bucket": "x-pose-95a07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:46001093394:android:ca89e38c8a73d1961e91cb",
+        "android_client_info": {
+          "package_name": "com.example.xpose_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNn1SAOhoB8Pl_XzXWKsoLrziYtStWZzc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
