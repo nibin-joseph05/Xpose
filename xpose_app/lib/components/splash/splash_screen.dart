@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:Xpose/pages/home/home.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:Xpose/pages/auth/auth_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -339,11 +341,14 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToHome() {
+    final user = FirebaseAuth.instance.currentUser;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 1200),
         reverseTransitionDuration: const Duration(milliseconds: 800),
-        pageBuilder: (context, animation, secondaryAnimation) => const HomePage(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+        user != null ? const HomePage() : const AuthPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
             CurvedAnimation(
@@ -370,6 +375,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
+
 
   @override
   void dispose() {
