@@ -12,7 +12,20 @@
           "package_name": "com.example.xpose_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "46001093394-uujl83hgghbkuhkci7loksladuh73mv0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.xpose_app",
+            "certificate_hash": "6df1c53b91c171d3b2878079600673abcc812e92"
+          }
+        },
+        {
+          "client_id": "46001093394-k93smml95jom8csk541022pup41j3cgg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCNn1SAOhoB8Pl_XzXWKsoLrziYtStWZzc"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "46001093394-k93smml95jom8csk541022pup41j3cgg.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "46001093394-rgpkjbr65iosj8paclkf8mgoh2aaj5nj.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.xposeApp"
+              }
+            }
+          ]
         }
       }
     }

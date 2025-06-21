@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:Xpose/models/user_model.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://172.22.1.10:8080/api/auth';
+  static final String baseUrl = '${dotenv.env['API_BASE_URL']}/api/auth';
 
   static Future<User> registerWithMobile(String mobile) async {
     final response = await http.post(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:Xpose/services/auth_service.dart';
 import 'package:Xpose/helpers/user_preferences.dart';
@@ -142,7 +143,6 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final phone = userCredential.user?.phoneNumber?.replaceFirst('+91', '') ?? '';
 
-      // Register user in backend with just mobile number
       final user = await AuthService.registerWithMobile(phone);
       await UserPreferences.saveUser(user);
 
@@ -175,252 +175,290 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _ParticlePainter(),
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+            ],
           ),
-          Positioned.fill(
-            child: Opacity(
-              opacity: 0.03,
-              child: Center(
-                child: Image.asset(
-                  'assets/logo/xpose-logo-round.png',
-                  width: MediaQuery.of(context).size.width * 0.8,
-                  fit: BoxFit.cover,
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _ParticlePainter(),
+              ),
+            ),
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.03,
+                child: Center(
+                  child: Image.asset(
+                    'assets/logo/xpose-logo-round.png',
+                    width: MediaQuery.of(context).size.width * 0.8,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        AnimatedBuilder(
-                          animation: _rippleController,
-                          builder: (context, child) {
-                            return Transform.scale(
-                              scale: _rippleScaleAnimation.value,
-                              child: Opacity(
-                                opacity: _rippleOpacityAnimation.value,
-                                child: Container(
-                                  width: 140,
-                                  height: 140,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                                      width: 2,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          AnimatedBuilder(
+                            animation: _rippleController,
+                            builder: (context, child) {
+                              return Transform.scale(
+                                scale: _rippleScaleAnimation.value,
+                                child: Opacity(
+                                  opacity: _rippleOpacityAnimation.value,
+                                  child: Container(
+                                    width: 140,
+                                    height: 140,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                                        width: 2,
+                                      ),
                                     ),
                                   ),
                                 ),
+                              );
+                            },
+                          ),
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  spreadRadius: 5,
+                                ),
+                              ],
+                            ),
+                            child: Image.asset(
+                              'assets/logo/xpose-logo-round.png',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      Text(
+                        'Xpose',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.primary,
+                          letterSpacing: 3.0,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 12,
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                            )
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Welcome to Xpose',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Log in to expose and report crimes anonymously.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white54,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2C3545).withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: phoneErrorText != null
+                                ? Colors.redAccent.withOpacity(0.8)
+                                : const Color(0xFF3C4556),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 15,
+                              spreadRadius: 3,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF3F4B5D),
+                                borderRadius: BorderRadius.horizontal(
+                                  left: Radius.circular(16),
+                                ),
                               ),
-                            );
+                              child: const Text(
+                                '+91',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: phoneController,
+                                keyboardType: TextInputType.phone,
+                                maxLength: 10,
+                                enabled: !isOtpSent,
+                                style: TextStyle(color: isOtpSent ? Colors.grey[600] : Colors.white, fontSize: 16),
+                                decoration: InputDecoration(
+                                  hintText: 'Enter your number',
+                                  hintStyle: const TextStyle(color: Colors.white60),
+                                  counterText: '',
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                  errorText: phoneErrorText,
+                                  errorStyle: const TextStyle(height: 0, fontSize: 0),
+                                ),
+                                onChanged: (value) {
+                                  if (phoneErrorText != null) {
+                                    setState(() => phoneErrorText = null);
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (phoneErrorText != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0, left: 8.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              phoneErrorText!,
+                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      if (isOtpSent) ...[
+                        TextField(
+                          controller: otpController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                          decoration: InputDecoration(
+                            labelText: 'Enter OTP',
+                            labelStyle: TextStyle(color: Colors.white60),
+                            filled: true,
+                            counterText: '',
+                            fillColor: const Color(0xFF2C3545).withOpacity(0.9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: otpErrorText != null
+                                    ? Colors.redAccent.withOpacity(0.8)
+                                    : const Color(0xFF3C4556),
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: Theme.of(context).colorScheme.primary,
+                                width: 2.0,
+                              ),
+                            ),
+                            errorText: otpErrorText,
+                            errorStyle: const TextStyle(height: 0, fontSize: 0),
+                          ),
+                          onChanged: (value) {
+                            if (otpErrorText != null) {
+                              setState(() => otpErrorText = null);
+                            }
                           },
                         ),
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                                blurRadius: 20,
-                                spreadRadius: 5,
+                        if (otpErrorText != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0, left: 8.0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                otpErrorText!,
+                                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
                               ),
-                            ],
+                            ),
                           ),
-                          child: Image.asset(
-                            'assets/logo/xpose-logo-round.png',
-                          ),
-                        ),
+                        const SizedBox(height: 20),
                       ],
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Xpose',
-                      style: TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.w800,
-                        color: Theme.of(context).colorScheme.primary,
-                        letterSpacing: 2.5,
-                        shadows: [
-                          Shadow(
-                            blurRadius: 10,
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: isLoading
+                              ? null
+                              : isOtpSent ? _verifyOtp : _sendOtp,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 10,
+                            shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                            textStyle: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
                           )
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Welcome to Xpose',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey[400],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Log in to expose and report crimes anonymously.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900]!.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: phoneErrorText != null
-                              ? Colors.redAccent.withOpacity(0.7)
-                              : Colors.grey[700]!,
-                          width: 1,
+                              : Text(
+                            isOtpSent ? 'VERIFY OTP' : 'GET OTP',
+                          ),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                            blurRadius: 10,
-                            spreadRadius: 2,
-                          ),
-                        ],
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[850],
-                              borderRadius: const BorderRadius.horizontal(
-                                left: Radius.circular(16),
-                              ),
-                            ),
-                            child: Text(
-                              '+91',
-                              style: TextStyle(
-                                color: Colors.grey[300],
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: TextField(
-                              controller: phoneController,
-                              keyboardType: TextInputType.phone,
-                              maxLength: 10,
-                              enabled: !isOtpSent,
-                              style: TextStyle(color: isOtpSent ? Colors.grey : Colors.white),
-                              decoration: InputDecoration(
-                                hintText: 'Enter your number',
-                                hintStyle: const TextStyle(color: Colors.white54),
-                                counterText: '',
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                                errorText: phoneErrorText,
-                              ),
-                              onChanged: (value) {
-                                if (phoneErrorText != null) {
-                                  setState(() => phoneErrorText = null);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    if (isOtpSent) ...[
-                      TextField(
-                        controller: otpController,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Enter OTP',
-                          labelStyle: TextStyle(color: Colors.grey[400]),
-                          filled: true,
-                          counterText: '',
-                          fillColor: Colors.grey[900]!.withOpacity(0.8),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: otpErrorText != null
-                                  ? Colors.redAccent.withOpacity(0.7)
-                                  : Colors.grey[700]!,
-                              width: 1,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: Theme.of(context).colorScheme.primary,
-                              width: 1.5,
-                            ),
-                          ),
-                          errorText: otpErrorText,
-                        ),
-                        onChanged: (value) {
-                          if (otpErrorText != null) {
-                            setState(() => otpErrorText = null);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 20),
                     ],
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isLoading
-                            ? null
-                            : isOtpSent ? _verifyOtp : _sendOtp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 8,
-                          shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                        ),
-                        child: isLoading
-                            ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        )
-                            : Text(
-                          isOtpSent ? 'VERIFY OTP' : 'GET OTP',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -431,13 +469,13 @@ class _ParticlePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final random = math.Random();
     final paint = Paint()
-      ..color = const Color(0xFF3B82F6).withOpacity(0.05)
+      ..color = const Color(0xFF3B82F6).withOpacity(0.08)
       ..style = PaintingStyle.fill;
 
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 50; i++) {
       final x = random.nextDouble() * size.width;
       final y = random.nextDouble() * size.height;
-      final radius = 1.0 + random.nextDouble() * 2;
+      final radius = 1.0 + random.nextDouble() * 2.5;
       canvas.drawCircle(Offset(x, y), radius, paint);
     }
   }
