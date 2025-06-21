@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:Xpose/services/auth_service.dart';
+import 'package:Xpose/helpers/user_preferences.dart';
+import 'package:Xpose/pages/home/home.dart';
 import 'dart:math' as math;
 
 class AuthPage extends StatefulWidget {
@@ -15,6 +19,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   bool isLoading = false;
   String? phoneErrorText;
   String? otpErrorText;
+  String? _verificationId;
 
   late AnimationController _rippleController;
   late Animation<double> _rippleScaleAnimation;
@@ -24,6 +29,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _setupAnimations();
+    _checkExistingUser();
   }
 
   void _setupAnimations() {
@@ -47,54 +53,115 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     );
   }
 
-  void _handleButtonPress() {
-    setState(() {
-      phoneErrorText = null;
-      otpErrorText = null;
-    });
+  Future<void> _checkExistingUser() async {
+    final user = await UserPreferences.getUser();
+    if (user != null && mounted) {
+      _navigateToHome();
+    }
+  }
 
-    if (!isOtpSent) {
-      if (phoneController.text.isEmpty) {
-        setState(() {
-          phoneErrorText = 'Please enter your mobile number';
-        });
-        return;
-      }
-      if (phoneController.text.length != 10) {
-        setState(() {
-          phoneErrorText = 'Enter a valid 10-digit number';
-        });
-        return;
-      }
-    } else {
-      if (otpController.text.isEmpty) {
-        setState(() {
-          otpErrorText = 'Please enter OTP';
-        });
-        return;
-      }
-      if (otpController.text.length != 6) {
-        setState(() {
-          otpErrorText = 'Enter a valid 6-digit OTP';
-        });
-        return;
-      }
+  Future<void> _sendOtp() async {
+    final phoneNumber = '+91${phoneController.text.trim()}';
+
+    if (phoneController.text.isEmpty) {
+      setState(() => phoneErrorText = 'Please enter your mobile number');
+      return;
+    }
+
+    if (phoneController.text.length != 10) {
+      setState(() => phoneErrorText = 'Enter a valid 10-digit number');
+      return;
     }
 
     setState(() {
+      phoneErrorText = null;
       isLoading = true;
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          setState(() {
+            isLoading = false;
+            phoneErrorText = e.message ?? 'Verification failed';
+          });
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          setState(() {
+            isLoading = false;
+            isOtpSent = true;
+            _verificationId = verificationId;
+          });
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {},
+      );
+    } catch (e) {
       setState(() {
         isLoading = false;
-        if (!isOtpSent) {
-          isOtpSent = true;
-        } else {
-          // Navigate to home after verification
-        }
+        phoneErrorText = 'Error sending OTP: ${e.toString()}';
       });
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    if (otpController.text.isEmpty) {
+      setState(() => otpErrorText = 'Please enter OTP');
+      return;
+    }
+
+    if (otpController.text.length != 6) {
+      setState(() => otpErrorText = 'Enter a valid 6-digit OTP');
+      return;
+    }
+
+    setState(() {
+      otpErrorText = null;
+      isLoading = true;
     });
+
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: otpController.text.trim(),
+      );
+      await _signInWithCredential(credential);
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        otpErrorText = 'Invalid OTP. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _signInWithCredential(PhoneAuthCredential credential) async {
+    try {
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final phone = userCredential.user?.phoneNumber?.replaceFirst('+91', '') ?? '';
+
+      // Register user in backend with just mobile number
+      final user = await AuthService.registerWithMobile(phone);
+      await UserPreferences.saveUser(user);
+
+      if (mounted) {
+        _navigateToHome();
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        phoneErrorText = 'Authentication failed: ${e.toString()}';
+      });
+    }
+  }
+
+  void _navigateToHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomePage()),
+    );
   }
 
   @override
@@ -316,7 +383,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: isLoading ? null : _handleButtonPress,
+                        onPressed: isLoading
+                            ? null
+                            : isOtpSent ? _verifyOtp : _sendOtp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.primary,
                           foregroundColor: Colors.white,
