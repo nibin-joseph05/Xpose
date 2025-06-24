@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:Xpose/pages/profile/profile_page.dart';
 
 class HomeFooter extends StatelessWidget {
   const HomeFooter({super.key});
@@ -38,11 +39,11 @@ class HomeFooter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Expanded(child: _buildNavItem(context, Icons.home_filled, 'Home', navIconSize, isActive: true)),
-              Expanded(child: _buildNavItem(context, Icons.assignment, 'Reports', navIconSize)),
+              Expanded(child: _buildNavItem(context, Icons.home_filled, 'Home', navIconSize, isActive: true, targetPage: null)),
+              Expanded(child: _buildNavItem(context, Icons.assignment, 'Reports', navIconSize, targetPage: null)),
               SizedBox(width: sosButtonDiameter + 20),
-              Expanded(child: _buildNavItem(context, Icons.person, 'Profile', navIconSize)),
-              Expanded(child: _buildNavItem(context, Icons.more_horiz, 'More', navIconSize)),
+              Expanded(child: _buildNavItem(context, Icons.person, 'Profile', navIconSize, targetPage: ProfilePage())),
+              Expanded(child: _buildNavItem(context, Icons.more_horiz, 'More', navIconSize, targetPage: null)),
             ],
           ),
           Positioned(
@@ -54,10 +55,16 @@ class HomeFooter extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, String label, double iconSize, {bool isActive = false}) {
+  Widget _buildNavItem(BuildContext context, IconData icon, String label, double iconSize, {bool isActive = false, Widget? targetPage}) {
     return InkWell(
       onTap: () {
         print('$label tapped!');
+        if (targetPage != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => targetPage),
+          );
+        }
       },
       borderRadius: BorderRadius.circular(30),
       child: Padding(
