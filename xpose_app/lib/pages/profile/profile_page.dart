@@ -1,7 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:Xpose/helpers/user_preferences.dart';
+import 'package:Xpose/pages/auth/auth_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  Future<void> _logout() async {
+    bool confirmLogout = await showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: Text(
+            'Confirm Logout',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+          content: Text(
+            'Are you sure you want to log out?',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmLogout == true) {
+      try {
+        await FirebaseAuth.instance.signOut();
+        await UserPreferences.clearUser();
+
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const AuthPage()),
+                (Route<dynamic> route) => false,
+          );
+        }
+      } catch (e) {
+        print('Error during logout: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to log out: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +135,7 @@ class ProfilePage extends StatelessWidget {
                   _buildProfileOption(context, Icons.help_outline, 'Help & Support', 'Get help or contact support'),
                   _buildProfileOption(context, Icons.info_outline, 'About App', 'Information about the application'),
                   const SizedBox(height: 20),
-                  _buildProfileOption(context, Icons.logout, 'Logout', null, isDestructive: true),
+                  _buildProfileOption(context, Icons.logout, 'Logout', null, isDestructive: true, onTap: _logout),
                 ],
               ),
             ),
@@ -71,13 +145,13 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileOption(BuildContext context, IconData icon, String title, String? subtitle, {bool isDestructive = false}) {
+  Widget _buildProfileOption(BuildContext context, IconData icon, String title, String? subtitle, {bool isDestructive = false, VoidCallback? onTap}) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () {
+        onTap: onTap ?? () {
           print('$title tapped!');
         },
         borderRadius: BorderRadius.circular(12),
