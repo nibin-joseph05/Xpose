@@ -24,8 +24,8 @@ class _AuthCheckState extends State<AuthCheck> {
   }
 
   Future<void> _checkAuthState() async {
-    final fb_auth.User? firebaseUser = fb_auth.FirebaseAuth.instance.currentUser; // Use fb_auth.User
-    final User? appUser = await UserPreferences.getUser(); // Your custom User model
+    final fb_auth.User? firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
+    final User? appUser = await UserPreferences.getUser();
 
     setState(() {
       _hasUser = firebaseUser != null && appUser != null;

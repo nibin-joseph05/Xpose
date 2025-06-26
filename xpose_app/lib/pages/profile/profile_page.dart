@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:Xpose/helpers/user_preferences.dart';
 import 'package:Xpose/pages/auth/auth_page.dart';
 import 'package:Xpose/models/user_model.dart';
+import 'package:Xpose/pages/profile/edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,8 +24,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<User?> _loadUserData() async {
-    _currentUser = await UserPreferences.getUser();
-    return _currentUser;
+    final User? user = await UserPreferences.getUser();
+    setState(() {
+      _currentUser = user;
+    });
+    return user;
   }
 
   Future<void> _logout() async {
@@ -70,7 +74,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (confirmLogout == true) {
       try {
-        await fb_auth.FirebaseAuth.instance.signOut(); // Use fb_auth.FirebaseAuth
+        await fb_auth.FirebaseAuth.instance.signOut();
         await UserPreferences.clearUser();
 
         if (mounted) {
@@ -113,10 +117,18 @@ class _ProfilePageState extends State<ProfilePage> {
             return const Center(child: Text('No user data available. Please log in.'));
           } else {
             _currentUser = snapshot.data;
-            final String userName = _currentUser?.name ?? 'User Name Not Set';
-            final String userEmail = _currentUser?.email ?? 'user@example.com';
-            final String userProfileUrl = _currentUser?.profileUrl ?? 'https://placehold.co/120x120/E0F2F7/000000?text=User';
-
+            final String userName = _currentUser?.name != null && _currentUser!.name!.isNotEmpty
+                ? _currentUser!.name!
+                : 'Name not set';
+            final String userEmail = _currentUser?.email != null && _currentUser!.email!.isNotEmpty
+                ? _currentUser!.email!
+                : 'Email not added';
+            final String userProfileUrl = _currentUser?.profileUrl != null && _currentUser!.profileUrl!.isNotEmpty && _currentUser!.profileUrl!.startsWith('http')
+                ? _currentUser!.profileUrl!
+                : 'assets/logo/xpose-logo-round.png';
+            final String userMobile = _currentUser?.mobile != null && _currentUser!.mobile.isNotEmpty
+                ? _currentUser!.mobile
+                : 'Mobile not available';
 
             return SingleChildScrollView(
               child: Column(
@@ -129,11 +141,16 @@ class _ProfilePageState extends State<ProfilePage> {
                         children: [
                           CircleAvatar(
                             radius: 60,
-                            backgroundImage: NetworkImage(
-                              userProfileUrl,
-                            ),
+                            backgroundImage: userProfileUrl.startsWith('http')
+                                ? NetworkImage(userProfileUrl) as ImageProvider<Object>
+                                : AssetImage(userProfileUrl) as ImageProvider<Object>,
                             onBackgroundImageError: (exception, stackTrace) {
                               print('Error loading image: $exception');
+                              if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.startsWith('http')) {
+                                setState(() {
+                                  _currentUser = _currentUser?.copyWith(profileUrl: 'assets/logo/xpose-logo-round.png');
+                                });
+                              }
                             },
                             backgroundColor: Colors.white,
                           ),
@@ -155,7 +172,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                           Text(
-                            'Mobile: ${_currentUser?.mobile ?? 'N/A'}',
+                            'Mobile: $userMobile',
                             style: const TextStyle(
                               fontSize: 15,
                               color: Colors.white70,
@@ -169,7 +186,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       children: [
-                        _buildProfileOption(context, Icons.person_outline, 'My Account', 'Manage your profile details'),
+                        _buildProfileOption(
+                          context,
+                          Icons.edit_note,
+                          'Edit Details',
+                          'Update your profile information',
+                          onTap: () async {
+                            if (_currentUser != null) {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EditProfilePage(user: _currentUser!),
+                                ),
+                              );
+                              _userFuture = _loadUserData();
+                              setState(() {});
+                            }
+                          },
+                        ),
                         _buildProfileOption(context, Icons.security, 'Security & Privacy', 'Update password and privacy settings'),
                         _buildProfileOption(context, Icons.notifications_none, 'Notifications', 'Configure notification preferences'),
                         _buildProfileOption(context, Icons.language, 'Language', 'Change app language'),
