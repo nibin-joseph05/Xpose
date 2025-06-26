@@ -118,7 +118,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } else if (_currentProfileImageUrl != null && _currentProfileImageUrl!.isNotEmpty && _currentProfileImageUrl!.startsWith('http')) {
       currentImageProvider = NetworkImage(_currentProfileImageUrl!);
     } else {
-      currentImageProvider = const AssetImage('assets/logo/xpose-logo-round.png');
+      currentImageProvider = const AssetImage('assets/profile-fallback/profile-fallback.png');
     }
 
     return Scaffold(

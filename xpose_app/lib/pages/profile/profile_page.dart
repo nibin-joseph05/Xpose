@@ -125,7 +125,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 : 'Email not added';
             final String userProfileUrl = _currentUser?.profileUrl != null && _currentUser!.profileUrl!.isNotEmpty && _currentUser!.profileUrl!.startsWith('http')
                 ? _currentUser!.profileUrl!
-                : 'assets/logo/xpose-logo-round.png';
+                : 'assets/profile-fallback/profile-fallback.png';
             final String userMobile = _currentUser?.mobile != null && _currentUser!.mobile.isNotEmpty
                 ? _currentUser!.mobile
                 : 'Mobile not available';

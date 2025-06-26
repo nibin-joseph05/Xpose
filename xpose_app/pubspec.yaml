@@ -37,6 +37,7 @@ flutter:
     - .env
     - assets/logo/xpose-logo.png
     - assets/logo/xpose-logo-round.png
+    - assets/profile-fallback/profile-fallback.png
 
 
 
