@@ -1,4 +1,3 @@
-// lib/pages/profile/edit_profile_page.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -62,15 +61,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (_pickedImage != null) {
         final bytes = await _pickedImage!.readAsBytes();
         profilePictureData = 'data:${_pickedImage!.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
+      } else if (_currentProfileImageUrl != null && _currentProfileImageUrl!.startsWith('http')) {
+        profilePictureData = _currentProfileImageUrl;
       } else {
-        // If no new image is picked, and existing one was a URL, keep it.
-        // If it was null, or local asset (which we don't send back), send null.
-        // This assumes backend handles clearing if null is sent.
-        if (_currentProfileImageUrl != null && _currentProfileImageUrl!.startsWith('http')) {
-          profilePictureData = _currentProfileImageUrl;
-        } else {
-          profilePictureData = null;
-        }
+        profilePictureData = null;
       }
 
       try {
@@ -91,7 +85,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
           Navigator.pop(context);
         }
       } catch (e) {
-        print('Error updating profile: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -127,91 +120,134 @@ class _EditProfilePageState extends State<EditProfilePage> {
         backgroundColor: Colors.blueGrey[900],
         foregroundColor: Colors.white,
         centerTitle: true,
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Stack(
+      body: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Stack(
                   children: [
                     CircleAvatar(
-                      radius: 60,
+                      radius: 65,
+                      backgroundColor: Colors.white,
                       backgroundImage: currentImageProvider,
                       onBackgroundImageError: (exception, stackTrace) {
-                        print('Error loading image: $exception');
                         if (_currentProfileImageUrl != null && _currentProfileImageUrl!.startsWith('http')) {
                           setState(() {
                             _currentProfileImageUrl = null;
                           });
                         }
                       },
-                      backgroundColor: Colors.white,
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.camera_alt, color: Colors.blueGrey, size: 30),
-                        onPressed: _pickImage,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white70,
-                          shape: const CircleBorder(),
+                      child: GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 24),
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 30),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  hintText: 'Enter your name',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.person),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'Enter your email',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.email),
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 30),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _updateProfile,
-                  icon: const Icon(Icons.save),
-                  label: const Text('Update Profile'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(fontSize: 18),
+                const SizedBox(height: 30),
+                Text(
+                  'Update your profile information. All fields are optional and will keep current values if left empty.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.blueGrey[600],
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 30),
+                TextFormField(
+                  controller: _nameController,
+                  style: const TextStyle(color: Colors.black87),
+                  decoration: InputDecoration(
+                    hintText: 'Name',
+                    hintStyle: TextStyle(color: Colors.blueGrey[700]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.person_outline, color: Colors.blueGrey[700]),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.blueGrey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _emailController,
+                  style: const TextStyle(color: Colors.black87),
+                  decoration: InputDecoration(
+                    hintText: 'Email',
+                    hintStyle: TextStyle(color: Colors.blueGrey[700]),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: Icon(Icons.email_outlined, color: Colors.blueGrey[700]),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.blueGrey.shade200, width: 1),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 40),
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _updateProfile,
+                    icon: const Icon(Icons.save_outlined, size: 24),
+                    label: const Text(
+                      'Save Changes',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 5,
+                      shadowColor: Colors.black.withOpacity(0.3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

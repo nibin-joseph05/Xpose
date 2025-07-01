@@ -84,11 +84,10 @@ class _ProfilePageState extends State<ProfilePage> {
           );
         }
       } catch (e) {
-        print('Error during logout: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to log out: $e'),
+              content: Text('Failed to log out: ${e.toString()}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -105,6 +104,7 @@ class _ProfilePageState extends State<ProfilePage> {
         backgroundColor: Colors.blueGrey[900],
         foregroundColor: Colors.white,
         centerTitle: true,
+        elevation: 0,
       ),
       body: FutureBuilder<User?>(
         future: _userFuture,
@@ -134,52 +134,69 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(20),
-                    color: Colors.blueGrey[800],
-                    child: Center(
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 60,
-                            backgroundImage: userProfileUrl.startsWith('http')
-                                ? NetworkImage(userProfileUrl) as ImageProvider<Object>
-                                : AssetImage(userProfileUrl) as ImageProvider<Object>,
-                            onBackgroundImageError: (exception, stackTrace) {
-                              print('Error loading image: $exception');
-                              if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.startsWith('http')) {
-                                setState(() {
-                                  _currentUser = _currentUser?.copyWith(profileUrl: 'assets/logo/xpose-logo-round.png');
-                                });
-                              }
-                            },
-                            backgroundColor: Colors.white,
-                          ),
-                          const SizedBox(height: 15),
-                          Text(
-                            userName,
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            userEmail,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          Text(
-                            'Mobile: $userMobile',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.blueGrey[800]!, Colors.blueGrey[600]!],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircleAvatar(
+                          radius: 65,
+                          backgroundColor: Colors.white,
+                          backgroundImage: userProfileUrl.startsWith('http')
+                              ? NetworkImage(userProfileUrl) as ImageProvider<Object>
+                              : AssetImage(userProfileUrl) as ImageProvider<Object>,
+                          onBackgroundImageError: (exception, stackTrace) {
+                            if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.startsWith('http')) {
+                              setState(() {
+                                _currentUser = _currentUser?.copyWith(profileUrl: 'assets/logo/xpose-logo-round.png');
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          userName,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          userEmail,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Mobile: $userMobile',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
@@ -210,7 +227,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         _buildProfileOption(context, Icons.star_border, 'Rate Us', 'Leave a review for the app'),
                         _buildProfileOption(context, Icons.help_outline, 'Help & Support', 'Get help or contact support'),
                         _buildProfileOption(context, Icons.info_outline, 'About App', 'Information about the application'),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 25),
                         _buildProfileOption(context, Icons.logout, 'Logout', null, isDestructive: true, onTap: _logout),
                       ],
                     ),
@@ -227,21 +244,19 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileOption(BuildContext context, IconData icon, String title, String? subtitle, {bool isDestructive = false, VoidCallback? onTap}) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: InkWell(
-        onTap: onTap ?? () {
-          print('$title tapped!');
-        },
-        borderRadius: BorderRadius.circular(12),
+        onTap: onTap ?? () {},
+        borderRadius: BorderRadius.circular(15),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: isDestructive ? Colors.red : Theme.of(context).colorScheme.primary,
-                size: 26,
+                color: isDestructive ? Colors.redAccent : Theme.of(context).colorScheme.primary,
+                size: 28,
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -251,19 +266,23 @@ class _ProfilePageState extends State<ProfilePage> {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        color: isDestructive ? Colors.red : Colors.blueGrey[800],
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: isDestructive ? Colors.redAccent : Colors.blueGrey[800],
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Text(
                         subtitle,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           color: Colors.grey[600],
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
@@ -271,7 +290,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                size: 18,
+                size: 20,
                 color: Colors.grey[400],
               ),
             ],

@@ -42,4 +42,13 @@ public class AuthService {
 
         return Optional.empty();
     }
+
+    public Optional<User> findById(Long id) {
+        return userRepo.findById(id);
+    }
+
+    public void save(User user) {
+        userRepo.save(user);
+    }
+
 }
