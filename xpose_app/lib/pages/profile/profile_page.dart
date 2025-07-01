@@ -1,4 +1,3 @@
-// lib/pages/profile/profile_page.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:Xpose/helpers/user_preferences.dart';
@@ -123,9 +122,15 @@ class _ProfilePageState extends State<ProfilePage> {
             final String userEmail = _currentUser?.email != null && _currentUser!.email!.isNotEmpty
                 ? _currentUser!.email!
                 : 'Email not added';
-            final String userProfileUrl = _currentUser?.profileUrl != null && _currentUser!.profileUrl!.isNotEmpty && _currentUser!.profileUrl!.startsWith('http')
-                ? _currentUser!.profileUrl!
-                : 'assets/profile-fallback/profile-fallback.png';
+
+            // Determine image source based on profileUrl
+            ImageProvider<Object> profileImageProvider;
+            if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.isNotEmpty && _currentUser!.profileUrl!.startsWith('http')) {
+              profileImageProvider = NetworkImage(_currentUser!.profileUrl!);
+            } else {
+              profileImageProvider = const AssetImage('assets/profile-fallback/profile-fallback.png');
+            }
+
             final String userMobile = _currentUser?.mobile != null && _currentUser!.mobile.isNotEmpty
                 ? _currentUser!.mobile
                 : 'Mobile not available';
@@ -157,15 +162,12 @@ class _ProfilePageState extends State<ProfilePage> {
                         CircleAvatar(
                           radius: 65,
                           backgroundColor: Colors.white,
-                          backgroundImage: userProfileUrl.startsWith('http')
-                              ? NetworkImage(userProfileUrl) as ImageProvider<Object>
-                              : AssetImage(userProfileUrl) as ImageProvider<Object>,
+                          backgroundImage: profileImageProvider,
                           onBackgroundImageError: (exception, stackTrace) {
-                            if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.startsWith('http')) {
-                              setState(() {
-                                _currentUser = _currentUser?.copyWith(profileUrl: 'assets/logo/xpose-logo-round.png');
-                              });
-                            }
+                            // If network image fails, fallback to default asset
+                            setState(() {
+                              _currentUser = _currentUser?.copyWith(profileUrl: 'assets/profile-fallback/profile-fallback.png');
+                            });
                           },
                         ),
                         const SizedBox(height: 18),
@@ -210,14 +212,19 @@ class _ProfilePageState extends State<ProfilePage> {
                           'Update your profile information',
                           onTap: () async {
                             if (_currentUser != null) {
-                              await Navigator.push(
+                              // Navigate and wait for result
+                              final User? updatedUser = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => EditProfilePage(user: _currentUser!),
                                 ),
                               );
-                              _userFuture = _loadUserData();
-                              setState(() {});
+                              // If updatedUser is returned, update _currentUser and refresh UI
+                              if (updatedUser != null) {
+                                setState(() {
+                                  _currentUser = updatedUser;
+                                });
+                              }
                             }
                           },
                         ),

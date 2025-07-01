@@ -53,7 +53,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       image = await picker.pickImage(source: ImageSource.gallery);
     } catch (e) {
-      print('Error picking image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -98,7 +97,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
 
       try {
-        await AuthService.updateProfile(
+        final User updatedUser = await AuthService.updateProfile(
           widget.user.mobile,
           name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
           email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
@@ -113,7 +112,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context);
+          Navigator.pop(context, updatedUser);
         }
       } catch (e) {
         if (mounted) {

@@ -3,11 +3,10 @@ package com.crimereport.xpose.controllers;
 import com.crimereport.xpose.models.User;
 import com.crimereport.xpose.services.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.beans.factory.annotation.Value;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +14,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 import java.util.UUID;
-import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -47,7 +45,6 @@ public class AuthController {
             @RequestPart(value = "image", required = false) MultipartFile imageFile,
             @RequestParam(value = "currentProfileUrl", required = false) String currentProfileUrl
     ) {
-
         Optional<User> optionalUser = authService.findByMobile(mobile);
 
         if (optionalUser.isEmpty()) {
@@ -56,17 +53,10 @@ public class AuthController {
 
         User user = optionalUser.get();
 
-        if (name != null && !name.isBlank()) {
-            user.setName(name);
-        } else {
-            user.setName(null);
-        }
+        user.setName(name != null && !name.isBlank() ? name : null);
+        user.setEmail(email != null && !email.isBlank() ? email : null);
 
-        if (email != null && !email.isBlank()) {
-            user.setEmail(email);
-        } else {
-            user.setEmail(null);
-        }
+        String responseProfileUrl = null;
 
         if (imageFile != null && !imageFile.isEmpty()) {
             String fileName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
@@ -76,18 +66,33 @@ public class AuthController {
                 Files.createDirectories(uploadPath);
                 Path filePath = uploadPath.resolve(fileName);
                 Files.copy(imageFile.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-                user.setProfileUrl("/uploads/profiles/" + fileName);
+                String relativePathForDb = "/uploads/profiles/" + fileName;
+                user.setProfileUrl(relativePathForDb);
+                responseProfileUrl = authService.buildFullUrl(relativePathForDb);
             } catch (IOException e) {
                 e.printStackTrace();
                 return ResponseEntity.status(500).body("Image upload failed: " + e.getMessage());
             }
         } else if ("REMOVE".equals(currentProfileUrl)) {
             user.setProfileUrl(null);
+            responseProfileUrl = null;
         } else if (currentProfileUrl != null && currentProfileUrl.startsWith("http")) {
             user.setProfileUrl(currentProfileUrl);
+            responseProfileUrl = currentProfileUrl;
+        } else {
+            responseProfileUrl = user.getProfileUrl();
         }
 
         authService.save(user);
-        return ResponseEntity.ok(user);
+
+        User userForResponse = new User();
+        userForResponse.setId(user.getId());
+        userForResponse.setMobile(user.getMobile());
+        userForResponse.setName(user.getName());
+        userForResponse.setEmail(user.getEmail());
+        userForResponse.setCreatedAt(user.getCreatedAt());
+        userForResponse.setProfileUrl(responseProfileUrl);
+
+        return ResponseEntity.ok(userForResponse);
     }
 }
