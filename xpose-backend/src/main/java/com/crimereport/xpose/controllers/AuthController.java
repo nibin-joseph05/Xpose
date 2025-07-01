@@ -6,13 +6,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,8 +24,11 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @Value("${app.upload.dir}")
+    private String uploadDir;
+
     @PostMapping("/register")
-    public ResponseEntity<?> mobileAuth(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> mobileAuth(@RequestBody java.util.Map<String, String> body) {
         String mobile = body.get("mobile");
         if (mobile == null || mobile.isBlank()) {
             return ResponseEntity.badRequest().body("Mobile number is required");
@@ -35,14 +38,16 @@ public class AuthController {
         return ResponseEntity.ok(user);
     }
 
-    @PutMapping(value = "/update-profile/{id}", consumes = {"multipart/form-data"})
+    @PutMapping(value = "/update-profile/{mobile}", consumes = {"multipart/form-data"})
     public ResponseEntity<?> updateProfileWithImage(
-            @PathVariable Long id,
+            @PathVariable String mobile,
             @RequestParam("name") String name,
             @RequestParam("email") String email,
-            @RequestPart(value = "image", required = false) MultipartFile imageFile
+            @RequestPart(value = "image", required = false) MultipartFile imageFile,
+            @RequestParam(value = "currentProfileUrl", required = false) String currentProfileUrl
     ) {
-        Optional<User> optionalUser = authService.findById(id);
+
+        Optional<User> optionalUser = authService.findByMobile(mobile);
 
         if (optionalUser.isEmpty()) {
             return ResponseEntity.status(404).body("User not found");
@@ -50,12 +55,21 @@ public class AuthController {
 
         User user = optionalUser.get();
 
-        if (!name.isBlank()) user.setName(name);
-        if (!email.isBlank()) user.setEmail(email);
+        if (name != null && !name.isBlank()) {
+            user.setName(name);
+        } else {
+            user.setName(null);
+        }
+
+        if (email != null && !email.isBlank()) {
+            user.setEmail(email);
+        } else {
+            user.setEmail(null);
+        }
 
         if (imageFile != null && !imageFile.isEmpty()) {
             String fileName = UUID.randomUUID() + "_" + imageFile.getOriginalFilename();
-            Path uploadPath = Paths.get("uploads/profiles");
+            Path uploadPath = Paths.get(uploadDir, "profiles");
 
             try {
                 Files.createDirectories(uploadPath);
@@ -63,12 +77,16 @@ public class AuthController {
                 Files.copy(imageFile.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
                 user.setProfileUrl("/uploads/profiles/" + fileName);
             } catch (IOException e) {
-                return ResponseEntity.status(500).body("Image upload failed");
+                e.printStackTrace();
+                return ResponseEntity.status(500).body("Image upload failed: " + e.getMessage());
             }
+        } else if ("REMOVE".equals(currentProfileUrl)) {
+            user.setProfileUrl(null);
+        } else if (currentProfileUrl != null && currentProfileUrl.startsWith("http")) {
+            user.setProfileUrl(currentProfileUrl);
         }
 
         authService.save(user);
         return ResponseEntity.ok(user);
     }
-
 }

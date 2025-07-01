@@ -1,9 +1,11 @@
-// lib/services/auth_service.dart
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:Xpose/models/user_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:Xpose/helpers/user_preferences.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AuthService {
   static final String baseUrl = '${dotenv.env['API_BASE_URL']}/api/auth';
@@ -22,18 +24,35 @@ class AuthService {
     }
   }
 
-  static Future<User> updateProfile(int id, {String? name, String? email, String? profileUrl}) async {
-    final Map<String, String> data = {};
+  static Future<User> updateProfile(String mobile, {String? name, String? email, XFile? profileImageFile, String? currentProfileImageUrl}) async {
+    var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/update-profile/$mobile'));
 
-    if (name != null) data['name'] = name;
-    if (email != null) data['email'] = email;
-    if (profileUrl != null) data['profileUrl'] = profileUrl;
+    if (name != null && name.isNotEmpty) {
+      request.fields['name'] = name;
+    } else {
+      request.fields['name'] = '';
+    }
 
-    final response = await http.put(
-      Uri.parse('$baseUrl/update-profile/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(data),
-    );
+    if (email != null && email.isNotEmpty) {
+      request.fields['email'] = email;
+    } else {
+      request.fields['email'] = '';
+    }
+
+    if (profileImageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        profileImageFile.path,
+        contentType: MediaType('image', profileImageFile.path.split('.').last),
+      ));
+    } else if (currentProfileImageUrl != null && currentProfileImageUrl.startsWith('http')) {
+      request.fields['currentProfileUrl'] = currentProfileImageUrl;
+    } else {
+      request.fields['currentProfileUrl'] = 'REMOVE';
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200) {
       User updatedUser = User.fromJson(jsonDecode(response.body));

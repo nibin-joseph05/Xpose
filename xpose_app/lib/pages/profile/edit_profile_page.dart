@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:Xpose/models/user_model.dart';
 import 'package:Xpose/services/auth_service.dart';
@@ -23,6 +22,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String? _currentProfileImageUrl;
 
   bool _isLoading = false;
+  bool _isPickingImage = false;
 
   @override
   void initState() {
@@ -40,8 +40,33 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _pickImage() async {
+    if (_isPickingImage) {
+      return;
+    }
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    XFile? image;
+    try {
+      image = await picker.pickImage(source: ImageSource.gallery);
+    } catch (e) {
+      print('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isPickingImage = false;
+      });
+    }
 
     if (image != null) {
       setState(() {
@@ -57,22 +82,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _isLoading = true;
       });
 
-      String? profilePictureData;
-      if (_pickedImage != null) {
-        final bytes = await _pickedImage!.readAsBytes();
-        profilePictureData = 'data:${_pickedImage!.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
-      } else if (_currentProfileImageUrl != null && _currentProfileImageUrl!.startsWith('http')) {
-        profilePictureData = _currentProfileImageUrl;
-      } else {
-        profilePictureData = null;
+      if (widget.user.mobile == null || widget.user.mobile.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: User mobile number is missing. Cannot update profile.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
       }
 
       try {
         await AuthService.updateProfile(
-          widget.user.id!,
+          widget.user.mobile,
           name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
           email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-          profileUrl: profilePictureData,
+          profileImageFile: _pickedImage,
+          currentProfileImageUrl: _currentProfileImageUrl,
         );
 
         if (mounted) {
