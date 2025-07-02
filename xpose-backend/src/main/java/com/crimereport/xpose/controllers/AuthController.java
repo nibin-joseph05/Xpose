@@ -4,6 +4,7 @@ import com.crimereport.xpose.models.User;
 import com.crimereport.xpose.services.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,6 +15,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,7 +29,7 @@ public class AuthController {
     private String uploadDir;
 
     @PostMapping("/register")
-    public ResponseEntity<?> mobileAuth(@RequestBody java.util.Map<String, String> body) {
+    public ResponseEntity<?> mobileAuth(@RequestBody Map<String, String> body) {
         String mobile = body.get("mobile");
         if (mobile == null || mobile.isBlank()) {
             return ResponseEntity.badRequest().body("Mobile number is required");
@@ -53,8 +55,16 @@ public class AuthController {
 
         User user = optionalUser.get();
 
+        String newEmail = email != null && !email.isBlank() ? email : null;
+
+        if (newEmail != null && !newEmail.equals(user.getEmail())) {
+            if (authService.isEmailAlreadyRegisteredByOtherUser(user.getId(), newEmail)) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("Email is already registered by another user.");
+            }
+        }
+
         user.setName(name != null && !name.isBlank() ? name : null);
-        user.setEmail(email != null && !email.isBlank() ? email : null);
+        user.setEmail(newEmail);
 
         String responseProfileUrl = null;
 
@@ -70,7 +80,6 @@ public class AuthController {
                 user.setProfileUrl(relativePathForDb);
                 responseProfileUrl = authService.buildFullUrl(relativePathForDb);
             } catch (IOException e) {
-                e.printStackTrace();
                 return ResponseEntity.status(500).body("Image upload failed: " + e.getMessage());
             }
         } else if ("REMOVE".equals(currentProfileUrl)) {

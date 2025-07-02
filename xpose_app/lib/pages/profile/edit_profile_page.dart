@@ -20,6 +20,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   XFile? _pickedImage;
   String? _currentProfileImageUrl;
+  String? _emailErrorText;
 
   bool _isLoading = false;
   bool _isPickingImage = false;
@@ -79,6 +80,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
+        _emailErrorText = null;
       });
 
       if (widget.user.mobile == null || widget.user.mobile.isEmpty) {
@@ -116,9 +118,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
         }
       } catch (e) {
         if (mounted) {
+          String errorMessage = 'Failed to update profile: ${e.toString()}';
+          if (e.toString().contains('Email is already registered by another user')) {
+            setState(() {
+              _emailErrorText = 'This email is already taken.';
+            });
+            errorMessage = 'Email is already taken. Please use a different one.';
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to update profile: ${e.toString()}'),
+              content: Text(errorMessage),
               backgroundColor: Colors.red,
             ),
           );
@@ -249,8 +258,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                     ),
+                    errorText: _emailErrorText,
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  onChanged: (_) {
+                    setState(() {
+                      _emailErrorText = null;
+                    });
+                  },
                 ),
                 const SizedBox(height: 40),
                 _isLoading

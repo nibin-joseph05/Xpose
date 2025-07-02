@@ -69,4 +69,12 @@ public class AuthService {
         String path = relativePath.startsWith("/") ? relativePath : "/" + relativePath;
         return "http://" + serverAddress + ":" + serverPort + path;
     }
+
+    public boolean isEmailAlreadyRegisteredByOtherUser(Long userId, String email) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        Optional<User> existingUser = userRepo.findByEmail(email);
+        return existingUser.isPresent() && !existingUser.get().getId().equals(userId);
+    }
 }
