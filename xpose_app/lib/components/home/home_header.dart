@@ -1,6 +1,6 @@
-// home_header.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:Xpose/components/home/home_notification.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({super.key});
@@ -9,9 +9,13 @@ class HomeHeader extends StatefulWidget {
   State<HomeHeader> createState() => _HomeHeaderState();
 }
 
-class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateMixin {
+class _HomeHeaderState extends State<HomeHeader>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+
+  final double _iconButtonSize = 48.0;
+  final double _iconSize = 28.0;
 
   @override
   void initState() {
@@ -52,23 +56,41 @@ class _HomeHeaderState extends State<HomeHeader> with SingleTickerProviderStateM
             ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () {
-              showSearch(
-                context: context,
-                delegate: CustomSearchDelegate(),
-              );
-            },
-            icon: const Icon(Icons.search),
-            color: Colors.white,
-            iconSize: 28,
+          SizedBox(
+            width: _iconButtonSize,
+            height: _iconButtonSize,
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              shape: const CircleBorder(),
+              elevation: 5,
+              shadowColor: Colors.black.withOpacity(0.2),
+              child: InkWell(
+                onTap: () {
+                  showSearch(
+                    context: context,
+                    delegate: CustomSearchDelegate(),
+                  );
+                },
+                customBorder: const CircleBorder(),
+                child: Icon(Icons.search, size: _iconSize, color: Colors.white),
+              ),
+            ),
           ),
           const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
-            color: Colors.white,
-            iconSize: 28,
+          SizedBox(
+            width: _iconButtonSize,
+            height: _iconButtonSize,
+            child: HomeNotification(
+              unreadCount: 3,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HomeNotification(),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),

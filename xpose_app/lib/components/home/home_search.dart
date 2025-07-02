@@ -1,5 +1,5 @@
-// lib/components/home/home_search.dart
 import 'package:flutter/material.dart';
+import 'package:Xpose/components/home/home_notification.dart';
 
 class HomeSearch extends StatefulWidget {
   const HomeSearch({super.key});
@@ -8,9 +8,13 @@ class HomeSearch extends StatefulWidget {
   State<HomeSearch> createState() => _HomeSearchState();
 }
 
-class _HomeSearchState extends State<HomeSearch> with SingleTickerProviderStateMixin {
+class _HomeSearchState extends State<HomeSearch>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+
+  final double _iconButtonSize = 48.0;
+  final double _iconSize = 28.0;
 
   @override
   void initState() {
@@ -62,30 +66,27 @@ class _HomeSearchState extends State<HomeSearch> with SingleTickerProviderStateM
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide.none,
                   ),
-                  prefixIcon: const Icon(Icons.search, color: Colors.white),
+                  prefixIcon:
+                  Icon(Icons.search, color: Colors.white, size: _iconSize),
                   contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Theme.of(context).colorScheme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.notifications_none),
-              color: Colors.white,
-              iconSize: 28,
+          SizedBox(
+            width: _iconButtonSize,
+            height: _iconButtonSize,
+            child: HomeNotification(
+              unreadCount: 3,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HomeNotification(),
+                  ),
+                );
+              },
             ),
           ),
         ],

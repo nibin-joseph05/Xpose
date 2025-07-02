@@ -1,9 +1,12 @@
 package com.crimereport.xpose.services;
 
+import com.crimereport.xpose.events.NotificationEvent;
+import com.crimereport.xpose.models.Notification;
 import com.crimereport.xpose.models.User;
 import com.crimereport.xpose.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -20,20 +23,36 @@ public class AuthService {
     @Value("${server.port}")
     private String serverPort;
 
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
     public User mobileAuth(String mobile) {
         Optional<User> existingUser = userRepo.findByMobile(mobile);
 
         User user;
+        boolean newUserCreated = false;
         if (existingUser.isPresent()) {
             user = existingUser.get();
         } else {
             user = new User(mobile);
             user = userRepo.save(user);
+            newUserCreated = true;
         }
 
         if (user.getProfileUrl() != null && user.getProfileUrl().startsWith("/uploads")) {
             user.setProfileUrl(buildFullUrl(user.getProfileUrl()));
         }
+
+        if (newUserCreated) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    this,
+                    user,
+                    Notification.NotificationType.WELCOME_NEW_USER,
+                    "Welcome to Xpose!",
+                    "We're excited to have you join our community, " + (user.getName() != null ? user.getName() : user.getMobile()) + "!"
+            ));
+        }
+
         return user;
     }
 
@@ -59,6 +78,17 @@ public class AuthService {
 
     public User save(User user) {
         User savedUser = userRepo.save(user);
+
+        if (savedUser.getId() != null) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    this,
+                    savedUser,
+                    Notification.NotificationType.PROFILE_UPDATED,
+                    "Profile Updated",
+                    "Your profile information has been successfully updated, " + (savedUser.getName() != null ? savedUser.getName() : savedUser.getMobile()) + "."
+            ));
+        }
+
         if (savedUser.getProfileUrl() != null && savedUser.getProfileUrl().startsWith("/uploads")) {
             savedUser.setProfileUrl(buildFullUrl(savedUser.getProfileUrl()));
         }
