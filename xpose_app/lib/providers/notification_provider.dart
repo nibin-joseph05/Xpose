@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/services/notification_service.dart';
 import 'package:Xpose/models/notification_model.dart' as notif_model;
+import 'dart:async';
 
 class NotificationProvider with ChangeNotifier {
   int _unreadCount = 0;
@@ -9,9 +10,25 @@ class NotificationProvider with ChangeNotifier {
   List<notif_model.Notification> _notifications = [];
   List<notif_model.Notification> get notifications => _notifications;
 
+  Timer? _pollingTimer;
+
   NotificationProvider() {
     fetchUnreadCount();
     fetchNotifications();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      fetchUnreadCount();
+      fetchNotifications();
+    });
   }
 
   Future<void> fetchUnreadCount() async {
