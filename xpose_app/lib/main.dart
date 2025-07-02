@@ -7,6 +7,8 @@ import '../pages/auth/auth_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../pages/home/home.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'package:Xpose/providers/notification_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +30,12 @@ void main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  runApp(const XposeApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => NotificationProvider(),
+      child: const XposeApp(),
+    ),
+  );
 }
 
 class XposeApp extends StatelessWidget {
@@ -95,8 +102,7 @@ class AuthCheck extends StatelessWidget {
   const AuthCheck({super.key});
 
   @override
-  Widget build(BuildContext
-  context) {
+  Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

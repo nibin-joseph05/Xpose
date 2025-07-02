@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/services/notification_service.dart';
 import 'package:Xpose/models/notification_model.dart' as notif_model;
+import 'package:provider/provider.dart';
+import 'package:Xpose/providers/notification_provider.dart';
 
 class HomeNotification extends StatefulWidget {
   final VoidCallback? onTap;
@@ -9,7 +11,7 @@ class HomeNotification extends StatefulWidget {
   const HomeNotification({
     super.key,
     this.onTap,
-    this.unreadCount = 0,
+    required this.unreadCount,
   });
 
   @override
@@ -17,25 +19,9 @@ class HomeNotification extends StatefulWidget {
 }
 
 class _HomeNotificationState extends State<HomeNotification> {
-  late Future<List<notif_model.Notification>> _notificationsFuture;
-
   @override
   void initState() {
     super.initState();
-    _fetchNotifications();
-  }
-
-  Future<void> _fetchNotifications() async {
-    final userId = await NotificationService.getCurrentUserId();
-    if (userId != null) {
-      setState(() {
-        _notificationsFuture = NotificationService.getNotificationsForUser(userId);
-      });
-    } else {
-      setState(() {
-        _notificationsFuture = Future.error('User not logged in or ID not found.');
-      });
-    }
   }
 
   @override
@@ -51,24 +37,19 @@ class _HomeNotificationState extends State<HomeNotification> {
           backgroundColor: Theme.of(context).colorScheme.surface,
           foregroundColor: Colors.white,
         ),
-        body: FutureBuilder<List<notif_model.Notification>>(
-          future: _notificationsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(
-                  child: Text('Error: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red)));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        body: Consumer<NotificationProvider>(
+          builder: (context, notificationProvider, child) {
+            final notifications = notificationProvider.notifications;
+
+            if (notifications.isEmpty) {
               return const Center(
                   child: Text('No notifications yet.',
                       style: TextStyle(color: Colors.white70)));
             } else {
               return ListView.builder(
-                itemCount: snapshot.data!.length,
+                itemCount: notifications.length,
                 itemBuilder: (context, index) {
-                  final notification = snapshot.data![index];
+                  final notification = notifications[index];
                   return Card(
                     color: notification.isRead
                         ? Colors.grey[800]
@@ -94,9 +75,8 @@ class _HomeNotificationState extends State<HomeNotification> {
                             color: Colors.blueAccent),
                         onPressed: () async {
                           try {
-                            await NotificationService.markNotificationAsRead(
+                            await notificationProvider.markNotificationAsRead(
                                 notification.id);
-                            _fetchNotifications();
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -107,10 +87,8 @@ class _HomeNotificationState extends State<HomeNotification> {
                       ),
                       onTap: () {
                         if (!notification.isRead) {
-                          NotificationService.markNotificationAsRead(notification.id)
-                              .then((_) {
-                            _fetchNotifications();
-                          }).catchError((e) {
+                          notificationProvider.markNotificationAsRead(notification.id)
+                              .catchError((e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                   content: Text('Failed to mark as read: $e')),

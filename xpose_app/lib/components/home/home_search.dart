@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/components/home/home_notification.dart';
+import 'package:provider/provider.dart';
+import 'package:Xpose/providers/notification_provider.dart';
 
 class HomeSearch extends StatefulWidget {
   const HomeSearch({super.key});
@@ -77,14 +79,20 @@ class _HomeSearchState extends State<HomeSearch>
           SizedBox(
             width: _iconButtonSize,
             height: _iconButtonSize,
-            child: HomeNotification(
-              unreadCount: 3,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HomeNotification(),
-                  ),
+            child: Consumer<NotificationProvider>(
+              builder: (context, notificationProvider, child) {
+                return HomeNotification(
+                  unreadCount: notificationProvider.unreadCount,
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HomeNotification(unreadCount: notificationProvider.unreadCount),
+                      ),
+                    );
+                    notificationProvider.fetchUnreadCount();
+                    notificationProvider.fetchNotifications();
+                  },
                 );
               },
             ),
