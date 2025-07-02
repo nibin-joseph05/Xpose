@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:Xpose/models/user_model.dart';
 import 'package:Xpose/services/auth_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class EditProfilePage extends StatefulWidget {
   final User user;
@@ -148,7 +149,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (_pickedImage != null) {
       currentImageProvider = FileImage(File(_pickedImage!.path));
     } else if (_currentProfileImageUrl != null && _currentProfileImageUrl!.isNotEmpty && _currentProfileImageUrl!.startsWith('http')) {
-      currentImageProvider = NetworkImage(_currentProfileImageUrl!);
+      currentImageProvider = CachedNetworkImageProvider(_currentProfileImageUrl!);
     } else {
       currentImageProvider = const AssetImage('assets/profile-fallback/profile-fallback.png');
     }

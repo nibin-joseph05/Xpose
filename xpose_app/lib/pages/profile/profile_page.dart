@@ -4,6 +4,7 @@ import 'package:Xpose/helpers/user_preferences.dart';
 import 'package:Xpose/pages/auth/auth_page.dart';
 import 'package:Xpose/models/user_model.dart';
 import 'package:Xpose/pages/profile/edit_profile_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -112,10 +113,9 @@ class _ProfilePageState extends State<ProfilePage> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error loading user data: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data == null) {
+          } else if (_currentUser == null) {
             return const Center(child: Text('No user data available. Please log in.'));
           } else {
-            _currentUser = snapshot.data;
             final String userName = _currentUser?.name != null && _currentUser!.name!.isNotEmpty
                 ? _currentUser!.name!
                 : 'Name not set';
@@ -123,10 +123,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 ? _currentUser!.email!
                 : 'Email not added';
 
-            // Determine image source based on profileUrl
             ImageProvider<Object> profileImageProvider;
             if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.isNotEmpty && _currentUser!.profileUrl!.startsWith('http')) {
-              profileImageProvider = NetworkImage(_currentUser!.profileUrl!);
+              profileImageProvider = CachedNetworkImageProvider(_currentUser!.profileUrl!);
             } else {
               profileImageProvider = const AssetImage('assets/profile-fallback/profile-fallback.png');
             }
@@ -164,10 +163,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           backgroundColor: Colors.white,
                           backgroundImage: profileImageProvider,
                           onBackgroundImageError: (exception, stackTrace) {
-                            // If network image fails, fallback to default asset
-                            setState(() {
-                              _currentUser = _currentUser?.copyWith(profileUrl: 'assets/profile-fallback/profile-fallback.png');
-                            });
+                            if (mounted) {
+                              setState(() {});
+                            }
                           },
                         ),
                         const SizedBox(height: 18),
@@ -212,18 +210,17 @@ class _ProfilePageState extends State<ProfilePage> {
                           'Update your profile information',
                           onTap: () async {
                             if (_currentUser != null) {
-                              // Navigate and wait for result
                               final User? updatedUser = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => EditProfilePage(user: _currentUser!),
                                 ),
                               );
-                              // If updatedUser is returned, update _currentUser and refresh UI
                               if (updatedUser != null) {
                                 setState(() {
                                   _currentUser = updatedUser;
                                 });
+                                await UserPreferences.saveUser(updatedUser);
                               }
                             }
                           },
