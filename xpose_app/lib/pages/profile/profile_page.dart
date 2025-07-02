@@ -61,8 +61,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.of(dialogContext).pop(true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: const Text('Logout'),
@@ -88,7 +88,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Failed to log out: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -100,9 +100,14 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
-        backgroundColor: Colors.blueGrey[900],
-        foregroundColor: Colors.white,
+        title: Text(
+          'Profile',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
+        ),
+        backgroundColor: Theme.of(context).colorScheme.background,
+        foregroundColor: Theme.of(context).colorScheme.onBackground,
         centerTitle: true,
         elevation: 0,
       ),
@@ -112,9 +117,9 @@ class _ProfilePageState extends State<ProfilePage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error loading user data: ${snapshot.error}'));
+            return Center(child: Text('Error loading user data: ${snapshot.error}', style: Theme.of(context).textTheme.bodyMedium));
           } else if (_currentUser == null) {
-            return const Center(child: Text('No user data available. Please log in.'));
+            return Center(child: Text('No user data available. Please log in.', style: Theme.of(context).textTheme.bodyMedium));
           } else {
             final String userName = _currentUser?.name != null && _currentUser!.name!.isNotEmpty
                 ? _currentUser!.name!
@@ -142,7 +147,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Colors.blueGrey[800]!, Colors.blueGrey[600]!],
+                        colors: [
+                          Theme.of(context).colorScheme.surface.withOpacity(0.8),
+                          Theme.of(context).colorScheme.surface,
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -160,39 +168,38 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         CircleAvatar(
                           radius: 65,
-                          backgroundColor: Colors.white,
-                          backgroundImage: profileImageProvider,
-                          onBackgroundImageError: (exception, stackTrace) {
-                            if (mounted) {
-                              setState(() {});
-                            }
-                          },
+                          backgroundColor: Theme.of(context).colorScheme.onSurface,
+                          child: CircleAvatar(
+                            radius: 62,
+                            backgroundImage: profileImageProvider,
+                            onBackgroundImageError: (exception, stackTrace) {
+                              if (mounted) {
+                                setState(() {});
+                              }
+                            },
+                          ),
                         ),
                         const SizedBox(height: 18),
                         Text(
                           userName,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                          style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                            color: Theme.of(context).colorScheme.onPrimary,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 6),
                         Text(
                           userEmail,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white.withOpacity(0.8),
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8),
                           ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Mobile: $userMobile',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white.withOpacity(0.8),
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -246,44 +253,56 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileOption(BuildContext context, IconData icon, String title, String? subtitle, {bool isDestructive = false, VoidCallback? onTap}) {
+    final Color primaryColor = Theme.of(context).colorScheme.primary;
+    final Color onSurfaceColor = Theme.of(context).colorScheme.onSurface;
+    final Color cardBackgroundColor = Theme.of(context).colorScheme.surface;
+    final Color secondaryTextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: onSurfaceColor.withOpacity(0.05),
+          width: 1,
+        ),
+      ),
+      color: cardBackgroundColor,
       child: InkWell(
         onTap: onTap ?? () {},
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(12),
+        splashColor: primaryColor.withOpacity(0.1),
+        highlightColor: primaryColor.withOpacity(0.05),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: isDestructive ? Colors.redAccent : Theme.of(context).colorScheme.primary,
-                size: 28,
+                color: isDestructive ? Theme.of(context).colorScheme.error : primaryColor,
+                size: 26,
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
-                        fontSize: 18,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: isDestructive ? Theme.of(context).colorScheme.error : onSurfaceColor,
                         fontWeight: FontWeight.w600,
-                        color: isDestructive ? Colors.redAccent : Colors.blueGrey[800],
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: secondaryTextColor,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -294,8 +313,8 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               Icon(
                 Icons.arrow_forward_ios,
-                size: 20,
-                color: Colors.grey[400],
+                size: 18,
+                color: secondaryTextColor.withOpacity(0.6),
               ),
             ],
           ),

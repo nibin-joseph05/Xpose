@@ -236,6 +236,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                     ),
                   ),
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty && !RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
+                      return 'Name can only contain letters and spaces.';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -266,6 +272,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     setState(() {
                       _emailErrorText = null;
                     });
+                  },
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty) {
+                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                        return 'Please enter a valid email address.';
+                      }
+                    }
+                    return null;
                   },
                 ),
                 const SizedBox(height: 40),
