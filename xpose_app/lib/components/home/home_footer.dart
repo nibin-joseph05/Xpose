@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/pages/profile/profile_page.dart';
+import 'package:Xpose/pages/home/home.dart';
 
 class HomeFooter extends StatelessWidget {
   const HomeFooter({super.key});
@@ -39,11 +40,38 @@ class HomeFooter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Expanded(child: _buildNavItem(context, Icons.home_filled, 'Home', navIconSize, isActive: true, targetPage: null)),
-              Expanded(child: _buildNavItem(context, Icons.assignment, 'Reports', navIconSize, targetPage: null)),
+              Expanded(
+                child: _buildNavItem(
+                  context,
+                  Icons.home_filled,
+                  'Home',
+                  navIconSize,
+                  isActive: true,
+                  onTap: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const HomePage()),
+                          (Route<dynamic> route) => false,
+                    );
+                  },
+                ),
+              ),
+              Expanded(child: _buildNavItem(context, Icons.assignment, 'Reports', navIconSize, onTap: () {})),
               SizedBox(width: sosButtonDiameter + 20),
-              Expanded(child: _buildNavItem(context, Icons.person, 'Profile', navIconSize, targetPage: ProfilePage())),
-              Expanded(child: _buildNavItem(context, Icons.more_horiz, 'More', navIconSize, targetPage: null)),
+              Expanded(
+                child: _buildNavItem(
+                  context,
+                  Icons.person,
+                  'Profile',
+                  navIconSize,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => ProfilePage()),
+                    );
+                  },
+                ),
+              ),
+              Expanded(child: _buildNavItem(context, Icons.more_horiz, 'More', navIconSize, onTap: () {})),
             ],
           ),
           Positioned(
@@ -55,17 +83,16 @@ class HomeFooter extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, IconData icon, String label, double iconSize, {bool isActive = false, Widget? targetPage}) {
+  Widget _buildNavItem(
+      BuildContext context,
+      IconData icon,
+      String label,
+      double iconSize, {
+        bool isActive = false,
+        required VoidCallback onTap,
+      }) {
     return InkWell(
-      onTap: () {
-        print('$label tapped!');
-        if (targetPage != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => targetPage),
-          );
-        }
-      },
+      onTap: onTap,
       borderRadius: BorderRadius.circular(30),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
@@ -135,9 +162,7 @@ class HomeFooter extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            print('SOS button tapped!');
-          },
+          onTap: () {},
           borderRadius: BorderRadius.circular(diameter / 2),
           child: Center(
             child: Icon(

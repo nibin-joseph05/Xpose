@@ -34,9 +34,9 @@ class _HomeNewsState extends State<HomeNews> {
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_scrollController.hasClients && newsArticles.isNotEmpty) {
         final double maxScrollExtent = _scrollController.position.maxScrollExtent;
-        final double itemWidth = 280 + 12;
+        final double itemWidth = 300 + 16;
 
-        if (_currentPage * itemWidth + itemWidth < maxScrollExtent) {
+        if (_currentPage * itemWidth < maxScrollExtent - itemWidth / 2) {
           _currentPage++;
         } else {
           _currentPage = 0;
@@ -45,7 +45,7 @@ class _HomeNewsState extends State<HomeNews> {
         _scrollController.animateTo(
           _currentPage * itemWidth,
           duration: const Duration(milliseconds: 800),
-          curve: Curves.easeOut,
+          curve: Curves.easeInOut,
         );
       }
     });
@@ -66,28 +66,38 @@ class _HomeNewsState extends State<HomeNews> {
       setState(() {
         isLoading = false;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load news: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Kerala News',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+        Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: Text(
+            'Latest News',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         SizedBox(
-          height: 200,
+          height: 240,
           child: isLoading
-              ? const Center(
+              ? Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
             ),
           )
               : Listener(
@@ -97,10 +107,12 @@ class _HomeNewsState extends State<HomeNews> {
             child: ListView.builder(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: newsArticles.length,
               itemBuilder: (context, index) {
                 final article = newsArticles[index];
-                return _buildNewsCard(article);
+                return _buildNewsCard(article, theme);
               },
             ),
           ),
@@ -109,76 +121,134 @@ class _HomeNewsState extends State<HomeNews> {
     );
   }
 
-  Widget _buildNewsCard(dynamic article) {
+  Widget _buildNewsCard(dynamic article, ThemeData theme) {
     final String title = article['title'] ?? 'No Title Available';
     final String imageUrl = article['urlToImage'] ?? '';
+    final String source = article['source']?['name'] ?? 'Unknown Source';
+    final String date = article['publishedAt'] != null
+        ? DateTime.parse(article['publishedAt']).toLocal().toString().substring(0, 10)
+        : '';
 
     return Container(
-      width: 280,
-      margin: const EdgeInsets.only(right: 12),
+      width: 300,
+      margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.1),
-            offset: const Offset(-4, -4),
-            blurRadius: 8,
-            spreadRadius: 1,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            spreadRadius: 2,
             offset: const Offset(4, 4),
-            blurRadius: 8,
-            spreadRadius: 1,
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 3,
-            child: imageUrl.isNotEmpty
-                ? ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.network(
-                imageUrl,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: double.infinity,
-                    color: Colors.grey[800],
-                    child: const Center(
-                      child: Icon(Icons.broken_image, color: Colors.white54, size: 40),
+            flex: 6,
+            child: Stack(
+              children: [
+                Container(
+                  width: double.infinity,
+                  color: Colors.grey[800],
+                  child: imageUrl.isNotEmpty
+                      ? Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                              : null,
+                          strokeWidth: 1,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          color: Colors.white30,
+                          size: 40,
+                        ),
+                      );
+                    },
+                  )
+                      : const Center(
+                    child: Icon(
+                      Icons.article,
+                      color: Colors.white30,
+                      size: 40,
                     ),
-                  );
-                },
-              ),
-            )
-                : ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Container(
-                width: double.infinity,
-                color: Colors.grey[800],
-                child: const Center(
-                  child: Icon(Icons.image_not_supported, color: Colors.white54, size: 40),
+                  ),
                 ),
-              ),
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.7),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 8,
+                  left: 12,
+                  right: 12,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          source,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        date,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 4,
             child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
