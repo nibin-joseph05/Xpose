@@ -1,8 +1,8 @@
-// home_page.dart
 import 'package:flutter/material.dart';
 import 'package:Xpose/components/home/home_header.dart';
 import 'package:Xpose/components/home/home_quote.dart';
 import 'package:Xpose/components/home/home_services.dart';
+import 'package:Xpose/components/home/home_news.dart';
 import 'package:Xpose/components/home/home_footer.dart';
 
 class HomePage extends StatelessWidget {
@@ -10,8 +10,21 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme customColorScheme = ColorScheme.dark(
+      primary: Colors.blueAccent,
+      onPrimary: Colors.white,
+      secondary: Colors.lightBlueAccent,
+      onSecondary: Colors.black,
+      surface: const Color(0xFF2E2E2E),
+      onSurface: Colors.white,
+      background: const Color(0xFF212121),
+      onBackground: Colors.white,
+      error: Colors.redAccent,
+      onError: Colors.white,
+    );
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: customColorScheme.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -35,7 +48,7 @@ class HomePage extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
+                  color: customColorScheme.surface,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(32),
                   ),
@@ -49,14 +62,21 @@ class HomePage extends StatelessWidget {
                 ),
                 child: const SingleChildScrollView(
                   padding: EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                  child: HomeServices(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HomeNews(),
+                      SizedBox(height: 24),
+                      HomeServices(),
+                    ],
+                  ),
                 ),
               ),
             ),
             Container(
               height: 80,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
+                color: customColorScheme.surface,
                 border: const Border(
                   top: BorderSide(color: Colors.white24, width: 0.5),
                 ),
