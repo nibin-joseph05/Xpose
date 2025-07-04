@@ -57,7 +57,7 @@ export default function LoginPage() {
   return (
     <>
       <Head>
-        <title>Crime Report - Login</title>
+        <title>Xpose Admin-Login</title>
       </Head>
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 to-indigo-950 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
         <div className="absolute inset-0 z-0 opacity-20 overflow-hidden">
@@ -72,23 +72,19 @@ export default function LoginPage() {
           className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-105 relative z-10 animate-fade-in-up"
         >
           <motion.div variants={itemVariants} className="flex flex-col items-center">
-            {/* THIS IS THE CRUCIAL CHANGE */}
-            {/* This div is now the definitive container for both the image and the ripple effect */}
             <div className="mb-6 relative w-32 h-32 flex items-center justify-center animate-pulse-light">
               <Image
                 src="/logo/xpose-logo-round.png"
                 alt="Xpose Logo"
-                width={120} // Match the container's size if needed, or let it shrink to fit
-                height={120} // Match the container's size
-                className="rounded-full shadow-lg border-4 border-blue-600 animate-spin-slow z-10" // Add z-index to keep image above ripple
+                width={120}
+                height={120}
+                className="rounded-full shadow-lg border-4 border-blue-600 animate-spin-slow z-10"
               />
-              {/* This div applies the circular ripple, perfectly aligned with the image within its relative parent */}
               <div className="absolute inset-0 rounded-full animate-ripple-effect pointer-events-none"></div>
             </div>
-            {/* END OF CRUCIAL CHANGE */}
 
             <h2 className="mt-6 text-center text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-lg animate-text-pop">
-              Crime Report Admin
+              Xpose Admin-Login
             </h2>
             <p className="mt-2 text-center text-sm text-gray-300">
               Unlock the dashboard, secure the city
