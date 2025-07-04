@@ -83,7 +83,7 @@ export default function LoginPage() {
               <div className="absolute inset-0 rounded-full animate-ripple-effect pointer-events-none"></div>
             </div>
 
-            <h2 className="mt-6 text-center text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-lg animate-text-pop">
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-lg animate-text-pop">
               Xpose Admin-Login
             </h2>
             <p className="mt-2 text-center text-sm text-gray-300">
