@@ -7,7 +7,7 @@ class NewsService {
 
   static Future<List<dynamic>> getKeralaNews() async {
     final response = await http.get(
-      Uri.parse('$baseUrl/kerala'),
+      Uri.parse('$baseUrl/kerala-crime'),
       headers: {'Content-Type': 'application/json'},
     );
 

@@ -13,9 +13,9 @@ public class NewsController {
     @Autowired
     private NewsService newsService;
 
-    @GetMapping("/kerala")
-    public ResponseEntity<?> getKeralaNews() {
-        String news = newsService.getKeralaNews();
+    @GetMapping("/kerala-crime")
+    public ResponseEntity<?> getKeralaCrimeNews() {
+        String news = newsService.getKeralaCrimeNews();
         return ResponseEntity.ok(news);
     }
 }
