@@ -2,9 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AdminHeader() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const router = useRouter();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -28,6 +30,11 @@ export default function AdminHeader() {
       document.documentElement.classList.add('light');
       document.documentElement.classList.remove('dark');
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    router.push('/admin/login');
   };
 
   return (
@@ -65,6 +72,13 @@ export default function AdminHeader() {
           light:bg-blue-600 light:hover:bg-blue-700 light:focus:ring-blue-400 light:text-white"
         >
           {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+        </button>
+        <button
+          onClick={handleLogout}
+          className="rounded-full bg-red-600 p-2 text-white shadow-md transition-colors duration-300 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500
+          light:bg-red-500 light:hover:bg-red-600"
+        >
+          Logout
         </button>
       </div>
     </motion.div>

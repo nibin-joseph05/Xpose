@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/admin/Sidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
@@ -20,6 +21,15 @@ export default function Dashboard() {
     resolved: 0,
     urgent: 0,
   });
+
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      router.push('/admin/login');
+    }
+  }, [router]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
