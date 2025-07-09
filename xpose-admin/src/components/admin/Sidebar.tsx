@@ -8,6 +8,7 @@ import Image from 'next/image';
 
 const menuItems = [
   { name: 'Dashboard', icon: '📊', path: '/admin/dashboard' },
+  { name: 'Add Crime', icon: '🚨', path: '/admin/add-crime' },
   { name: 'Reports', icon: '📝', path: '/admin/reports' },
   { name: 'Analytics', icon: '📈', path: '/admin/analytics' },
   { name: 'Users', icon: '👥', path: '/admin/users' },
