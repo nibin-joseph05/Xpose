@@ -1,11 +1,12 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminHeader() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,9 +33,18 @@ export default function AdminHeader() {
     }
   };
 
-  const handleLogout = () => {
+  const initiateLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     localStorage.removeItem('authToken');
     router.push('/admin/login');
+    setShowLogoutConfirm(false);
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   return (
@@ -74,13 +84,51 @@ export default function AdminHeader() {
           {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
         </button>
         <button
-          onClick={handleLogout}
+          onClick={initiateLogout}
           className="rounded-full bg-red-600 p-2 text-white shadow-md transition-colors duration-300 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500
           light:bg-red-500 light:hover:bg-red-600"
         >
           Logout
         </button>
       </div>
+
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={cancelLogout}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="bg-gray-800 border border-gray-700 rounded-lg p-8 shadow-2xl text-center max-w-sm mx-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-red-400 mb-4">Confirm Logout</h3>
+              <p className="text-gray-300 mb-6">Are you sure you want to end your session?</p>
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={confirmLogout}
+                  className="px-6 py-2 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Yes, Logout
+                </button>
+                <button
+                  onClick={cancelLogout}
+                  className="px-6 py-2 rounded-full bg-gray-600 text-white font-semibold hover:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

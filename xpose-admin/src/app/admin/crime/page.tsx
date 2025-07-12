@@ -32,10 +32,27 @@ export default function CrimePage() {
   const [categories, setCategories] = useState<CrimeCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      setTheme(savedTheme === 'light' ? 'light' : 'dark');
+    } else {
+      setTheme('dark');
+    }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   const fetchData = async () => {
     try {
@@ -69,7 +86,7 @@ export default function CrimePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 text-white transition-colors duration-500">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 text-white transition-colors duration-500 dark:from-gray-950 dark:to-indigo-950 light:from-blue-50 light:to-purple-50 light:text-gray-900">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-20">
         <div className="particle-layer pointer-events-none"></div>
         <div className="shimmer-layer pointer-events-none"></div>
@@ -85,8 +102,8 @@ export default function CrimePage() {
         >
           <AdminHeader title="Crime Management" />
 
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-blue-400">Crime Types & Categories</h2>
+          <div className="pt-8 flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-bold text-blue-400 light:text-blue-700">Crime Types & Categories</h2>
             <div className="flex space-x-4">
               <Button
                 onClick={() => router.push('/admin/crime/add-category')}
@@ -107,16 +124,17 @@ export default function CrimePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="mb-12 overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl"
+            className="mb-12 overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl
+            light:border-gray-300 light:bg-white light:bg-opacity-80"
           >
-            <div className="border-b border-gray-700 p-6">
-              <h3 className="text-xl font-bold text-blue-300">Crime Types</h3>
+            <div className="border-b border-gray-700 p-6 light:border-gray-300">
+              <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Crime Types</h3>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-700 text-left text-gray-400">
+                  <tr className="border-b border-gray-700 text-left text-gray-400 light:border-gray-300 light:text-gray-600">
                     <th className="p-4">Name</th>
                     <th className="p-4">Category</th>
                     <th className="p-4">Priority</th>
@@ -138,15 +156,15 @@ export default function CrimePage() {
                     </tr>
                   ) : (
                     crimeTypes.map((crime) => (
-                      <tr key={crime.id} className="border-b border-gray-800 hover:bg-gray-700 hover:bg-opacity-30">
-                        <td className="p-4 font-medium">{crime.name}</td>
-                        <td className="p-4">{crime.category?.name || 'Uncategorized'}</td>
+                      <tr key={crime.id} className="border-b border-gray-800 hover:bg-gray-700 hover:bg-opacity-30 light:border-gray-200 light:hover:bg-gray-100">
+                        <td className="p-4 font-medium light:text-gray-800">{crime.name}</td>
+                        <td className="p-4 light:text-gray-700">{crime.category?.name || 'Uncategorized'}</td>
                         <td className="p-4">{getPriorityBadge(crime.priority)}</td>
                         <td className="p-4">
                           {crime.requiresImmediateAttention ? (
                             <span className="text-red-400">⚠️ Immediate</span>
                           ) : (
-                            <span className="text-gray-400">Normal</span>
+                            <span className="text-gray-400 light:text-gray-500">Normal</span>
                           )}
                         </td>
                       </tr>
@@ -161,16 +179,17 @@ export default function CrimePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl"
+            className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl
+            light:border-gray-300 light:bg-white light:bg-opacity-80"
           >
-            <div className="border-b border-gray-700 p-6">
-              <h3 className="text-xl font-bold text-blue-300">Crime Categories</h3>
+            <div className="border-b border-gray-700 p-6 light:border-gray-300">
+              <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Crime Categories</h3>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-700 text-left text-gray-400">
+                  <tr className="border-b border-gray-700 text-left text-gray-400 light:border-gray-300 light:text-gray-600">
                     <th className="p-4">Name</th>
                     <th className="p-4">Description</th>
                   </tr>
@@ -190,9 +209,9 @@ export default function CrimePage() {
                     </tr>
                   ) : (
                     categories.map((category) => (
-                      <tr key={category.id} className="border-b border-gray-800 hover:bg-gray-700 hover:bg-opacity-30">
-                        <td className="p-4 font-medium">{category.name}</td>
-                        <td className="p-4 text-gray-400">{category.description || 'No description'}</td>
+                      <tr key={category.id} className="border-b border-gray-800 hover:bg-gray-700 hover:bg-opacity-30 light:border-gray-200 light:hover:bg-gray-100">
+                        <td className="p-4 font-medium light:text-gray-800">{category.name}</td>
+                        <td className="p-4 text-gray-400 light:text-gray-700">{category.description || 'No description'}</td>
                       </tr>
                     ))
                   )}
