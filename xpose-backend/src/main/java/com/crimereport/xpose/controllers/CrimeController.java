@@ -23,4 +23,10 @@ public class CrimeController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @GetMapping
+    public ResponseEntity<?> getAllCrimes() {
+        return ResponseEntity.ok(crimeService.getAllCrimes());
+    }
+
 }

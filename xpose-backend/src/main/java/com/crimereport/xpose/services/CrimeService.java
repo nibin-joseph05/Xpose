@@ -7,6 +7,8 @@ import com.crimereport.xpose.repository.CrimeCategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class CrimeService {
 
@@ -46,4 +48,9 @@ public class CrimeService {
         }
         return sb.toString().trim();
     }
+
+    public List<CrimeType> getAllCrimes() {
+        return crimeTypeRepository.findAll();
+    }
+
 }
