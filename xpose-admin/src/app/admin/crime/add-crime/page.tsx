@@ -407,9 +407,9 @@ export default function AddCrimePage() {
                         <td className="p-4">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold
-                              ${crime.priority === 'HIGH' ? 'bg-red-800 text-red-100' :
-                                crime.priority === 'MEDIUM' ? 'bg-yellow-700 text-yellow-100' :
-                                'bg-green-700 text-green-100'}
+                              ${crime.priority === 'HIGH' ? 'bg-red-600 text-white' :
+                                crime.priority === 'MEDIUM' ? 'bg-yellow-500 text-black' :
+                                'bg-green-500 text-white'}
                               light:${crime.priority === 'HIGH' ? 'bg-red-200 text-red-800' :
                                 crime.priority === 'MEDIUM' ? 'bg-yellow-200 text-yellow-800' :
                                 'bg-green-200 text-green-800'}`}
