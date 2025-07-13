@@ -30,6 +30,7 @@ export default function AddCategoryPage() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -130,6 +131,11 @@ export default function AddCategoryPage() {
       return 'Invalid Date';
     }
   };
+
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    category.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 text-white transition-colors duration-500 dark:from-gray-950 dark:to-indigo-950 light:from-blue-50 light:to-purple-50 light:text-gray-900">
@@ -245,6 +251,17 @@ export default function AddCategoryPage() {
               </Button>
             </div>
 
+            <div className="p-6">
+              <input
+                type="text"
+                placeholder="Search categories by name or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 mb-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200
+                light:bg-gray-100 light:border-gray-300 light:text-gray-900 light:placeholder-gray-500"
+              />
+            </div>
+
             <div className="overflow-y-auto max-h-[400px]">
               <table className="w-full">
                 <thead>
@@ -267,14 +284,14 @@ export default function AddCategoryPage() {
                         {categoriesError}
                       </td>
                     </tr>
-                  ) : categories.length === 0 ? (
+                  ) : filteredCategories.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="p-4 text-center text-gray-400 light:text-gray-600">
-                        No categories found. Add one above!
+                        No categories found matching your search.
                       </td>
                     </tr>
                   ) : (
-                    categories.map((category) => (
+                    filteredCategories.map((category) => (
                       <motion.tr
                         key={category.id}
                         initial={{ opacity: 0, x: -20 }}
