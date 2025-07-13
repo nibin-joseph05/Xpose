@@ -83,10 +83,24 @@ export default function AddCategoryPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add category');
-      }
+        let errorMessage = 'Failed to add category';
 
+        try {
+          const clonedResponse = response.clone();
+          const errorData = await clonedResponse.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (jsonErr) {
+          try {
+            const text = await response.text();
+            errorMessage = text;
+          } catch (_) {
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
       setSuccess('Crime category added successfully!');
       setCategoryData({ name: '', description: '', createdAt: ''});
       fetchCategories();
