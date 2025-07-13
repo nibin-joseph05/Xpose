@@ -2,6 +2,7 @@ package com.crimereport.xpose.models;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Entity
 @Table(name = "crime_categories")
@@ -17,6 +18,7 @@ public class CrimeCategory {
     @Column(length = 1000)
     private String description;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt = LocalDateTime.now();
 
     private LocalDateTime updatedAt;
@@ -53,4 +55,5 @@ public class CrimeCategory {
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+
 }
