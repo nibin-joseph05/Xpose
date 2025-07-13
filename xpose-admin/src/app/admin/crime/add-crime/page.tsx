@@ -35,8 +35,8 @@ export default function AddCrimePage() {
     categoryId: 0,
     categoryName: '',
     priority: 'MEDIUM',
-    requiresImmediateAttention: false,
     createdAt: '',
+    requiresImmediateAttention: false,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
