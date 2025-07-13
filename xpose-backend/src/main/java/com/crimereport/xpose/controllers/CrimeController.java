@@ -5,6 +5,7 @@ import com.crimereport.xpose.services.CrimeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.crimereport.xpose.dto.CrimeTypeDTO;
 
 @RestController
 @RequestMapping("/api/crimes")
@@ -27,6 +28,11 @@ public class CrimeController {
     @GetMapping
     public ResponseEntity<?> getAllCrimes() {
         return ResponseEntity.ok(crimeService.getAllCrimes());
+    }
+
+    @GetMapping("/dto")
+    public ResponseEntity<?> getAllCrimesDTO() {
+        return ResponseEntity.ok(crimeService.getAllCrimeDTOs());
     }
 
 }

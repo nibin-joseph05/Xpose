@@ -1,12 +1,14 @@
 package com.crimereport.xpose.services;
 
+import com.crimereport.xpose.dto.CrimeTypeDTO;
 import com.crimereport.xpose.models.CrimeType;
 import com.crimereport.xpose.models.CrimeCategory;
 import com.crimereport.xpose.repository.CrimeTypeRepository;
 import com.crimereport.xpose.repository.CrimeCategoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 import java.util.List;
 
 @Service
@@ -53,4 +55,20 @@ public class CrimeService {
         return crimeTypeRepository.findAll();
     }
 
+    public List<CrimeTypeDTO> getAllCrimeDTOs() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+
+        return crimeTypeRepository.findAll().stream().map(crime -> {
+            CrimeTypeDTO dto = new CrimeTypeDTO();
+            dto.setId(crime.getId());
+            dto.setName(crime.getName());
+            dto.setDescription(crime.getDescription());
+            dto.setPriority(crime.getPriority().name());
+            dto.setRequiresImmediateAttention(crime.isRequiresImmediateAttention());
+            dto.setCreatedAt(crime.getCreatedAt() != null ? crime.getCreatedAt().format(formatter) : null);
+            dto.setCategoryId(crime.getCategory().getId());
+            dto.setCategoryName(crime.getCategory().getName());
+            return dto;
+        }).collect(Collectors.toList());
+    }
 }
