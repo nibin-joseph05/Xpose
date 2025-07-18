@@ -156,7 +156,7 @@ export default function CrimePage() {
   };
 
   const handleDeleteCategory = async (id: number) => {
-    if (confirm('Are you sure you want to delete this crime category? This will affect associated crime types.')) {
+    if (confirm('Are you sure you want to delete this crime category? You will not be able to delete it if it is linked to any crime types.')) {
       try {
         const response = await fetch(`${API_URL}/api/crime-categories/${id}`, {
           method: 'DELETE',

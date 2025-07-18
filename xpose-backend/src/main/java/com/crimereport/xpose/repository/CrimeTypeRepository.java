@@ -1,5 +1,6 @@
 package com.crimereport.xpose.repository;
 
+import com.crimereport.xpose.models.CrimeCategory;
 import com.crimereport.xpose.models.CrimeType;
 import com.crimereport.xpose.models.CrimeType.Priority;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,4 +14,5 @@ public interface CrimeTypeRepository extends JpaRepository<CrimeType, Long> {
     List<CrimeType> findByCategoryId(Long categoryId);
     List<CrimeType> findByPriority(Priority priority);
     List<CrimeType> findByRequiresImmediateAttentionTrue();
+    boolean existsByCategory(CrimeCategory category);
 }
