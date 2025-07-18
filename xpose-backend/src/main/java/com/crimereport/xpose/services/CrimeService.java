@@ -105,5 +105,4 @@ public class CrimeService {
         crimeTypeRepository.delete(existing);
     }
 
-
 }

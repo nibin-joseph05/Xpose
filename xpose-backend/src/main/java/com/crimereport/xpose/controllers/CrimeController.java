@@ -5,7 +5,6 @@ import com.crimereport.xpose.services.CrimeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.crimereport.xpose.dto.CrimeTypeDTO;
 
 import java.util.Map;
 
