@@ -314,14 +314,7 @@ export default function SettingsPage() {
                     <span>Loading...</span>
                   </motion.div>
                 ) : (
-                  <motion.div
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                      visible: { transition: { staggerChildren: 0.07 } },
-                    }}
-                    className="space-y-4"
-                  >
+                  <div className="space-y-4">
                     {profileUpdateError && (
                       <div className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 font-medium light:bg-red-100 light:text-red-700 light:border-red-300">
                         {profileUpdateError}
@@ -333,9 +326,8 @@ export default function SettingsPage() {
                       </div>
                     )}
                     {profileDisplayFields.map((field) => (
-                      <motion.div
+                      <div
                         key={field.key}
-                        variants={itemVariants}
                         className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
                       >
                         <label className="text-sm font-medium text-gray-400 light:text-gray-600">
@@ -347,14 +339,14 @@ export default function SettingsPage() {
                             name={field.key}
                             value={editableProfile[field.key as keyof AdminProfile] || ''}
                             onChange={handleChangeEditableProfile}
-                            className="col-span-2 rounded-md border border-gray-600 bg-gray-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:text-gray-900 light:placeholder-gray-500"
+                            className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"
                           />
                         ) : (
-                          <span className="col-span-2 text-sm font-medium text-blue-200 light:text-gray-800 break-words">
+                          <span className="col-span-2 text-sm font-medium break-words dark:text-white light:text-gray-900">
                             {profile[field.key as keyof AdminProfile] || 'Not Available'}
                           </span>
                         )}
-                      </motion.div>
+                      </div>
                     ))}
                     {isEditingProfile && (
                       <motion.div
@@ -377,7 +369,7 @@ export default function SettingsPage() {
                         </Button>
                       </motion.div>
                     )}
-                  </motion.div>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -414,8 +406,7 @@ export default function SettingsPage() {
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:text-gray-900 light:placeholder-gray-500"
-                />
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"                />
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -428,8 +419,7 @@ export default function SettingsPage() {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:text-gray-900 light:placeholder-gray-500"
-                />
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"                />
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
@@ -442,8 +432,7 @@ export default function SettingsPage() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:text-gray-900 light:placeholder-gray-500"
-                />
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"                />
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}

@@ -48,11 +48,16 @@ public class AuthorityController {
             String token = authHeader.substring(7);
             String email = jwtUtil.extractUsername(token);
             Optional<Authority> authority = authorityService.findByEmail(email);
-
             if (authority.isPresent()) {
+                Authority user = authority.get();
                 Map<String, String> userData = new HashMap<>();
-                userData.put("name", authority.get().getName());
-                userData.put("email", authority.get().getEmail());
+                userData.put("id", String.valueOf(user.getId()));
+                userData.put("name", user.getName());
+                userData.put("email", user.getEmail());
+                userData.put("phoneNumber", user.getPhoneNumber());
+                userData.put("role", user.getRole());
+                userData.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
+                userData.put("updatedAt", user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : "");
                 return ResponseEntity.ok(userData);
             }
             return ResponseEntity.status(404).body("User not found");
