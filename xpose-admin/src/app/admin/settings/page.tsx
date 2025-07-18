@@ -21,7 +21,6 @@ interface AdminProfile {
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [profile, setProfile] = useState<AdminProfile>({
     id: 0,
     name: '',
@@ -42,13 +41,6 @@ export default function SettingsPage() {
   const [profileUpdateSuccess, setProfileUpdateSuccess] = useState('');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setTheme(savedTheme === 'light' ? 'light' : 'dark');
-    } else {
-      setTheme('dark');
-    }
-
     const token = localStorage.getItem('authToken');
     if (!token) {
       router.push('/admin/login');
@@ -56,18 +48,6 @@ export default function SettingsPage() {
       fetchAdminProfile(token);
     }
   }, [router]);
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [theme]);
 
   const fetchAdminProfile = async (token: string) => {
     try {
