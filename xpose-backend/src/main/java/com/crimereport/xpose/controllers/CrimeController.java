@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.crimereport.xpose.dto.CrimeTypeDTO;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/crimes")
 @CrossOrigin(origins = "*")
@@ -33,6 +35,26 @@ public class CrimeController {
     @GetMapping("/dto")
     public ResponseEntity<?> getAllCrimesDTO() {
         return ResponseEntity.ok(crimeService.getAllCrimeDTOs());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateCrime(@PathVariable Long id, @RequestBody CrimeType updatedCrime) {
+        try {
+            CrimeType crime = crimeService.updateCrime(id, updatedCrime);
+            return ResponseEntity.ok(crime);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteCrime(@PathVariable Long id) {
+        try {
+            crimeService.deleteCrime(id);
+            return ResponseEntity.ok("Crime type deleted successfully");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
 }

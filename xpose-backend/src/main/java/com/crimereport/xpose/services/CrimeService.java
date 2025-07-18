@@ -71,4 +71,39 @@ public class CrimeService {
             return dto;
         }).collect(Collectors.toList());
     }
+
+    public CrimeType updateCrime(Long id, CrimeType updatedCrime) {
+        CrimeType existing = crimeTypeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Crime not found"));
+
+        String newName = updatedCrime.getName().trim().toLowerCase();
+        if (!existing.getName().equalsIgnoreCase(newName)) {
+            boolean exists = crimeTypeRepository.findAll().stream()
+                    .anyMatch(c -> c.getName().trim().equalsIgnoreCase(newName));
+            if (exists) {
+                throw new IllegalArgumentException("Crime with this name already exists");
+            }
+            existing.setName(capitalizeWords(updatedCrime.getName().trim()));
+        }
+
+        existing.setDescription(updatedCrime.getDescription());
+        existing.setPriority(updatedCrime.getPriority());
+        existing.setRequiresImmediateAttention(updatedCrime.isRequiresImmediateAttention());
+
+        if (!existing.getCategory().getId().equals(updatedCrime.getCategory().getId())) {
+            CrimeCategory newCategory = crimeCategoryRepository.findById(updatedCrime.getCategory().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Category not found"));
+            existing.setCategory(newCategory);
+        }
+
+        return crimeTypeRepository.save(existing);
+    }
+
+    public void deleteCrime(Long id) {
+        CrimeType existing = crimeTypeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Crime not found"));
+        crimeTypeRepository.delete(existing);
+    }
+
+
 }
