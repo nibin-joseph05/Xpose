@@ -210,7 +210,7 @@ export default function SettingsPage() {
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
       setPasswordChangeError(
-        'New password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character (e.g., Nibin@123).'
+        'New password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.'
       );
       return;
     }
@@ -263,11 +263,6 @@ export default function SettingsPage() {
     { key: 'updatedAt', label: 'Last Updated', editable: false },
   ];
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 text-white transition-colors duration-500 dark:from-gray-950 dark:to-indigo-950 light:from-blue-50 light:to-purple-50 light:text-gray-900">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-20">
@@ -292,12 +287,17 @@ export default function SettingsPage() {
               transition={{ delay: 0.2, duration: 0.5 }}
               className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-300 light:bg-white light:bg-opacity-80 dark:hover:border-blue-600 light:hover:border-blue-500"
             >
-              <div className="border-b border-gray-700 p-6 flex justify-between items-center dark:border-gray-700 light:border-gray-300">
-                <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Profile Information</h3>
+              <div className="border-b border-gray-700 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 dark:border-gray-700 light:border-gray-300">
+                <div>
+                  <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Profile Information</h3>
+                  <p className="text-sm text-gray-400 mt-2">
+                    You can only update your name and phone number for security reasons.
+                  </p>
+                </div>
                 {!isEditingProfile && !loading && (
                   <Button
                     onClick={handleEditProfile}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium py-2 px-5 rounded-lg shadow-md transform hover:scale-105 transition-all duration-300"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium py-3 px-6 rounded-lg shadow-md transform hover:scale-105 transition-all duration-300"
                   >
                     Edit Profile
                   </Button>
@@ -309,12 +309,12 @@ export default function SettingsPage() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.2, duration: 0.8, repeat: Infinity, repeatType: 'reverse' }}
-                    className="h-40 w-full rounded-lg bg-gray-600/50 dark:bg-gray-600/50 light:bg-gray-200/50 text-center text-gray-400 light:text-gray-600"
+                    className="h-40 w-full rounded-lg bg-gray-600/50 dark:bg-gray-600/50 light:bg-gray-200/50 flex items-center justify-center text-gray-400 light:text-gray-600"
                   >
-                    <span>Loading...</span>
+                    Loading profile...
                   </motion.div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {profileUpdateError && (
                       <div className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 font-medium light:bg-red-100 light:text-red-700 light:border-red-300">
                         {profileUpdateError}
@@ -328,21 +328,29 @@ export default function SettingsPage() {
                     {profileDisplayFields.map((field) => (
                       <div
                         key={field.key}
-                        className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+                        className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center py-2"
                       >
-                        <label className="text-sm font-medium text-gray-400 light:text-gray-600">
+                        <label className="text-base font-medium text-gray-400 light:text-gray-600">
                           {field.label}:
                         </label>
                         {isEditingProfile && field.editable ? (
-                          <input
-                            type={field.key === 'phoneNumber' ? 'tel' : 'text'}
-                            name={field.key}
-                            value={editableProfile[field.key as keyof AdminProfile] || ''}
-                            onChange={handleChangeEditableProfile}
-                            className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"
-                          />
+                          <div className="col-span-2">
+                            <input
+                              type={field.key === 'phoneNumber' ? 'tel' : 'text'}
+                              name={field.key}
+                              value={editableProfile[field.key as keyof AdminProfile] || ''}
+                              onChange={handleChangeEditableProfile}
+                              className="w-full rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-base py-3 px-4 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"
+                              placeholder={`Enter your ${field.label.toLowerCase()}`}
+                            />
+                            {field.key === 'phoneNumber' && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Must be 10 digits without any symbols or spaces
+                              </p>
+                            )}
+                          </div>
                         ) : (
-                          <span className="col-span-2 text-sm font-medium break-words dark:text-white light:text-gray-900">
+                          <span className="col-span-2 text-base font-medium break-words dark:text-white light:text-gray-900 py-3">
                             {profile[field.key as keyof AdminProfile] || 'Not Available'}
                           </span>
                         )}
@@ -353,17 +361,17 @@ export default function SettingsPage() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="flex justify-end space-x-3 pt-4"
+                        className="flex justify-end space-x-4 pt-6"
                       >
                         <Button
                           onClick={handleCancelEditProfile}
-                          className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-semibold py-2.5 px-6 rounded-lg transform hover:scale-105 transition-all duration-300 light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700"
+                          className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-semibold py-3 px-8 rounded-lg transform hover:scale-105 transition-all duration-300 light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700"
                         >
                           Cancel
                         </Button>
                         <Button
                           onClick={handleSaveProfile}
-                          className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold py-2.5 px-6 rounded-lg transform hover:scale-105 transition-all duration-300"
+                          className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold py-3 px-8 rounded-lg transform hover:scale-105 transition-all duration-300"
                         >
                           Save Changes
                         </Button>
@@ -383,8 +391,11 @@ export default function SettingsPage() {
           >
             <div className="border-b border-gray-700 p-6 dark:border-gray-700 light:border-gray-300">
               <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Change Password</h3>
+              <p className="text-sm text-gray-400 mt-2">
+                Ensure your new password meets security requirements
+              </p>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-6">
               {passwordChangeError && (
                 <div className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 font-medium light:bg-red-100 light:text-red-700 light:border-red-300">
                   {passwordChangeError}
@@ -399,50 +410,61 @@ export default function SettingsPage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center"
               >
-                <label className="text-sm font-medium text-gray-400 light:text-gray-600">Current Password:</label>
+                <label className="text-base font-medium text-gray-400 light:text-gray-600">Current Password:</label>
                 <input
                   type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"                />
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-base py-3 px-4 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"
+                  placeholder="Enter current password"
+                />
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.05 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center"
               >
-                <label className="text-sm font-medium text-gray-400 light:text-gray-600">New Password:</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"                />
+                <label className="text-base font-medium text-gray-400 light:text-gray-600">New Password:</label>
+                <div className="col-span-2">
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-base py-3 px-4 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"
+                    placeholder="Create a strong password"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Must include uppercase, lowercase, number, and special character (min 8 chars)
+                  </p>
+                </div>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
-                className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+                className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center"
               >
-                <label className="text-sm font-medium text-gray-400 light:text-gray-600">Confirm New Password:</label>
+                <label className="text-base font-medium text-gray-400 light:text-gray-600">Confirm Password:</label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"                />
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-700 dark:text-white light:text-gray-900 text-base py-3 px-4 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 light:border-gray-300 light:bg-gray-100 light:placeholder-gray-500"
+                  placeholder="Re-enter your new password"
+                />
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.15 }}
-                className="flex justify-end pt-4"
+                className="flex justify-end pt-6"
               >
                 <Button
                   onClick={handlePasswordChange}
-                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold py-2.5 px-6 rounded-lg transform hover:scale-105 transition-all duration-300"
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-semibold py-3 px-8 rounded-lg transform hover:scale-105 transition-all duration-300"
                 >
                   Change Password
                 </Button>
