@@ -38,4 +38,17 @@ public class AuthorityService {
     public Authority updateAuthority(Authority authority) {
         return authorityRepository.save(authority);
     }
+
+    public boolean updatePassword(String email, String currentPassword, String newPassword) {
+        Optional<Authority> optionalAuthority = authorityRepository.findByEmail(email);
+        if (optionalAuthority.isPresent()) {
+            Authority authority = optionalAuthority.get();
+            if (passwordEncoder.matches(currentPassword, authority.getPassword())) {
+                authority.setPassword(passwordEncoder.encode(newPassword));
+                authorityRepository.save(authority);
+                return true;
+            }
+        }
+        return false;
+    }
 }

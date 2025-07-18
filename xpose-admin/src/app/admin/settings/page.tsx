@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,52 +7,41 @@ import Sidebar from '@/components/admin/Sidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
 import { Button } from '@/components/admin/ui/button';
 
-interface SettingsService {
+interface AdminProfile {
   id: number;
-  title: string;
-  description: string;
-  icon: string;
-  link: string;
+  name: string;
+  email: string;
+  password?: string;
+  phoneNumber: string;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [profile, setProfile] = useState<AdminProfile>({
+    id: 0,
+    name: '',
+    email: '',
+    phoneNumber: '',
+    role: '',
+    createdAt: '',
+    updatedAt: '',
+  });
+  const [editableProfile, setEditableProfile] = useState<AdminProfile>({ ...profile });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-  const settingsServices: SettingsService[] = [
-    {
-      id: 1,
-      title: 'Profile Settings',
-      description: 'Update your personal information, including username, email, and name.',
-      icon: '👤',
-      link: '/admin/settings/profile',
-    },
-    {
-      id: 2,
-      title: 'Notification Preferences',
-      description: 'Manage how you receive alerts and updates.',
-      icon: '🔔',
-      link: '/admin/settings/notifications',
-    },
-    {
-      id: 3,
-      title: 'Security Settings',
-      description: 'Configure two-factor authentication and password settings.',
-      icon: '🔒',
-      link: '/admin/settings/security',
-    },
-    {
-      id: 4,
-      title: 'Theme Preferences',
-      description: 'Switch between light and dark mode for the dashboard.',
-      icon: '🌗',
-      link: '/admin/settings/theme',
-    },
-  ];
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState('');
+
+  const [profileUpdateError, setProfileUpdateError] = useState('');
+  const [profileUpdateSuccess, setProfileUpdateSuccess] = useState('');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -67,8 +55,7 @@ export default function SettingsPage() {
     if (!token) {
       router.push('/admin/login');
     } else {
-      
-      setTimeout(() => setLoading(false), 1500);
+      fetchAdminProfile(token);
     }
   }, [router]);
 
@@ -76,175 +63,403 @@ export default function SettingsPage() {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
       document.documentElement.classList.remove('light');
+      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.add('light');
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
   }, [theme]);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
+  const fetchAdminProfile = async (token: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/authority/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('authToken');
+          router.push('/admin/login');
+        }
+        throw new Error('Failed to fetch admin profile');
+      }
+
+      const data: AdminProfile = await response.json();
+      setProfile({
+        ...data,
+        password: '********',
+      });
+      setEditableProfile({
+        ...data,
+        password: '********',
+      });
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching admin profile:', error);
+      setProfileUpdateError('Failed to load profile. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setIsEditingProfile(true);
+    setProfileUpdateError('');
+    setProfileUpdateSuccess('');
+  };
+
+  const handleSaveProfile = async () => {
+    setProfileUpdateError('');
+    setProfileUpdateSuccess('');
+
+    if (!/^[a-zA-Z\s]+$/.test(editableProfile.name)) {
+      setProfileUpdateError('Name can only contain letters and spaces.');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(editableProfile.phoneNumber)) {
+      setProfileUpdateError('Phone number must be exactly 10 digits.');
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/authority/update-profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: editableProfile.name,
+          phoneNumber: editableProfile.phoneNumber,
+        }),
+      });
+
+      const data: AdminProfile = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('authToken');
+          router.push('/admin/login');
+        }
+        setProfileUpdateError(data.message || 'Failed to update profile');
+        return;
+      }
+
+      setProfile({
+        ...data,
+        password: '********',
+      });
+      setEditableProfile({
+        ...data,
+        password: '********',
+      });
+      setIsEditingProfile(false);
+      setProfileUpdateSuccess('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setProfileUpdateError('Failed to update profile. Please try again.');
+    }
+  };
+
+  const handleCancelEditProfile = () => {
+    setEditableProfile({ ...profile });
+    setIsEditingProfile(false);
+    setProfileUpdateError('');
+    setProfileUpdateSuccess('');
+  };
+
+  const handleChangeEditableProfile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (name === 'name') {
+      if (/^[a-zA-Z\s]*$/.test(value) || value === '') {
+        setEditableProfile({ ...editableProfile, [name]: value });
+      }
+    } else if (name === 'phoneNumber') {
+      if (/^\d*$/.test(value) && value.length <= 10) {
+        setEditableProfile({ ...editableProfile, [name]: value });
+      }
+    } else {
+      setEditableProfile({ ...editableProfile, [name]: value });
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordChangeError('');
+    setPasswordChangeSuccess('');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordChangeError('All password fields are required.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordChangeError('New password and confirm password do not match.');
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      setPasswordChangeError(
+        'New password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character (e.g., Nibin@123).'
+      );
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/authority/update-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('authToken');
+          router.push('/admin/login');
+        }
+        setPasswordChangeError(data.message || 'Failed to change password. Please try again.');
+        return;
+      }
+
+      setPasswordChangeSuccess('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setPasswordChangeError('An unexpected error occurred. Please try again.');
+    }
+  };
+
+  const profileDisplayFields = [
+    { key: 'name', label: 'Name', editable: true },
+    { key: 'email', label: 'Email', editable: false },
+    { key: 'phoneNumber', label: 'Phone Number', editable: true },
+    { key: 'role', label: 'Role', editable: false },
+    { key: 'createdAt', label: 'Created At', editable: false },
+    { key: 'updatedAt', label: 'Last Updated', editable: false },
+  ];
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 text-white transition-colors duration-500 dark:from-gray-950 dark:to-indigo-950 light:from-blue-50 light:to-purple-50 light:text-gray-900">
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-20">
-        <div className="particle-layer"></div>
-        <div className="shimmer-layer"></div>
-      </div>
-
+    <div className="min-h-screen">
       <Sidebar />
 
-      <main className="ml-0 p-4 transition-all duration-300 md:ml-[80px] md:p-8 lg:ml-[260px]">
+      <main className="ml-0 p-4 transition-all duration-300 md:ml-[80px] md:p-8 lg:ml-[260px] bg-transparent">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
           className="mx-auto max-w-7xl"
         >
-          <AdminHeader title="Settings" />
+          <AdminHeader title="Admin Settings" />
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mt-8 overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl dark:hover:border-blue-600 transition-all duration-300 light:border-gray-300 light:bg-white light:bg-opacity-80 light:hover:border-blue-500"
-          >
-            <div className="border-b border-gray-700 p-6 light:border-gray-300">
-              <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Settings Services</h3>
-            </div>
-
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 m-6 font-medium light:bg-red-100 light:text-red-700 light:border-red-300"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {loading ? (
-                  <div className="h-32 w-full animate-pulse rounded bg-gray-700 light:bg-gray-200 col-span-2"></div>
-                ) : (
-                  settingsServices.map((service) => (
-                    <motion.div
-                      key={service.id}
-                      whileHover={{ y: -5 }}
-                      className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 shadow-lg transition-all duration-300 ease-in-out dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-200 light:bg-white light:bg-opacity-80"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl">{service.icon}</span>
-                            <h4 className="text-lg font-bold text-gray-100 light:text-gray-800">{service.title}</h4>
-                          </div>
-                          <p className="mt-2 text-sm text-gray-400 light:text-gray-600">{service.description}</p>
-                        </div>
-                        <Button
-                          onClick={() => router.push(service.link)}
-                          className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg transform hover:scale-105 transition-all duration-300 ease-out"
-                        >
-                          Manage
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))
+          <div className="pt-6">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-lg dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-300 light:bg-white light:bg-opacity-80"
+            >
+              <div className="border-b border-gray-700 p-5 flex justify-between items-center dark:border-gray-700 light:border-gray-200">
+                <h3 className="text-xl font-semibold text-blue-400 dark:text-blue-400 light:text-blue-600">Profile Information</h3>
+                {!isEditingProfile && !loading && (
+                  <Button
+                    onClick={handleEditProfile}
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium py-2 px-5 rounded-lg shadow-md"
+                  >
+                    Edit Profile
+                  </Button>
                 )}
               </div>
-            </div>
-          </motion.div>
+              <div className="p-5">
+                {loading ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2, duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+                    className="h-40 w-full rounded-lg bg-gray-700/50 dark:bg-gray-700/50 light:bg-gray-200"
+                  ></motion.div>
+                ) : (
+                  <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      visible: { transition: { staggerChildren: 0.07 } },
+                    }}
+                    className="space-y-4"
+                  >
+                    {profileUpdateError && (
+                      <div className="text-red-500 text-sm mb-2">{profileUpdateError}</div>
+                    )}
+                    {profileUpdateSuccess && (
+                      <div className="text-green-500 text-sm mb-2">{profileUpdateSuccess}</div>
+                    )}
+                    {profileDisplayFields.map((field) => (
+                      <motion.div
+                        key={field.key}
+                        variants={itemVariants}
+                        className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+                      >
+                        <label className="text-sm font-medium text-gray-300 dark:text-gray-300 light:text-gray-700">
+                          {field.label}:
+                        </label>
+                        {isEditingProfile && field.editable ? (
+                          <input
+                            type={field.key === 'phoneNumber' ? 'tel' : 'text'}
+                            name={field.key}
+                            value={editableProfile[field.key as keyof AdminProfile] || ''}
+                            onChange={handleChangeEditableProfile}
+                            className="col-span-2 rounded-md border border-gray-600 bg-gray-900/50 p-2.5 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 dark:border-gray-600 dark:bg-gray-900/50 light:border-gray-300 light:bg-white light:text-gray-900"
+                          />
+                        ) : (
+                          <span className="col-span-2 text-sm text-gray-200 dark:text-gray-200 light:text-gray-800 break-words">
+                            {profile[field.key as keyof AdminProfile]}
+                          </span>
+                        )}
+                      </motion.div>
+                    ))}
+                    {isEditingProfile && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex justify-end space-x-3 pt-4"
+                      >
+                        <Button
+                          onClick={handleCancelEditProfile}
+                          className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2.5 px-6 rounded-lg"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSaveProfile}
+                          className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-semibold py-2.5 px-6 rounded-lg"
+                        >
+                          Save Changes
+                        </Button>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          </div>
 
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-8 overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl dark:hover:border-purple-600 transition-all duration-300 light:border-gray-300 light:bg-white light:bg-opacity-80 light:hover:border-purple-500"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="mt-6 rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-lg dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-300 light:bg-white light:bg-opacity-80"
           >
-            <div className="border-b border-gray-700 p-6 light:border-gray-300">
-              <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Preferences</h3>
+            <div className="border-b border-gray-700 p-5 dark:border-gray-700 light:border-gray-200">
+              <h3 className="text-xl font-semibold text-blue-400 dark:text-blue-400 light:text-blue-600">Change Password</h3>
             </div>
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-300 light:text-gray-700">
-                  Theme
-                </label>
+            <div className="p-5 space-y-4">
+              {passwordChangeError && (
+                <div className="text-red-500 text-sm mb-2">{passwordChangeError}</div>
+              )}
+              {passwordChangeSuccess && (
+                <div className="text-green-500 text-sm mb-2">{passwordChangeSuccess}</div>
+              )}
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+              >
+                <label className="text-sm font-medium text-gray-300 dark:text-gray-300 light:text-gray-700">Current Password:</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-900/50 p-2.5 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 dark:border-gray-600 dark:bg-gray-900/50 light:border-gray-300 light:bg-white light:text-gray-900"
+                />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.05 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+              >
+                <label className="text-sm font-medium text-gray-300 dark:text-gray-300 light:text-gray-700">New Password:</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-900/50 p-2.5 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 dark:border-gray-600 dark:bg-gray-900/50 light:border-gray-300 light:bg-white light:text-gray-900"
+                />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center py-1.5"
+              >
+                <label className="text-sm font-medium text-gray-300 dark:text-gray-300 light:text-gray-700">Confirm New Password:</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="col-span-2 rounded-md border border-gray-600 bg-gray-900/50 p-2.5 text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 dark:border-gray-600 dark:bg-gray-900/50 light:border-gray-300 light:bg-white light:text-gray-900"
+                />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.15 }}
+                className="flex justify-end pt-4"
+              >
                 <Button
-                  onClick={toggleTheme}
-                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-lg transform hover:scale-105 transition-all duration-300 ease-out"
+                  onClick={handlePasswordChange}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white font-semibold py-2.5 px-6 rounded-lg"
                 >
-                  Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
+                  Change Password
                 </Button>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
         </motion.div>
       </main>
 
-      <style jsx>{`
-        .particle-layer,
-        .shimmer-layer {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
+      <style jsx global>{`
+        html.dark {
+          background: linear-gradient(to bottom right, #111827 0%, #4338ca 100%);
+          color: white;
         }
-
-        .particle-layer::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
-            radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
-          animation: background-move 15s infinite alternate ease-in-out;
+        html.light {
+          background: linear-gradient(to bottom right, #e0f2fe 0%, #ede9fe 100%);
+          color: #1f2937;
         }
-
-        .shimmer-layer::after {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          background: linear-gradient(
-            to right,
-            transparent,
-            rgba(255, 255, 255, 0.05) 5%,
-            rgba(255, 255, 255, 0.1) 10%,
-            transparent 15%
-          );
-          transform: rotate(45deg);
-          animation: shimmer-background 8s infinite linear;
-        }
-
-        @keyframes background-move {
-          0% {
-            transform: translate(0, 0);
-            opacity: 0.2;
-          }
-          50% {
-            transform: translate(5%, 5%);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(0, 0);
-            opacity: 0.2;
-          }
-        }
-
-        @keyframes shimmer-background {
-          0% {
-            transform: translateX(-100%) rotate(45deg);
-          }
-          100% {
-            transform: translateX(100%) rotate(45deg);
-          }
+        body, main, .sidebar, .header {
+          background: transparent;
         }
       `}</style>
     </div>
