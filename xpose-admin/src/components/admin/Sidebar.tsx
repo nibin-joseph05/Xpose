@@ -19,6 +19,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [user, setUser] = useState({ name: 'Admin User', email: 'admin@xpose.com' });
+  const [loading, setLoading] = useState(true);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -28,7 +31,37 @@ export default function Sidebar() {
 
     checkIfMobile();
     window.addEventListener('resize', checkIfMobile);
+
     return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_URL}/api/authority/current`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          setUser({
+            name: userData.name,
+            email: userData.email
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
   }, []);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -113,8 +146,21 @@ export default function Sidebar() {
               </div>
               {isOpen && (
                 <div>
-                  <div className="font-medium text-gray-100 light:text-gray-800">Admin User</div>
-                  <div className="text-sm text-gray-400 light:text-gray-500">admin@xpose.com</div>
+                  {loading ? (
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+                      <div className="h-3 w-24 animate-pulse rounded bg-gray-600 light:bg-gray-300"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="font-medium text-gray-100 light:text-gray-800">
+                        {user.name}
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
+                        {user.email}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/authority")
@@ -36,6 +37,25 @@ public class AuthorityController {
             return ResponseEntity.ok(Map.of("token", token, "message", "Login Successful"));
         } else {
             return ResponseEntity.status(401).body(Map.of("message", "Invalid Credentials"));
+        }
+    }
+
+    @GetMapping("/current")
+    public ResponseEntity<?> getCurrentUser(@RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.substring(7);
+            String email = jwtUtil.extractUsername(token);
+            Optional<Authority> authority = authorityService.findByEmail(email);
+
+            if (authority.isPresent()) {
+                Map<String, String> userData = new HashMap<>();
+                userData.put("name", authority.get().getName());
+                userData.put("email", authority.get().getEmail());
+                return ResponseEntity.ok(userData);
+            }
+            return ResponseEntity.status(404).body("User not found");
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body("Invalid token");
         }
     }
 
