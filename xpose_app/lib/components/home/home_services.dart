@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
+import 'package:Xpose/services/crime_category_service.dart';
 
 class HomeServices extends StatefulWidget {
   const HomeServices({super.key});
@@ -11,17 +12,8 @@ class HomeServices extends StatefulWidget {
 class _HomeServicesState extends State<HomeServices> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  final List<Map<String, dynamic>> _services = [
-    {'icon': Icons.description, 'label': 'Report Incident'},
-    {'icon': Icons.folder_shared, 'label': 'My Reports'},
-    {'icon': Icons.gavel, 'label': 'Harassment'},
-    {'icon': Icons.local_pharmacy, 'label': 'Drug Abuse'},
-    {'icon': Icons.security, 'label': 'Theft'},
-    {'icon': Icons.balance, 'label': 'Corruption'},
-    {'icon': Icons.contact_support, 'label': 'Support'},
-    {'icon': Icons.medical_services, 'label': 'Emergency'},
-    {'icon': Icons.more_horiz, 'label': 'More'},
-  ];
+  List<Map<String, dynamic>> _services = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -36,6 +28,69 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
         curve: Curves.easeOutBack,
       ),
     );
+    _fetchCrimeCategories();
+  }
+
+  Future<void> _fetchCrimeCategories() async {
+    try {
+      final categories = await CrimeCategoryService.fetchCategories();
+      setState(() {
+        _services = categories.map<Map<String, dynamic>>((category) {
+          IconData iconData = Icons.category;
+          switch (category['name'].toLowerCase()) {
+            case 'cyber crimes':
+              iconData = Icons.security;
+              break;
+            case 'violent crimes':
+              iconData = Icons.gavel;
+              break;
+            case 'theft & robbery':
+              iconData = Icons.local_mall;
+              break;
+            case 'sexual offenses':
+              iconData = Icons.no_adult_content;
+              break;
+            case 'child abuse & exploitation':
+              iconData = Icons.child_care;
+              break;
+            case 'corruption & bribery':
+              iconData = Icons.balance;
+              break;
+            case 'missing persons / abductions':
+              iconData = Icons.person_search;
+              break;
+            case 'vandalism & property damage':
+              iconData = Icons.broken_image;
+              break;
+            case 'traffic violations & hit-and-run':
+              iconData = Icons.directions_car;
+              break;
+            case 'environmental crimes':
+              iconData = Icons.eco;
+              break;
+            default:
+              iconData = Icons.report;
+              break;
+          }
+          return {'icon': iconData, 'label': category['name']};
+        }).toList();
+
+        if (_services.length > 8) {
+          final List<Map<String, dynamic>> displayedServices = _services.sublist(0, 8);
+          displayedServices.add({'icon': Icons.more_horiz, 'label': 'More'});
+          _services = displayedServices;
+        }
+
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load categories: $e')),
+      );
+    }
   }
 
   @override
@@ -59,15 +114,17 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             ),
           ),
           const SizedBox(height: 16),
-          GridView.builder(
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3, // Changed to 3 items per row
-              childAspectRatio: 1.0, // Adjusted aspect ratio for square-like items
-              crossAxisSpacing: 12, // Adjusted spacing
-              mainAxisSpacing: 12,   // Adjusted spacing
+              crossAxisCount: 3,
+              childAspectRatio: 1.0,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
             ),
             itemCount: _services.length,
             itemBuilder: (context, index) {
@@ -101,29 +158,29 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
         highlightColor: color.withOpacity(0.2),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.transparent, // Background color removed
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: color.withOpacity(0.3), // Lighter border
-              width: 1.0, // Thinner border
+              color: color.withOpacity(0.3),
+              width: 1.0,
             ),
           ),
-          child: Column( // Changed to Column for vertical arrangement
-            mainAxisAlignment: MainAxisAlignment.center, // Center content vertically
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 36, color: color), // Larger icon
-              const SizedBox(height: 8), // Spacing between icon and label
+              Icon(icon, size: 36, color: color),
+              const SizedBox(height: 8),
               Flexible(
                 child: Text(
                   label,
-                  textAlign: TextAlign.center, // Center align text
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 13, // Slightly smaller font for label
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white70, // Softer white
+                    color: Colors.white70,
                   ),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: 2, // Allow label to wrap if needed
+                  maxLines: 2,
                 ),
               ),
             ],
