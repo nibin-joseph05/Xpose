@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
 import 'package:Xpose/services/crime_category_service.dart';
+import 'package:Xpose/pages/crime_categories/crime_categories_page.dart';
 
 class HomeServices extends StatefulWidget {
   const HomeServices({super.key});
@@ -77,7 +78,9 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
 
         if (_services.length > 8) {
           final List<Map<String, dynamic>> displayedServices = _services.sublist(0, 8);
-          displayedServices.add({'icon': Icons.more_horiz, 'label': 'More'});
+          if (!displayedServices.any((service) => service['label'] == 'More')) {
+            displayedServices.add({'icon': Icons.more_horiz, 'label': 'More'});
+          }
           _services = displayedServices;
         }
 
@@ -129,12 +132,27 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             itemCount: _services.length,
             itemBuilder: (context, index) {
               final Color itemColor = Theme.of(context).colorScheme.primary.withOpacity(0.8);
+              final service = _services[index];
+
+              bool isMoreButton = service['label'] == 'More' && service['icon'] == Icons.more_horiz;
 
               return _buildServiceButton(
                 context,
-                icon: _services[index]['icon'],
-                label: _services[index]['label'],
+                icon: service['icon'],
+                label: service['label'],
                 color: itemColor,
+                onTap: isMoreButton
+                    ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CrimeCategoriesPage()),
+                  );
+                }
+                    : () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Tapped on: ${service['label']}')),
+                  );
+                },
               );
             },
           ),
@@ -148,12 +166,13 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
         required IconData icon,
         required String label,
         required Color color,
+        required VoidCallback onTap,
       }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {},
+        onTap: onTap,
         splashColor: color.withOpacity(0.3),
         highlightColor: color.withOpacity(0.2),
         child: Container(
