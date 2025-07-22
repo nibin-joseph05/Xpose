@@ -13,6 +13,7 @@ class HomeNews extends StatefulWidget {
 class _HomeNewsState extends State<HomeNews> {
   List<dynamic> newsArticles = [];
   bool isLoading = true;
+  bool hasError = false;
   final ScrollController _scrollController = ScrollController();
   Timer? _timer;
   int _currentPage = 0;
@@ -21,7 +22,6 @@ class _HomeNewsState extends State<HomeNews> {
   void initState() {
     super.initState();
     loadNews();
-    _startAutoScroll();
   }
 
   @override
@@ -52,20 +52,22 @@ class _HomeNewsState extends State<HomeNews> {
     });
   }
 
-  void _stopAutoScroll() {
-    _timer?.cancel();
-  }
-
   Future<void> loadNews() async {
     try {
-      final articles = await NewsService.getKeralaNews();
+      final articles = await NewsService.getIndiaTopHeadlines();
       setState(() {
         newsArticles = articles;
         isLoading = false;
+        hasError = false;
       });
+
+      if (newsArticles.isNotEmpty) {
+        _startAutoScroll();
+      }
     } catch (e) {
       setState(() {
         isLoading = false;
+        hasError = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load news: $e')),
@@ -94,51 +96,113 @@ class _HomeNewsState extends State<HomeNews> {
         const SizedBox(height: 20),
         SizedBox(
           height: 240,
-          child: isLoading
-              ? Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
-            ),
-          )
-              : Listener(
-            onPointerDown: (_) => _stopAutoScroll(),
-            onPointerUp: (_) => _startAutoScroll(),
-            onPointerCancel: (_) => _startAutoScroll(),
-            child: ListView.builder(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: newsArticles.length,
-              itemBuilder: (context, index) {
-                final article = newsArticles[index];
-                return _buildNewsCard(article, theme);
-              },
-            ),
-          ),
+          child: _buildContent(theme),
         ),
       ],
     );
   }
 
+  Widget _buildContent(ThemeData theme) {
+    if (isLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+        ),
+      );
+    }
+
+    if (hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white54, size: 40),
+            const SizedBox(height: 10),
+            Text(
+              'Failed to load news',
+              style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: loadNews,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (newsArticles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.article_outlined, color: Colors.white54, size: 40),
+            const SizedBox(height: 10),
+            Text(
+              'No news available',
+              style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: loadNews,
+              child: const Text('Refresh'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Listener(
+      onPointerDown: (_) => _timer?.cancel(),
+      onPointerUp: (_) => _startAutoScroll(),
+      onPointerCancel: (_) => _startAutoScroll(),
+      child: ListView.builder(
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: newsArticles.length,
+        itemBuilder: (context, index) {
+          final article = newsArticles[index];
+          return _buildNewsCard(article, theme);
+        },
+      ),
+    );
+  }
+
   Widget _buildNewsCard(dynamic article, ThemeData theme) {
-    final String title = article['title'] ?? 'No Title Available';
-    final String imageUrl = article['urlToImage'] ?? '';
-    final String source = article['source']?['name'] ?? 'Unknown Source';
-    final String date = article['publishedAt'] != null
-        ? DateTime.parse(article['publishedAt']).toLocal().toString().substring(0, 10)
-        : '';
-    final String url = article['url'] ?? '';
+    final String title = article['title']?.toString() ?? 'No Title Available';
+    final String imageUrl = article['urlToImage']?.toString() ?? '';
+    final String source = article['source'] is Map
+        ? article['source']['name']?.toString() ?? 'Unknown Source'
+        : 'Unknown Source';
+
+    String date = '';
+    try {
+      if (article['publishedAt'] != null) {
+        date = DateTime.parse(article['publishedAt'].toString())
+            .toLocal()
+            .toString()
+            .substring(0, 10);
+      }
+    } catch (e) {
+      date = 'Date unknown';
+    }
+
+    final String url = article['url']?.toString() ?? '';
 
     return GestureDetector(
       onTap: () async {
-        if (await canLaunchUrl(Uri.parse(url))) {
-          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the article')),
-          );
+        if (url.isNotEmpty) {
+          if (await canLaunchUrl(Uri.parse(url))) {
+            await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not open the article')),
+            );
+          }
         }
       },
       child: Container(
@@ -162,87 +226,9 @@ class _HomeNewsState extends State<HomeNews> {
           children: [
             Expanded(
               flex: 6,
-              child: Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    color: Colors.grey[800],
-                    child: imageUrl.isNotEmpty
-                        ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                                : null,
-                            strokeWidth: 1,
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            color: Colors.white30,
-                            size: 40,
-                          ),
-                        );
-                      },
-                    )
-                        : const Center(
-                      child: Icon(
-                        Icons.article,
-                        color: Colors.white30,
-                        size: 40,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 8,
-                    left: 12,
-                    right: 12,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            source,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          date,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              child: _buildImageSection(imageUrl, source, date, theme),
             ),
+
             Expanded(
               flex: 4,
               child: Padding(
@@ -266,6 +252,90 @@ class _HomeNewsState extends State<HomeNews> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildImageSection(
+      String imageUrl, String source, String date, ThemeData theme) {
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          color: Colors.grey[800],
+          child: imageUrl.isNotEmpty
+              ? Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                      : null,
+                  strokeWidth: 1,
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return _buildPlaceholderIcon();
+            },
+          )
+              : _buildPlaceholderIcon(),
+        ),
+
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withOpacity(0.7),
+              ],
+            ),
+          ),
+        ),
+
+        Positioned(
+          bottom: 8,
+          left: 12,
+          right: 12,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  source,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                date,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholderIcon() {
+    return const Center(
+      child: Icon(
+        Icons.article,
+        color: Colors.white30,
+        size: 40,
       ),
     );
   }
