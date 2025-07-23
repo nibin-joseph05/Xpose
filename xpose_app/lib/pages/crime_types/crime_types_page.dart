@@ -36,25 +36,169 @@ class _CrimeTypesPageState extends State<CrimeTypesPage> {
           String name = crime['name']?.toString() ?? 'Unknown Crime Type';
           switch (name.toLowerCase()) {
             case 'phishing scam':
+              iconData = Icons.email;
+              break;
+            case 'identity theft':
+              iconData = Icons.perm_identity;
+              break;
             case 'cyberbullying':
+              iconData = Icons.chat_bubble_outline;
+              break;
+            case 'hacking':
               iconData = Icons.computer;
               break;
-            case 'domestic violence':
+            case 'online fraud':
+              iconData = Icons.credit_card_off;
+              break;
             case 'homicide':
+              iconData = Icons.dangerous;
+              break;
             case 'aggravated assault':
               iconData = Icons.gavel;
               break;
-            case 'burglary':
-              iconData = Icons.lock_open;
+            case 'battery':
+              iconData = Icons.personal_injury;
+              break;
+            case 'kidnapping':
+              iconData = Icons.person_off;
+              break;
+            case 'armed assault':
+              iconData = Icons.security;
               break;
             case 'sexual assault':
               iconData = Icons.no_adult_content;
               break;
-            case 'illegal parking':
-              iconData = Icons.car_crash;
+            case 'rape':
+              iconData = Icons.block;
+              break;
+            case 'molestation':
+              iconData = Icons.warning_amber;
+              break;
+            case 'indecent exposure':
+              iconData = Icons.visibility_off;
+              break;
+            case 'online sexual harassment':
+              iconData = Icons.message;
+              break;
+            case 'child labor':
+              iconData = Icons.work_off;
+              break;
+            case 'sexual exploitation':
+              iconData = Icons.child_care;
+              break;
+            case 'child neglect':
+              iconData = Icons.child_care;
+              break;
+            case 'physical abuse':
+              iconData = Icons.pan_tool;
+              break;
+            case 'child trafficking':
+              iconData = Icons.group_off;
+              break;
+            case 'burglary':
+              iconData = Icons.lock_open;
+              break;
+            case 'armed robbery':
+              iconData = Icons.local_mall;
+              break;
+            case 'pickpocketing':
+              iconData = Icons.handshake;
+              break;
+            case 'shoplifting':
+              iconData = Icons.store;
+              break;
+            case 'snatching':
+              iconData = Icons.speed;
+              break;
+            case 'bribery':
+              iconData = Icons.money;
+              break;
+            case 'extortion':
+              iconData = Icons.gavel;
+              break;
+            case 'misuse of power':
+              iconData = Icons.account_balance;
+              break;
+            case 'fraudulent tendering':
+              iconData = Icons.description;
+              break;
+            case 'missing adult':
+              iconData = Icons.person_search;
+              break;
+            case 'missing child':
+              iconData = Icons.child_care;
+              break;
+            case 'runaway minor':
+              iconData = Icons.directions_run;
               break;
             case 'graffiti':
               iconData = Icons.broken_image;
+              break;
+            case 'arson':
+              iconData = Icons.local_fire_department;
+              break;
+            case 'smashing property':
+              iconData = Icons.handyman;
+              break;
+            case 'tampering with public utilities':
+              iconData = Icons.electrical_services;
+              break;
+            case 'hit and run':
+              iconData = Icons.car_crash;
+              break;
+            case 'illegal parking':
+              iconData = Icons.local_parking;
+              break;
+            case 'reckless driving':
+              iconData = Icons.directions_car;
+              break;
+            case 'driving under influence (dui)':
+              iconData = Icons.local_bar;
+              break;
+            case 'illegal dumping':
+              iconData = Icons.delete;
+              break;
+            case 'water pollution':
+              iconData = Icons.water_drop;
+              break;
+            case 'deforestation':
+              iconData = Icons.park;
+              break;
+            case 'wildlife poaching':
+              iconData = Icons.pets;
+              break;
+            case 'drug possession':
+              iconData = Icons.medication;
+              break;
+            case 'drug trafficking':
+              iconData = Icons.local_shipping;
+              break;
+            case 'drug manufacturing':
+              iconData = Icons.science;
+              break;
+            case 'use in public':
+              iconData = Icons.smoke_free;
+              break;
+            case 'racial abuse':
+              iconData = Icons.group;
+              break;
+            case 'religious discrimination':
+              iconData = Icons.church;
+              break;
+            case 'gender-based violence':
+              iconData = Icons.wc;
+              break;
+            case 'domestic violence':
+              iconData = Icons.family_restroom;
+              break;
+            case 'spousal abuse':
+              iconData = Icons.favorite_border;
+              break;
+            case 'elder abuse':
+              iconData = Icons.elderly;
+              break;
+            case 'marital rape':
+              iconData = Icons.heart_broken;
               break;
           }
           return {

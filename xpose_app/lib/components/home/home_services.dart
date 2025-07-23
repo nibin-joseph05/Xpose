@@ -79,6 +79,15 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             case 'environmental crimes':
               iconData = Icons.eco;
               break;
+            case 'drug-related crimes':
+              iconData = Icons.medication;
+              break;
+            case 'hate crimes & discrimination':
+              iconData = Icons.gavel;
+              break;
+            case 'domestic violence & abuse':
+              iconData = Icons.family_restroom;
+              break;
           }
           return {
             'id': category['id'],
@@ -136,6 +145,16 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
           const SizedBox(height: 16),
           _isLoading
               ? const Center(child: CircularProgressIndicator(color: Colors.white))
+              : _services.isEmpty
+              ? Center(
+            child: Text(
+              'No categories available.',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 18,
+              ),
+            ),
+          )
               : GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

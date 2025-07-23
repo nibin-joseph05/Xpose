@@ -67,6 +67,15 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
             case 'environmental crimes':
               iconData = Icons.eco;
               break;
+            case 'drug-related crimes':
+              iconData = Icons.medication;
+              break;
+            case 'hate crimes & discrimination':
+              iconData = Icons.gavel;
+              break;
+            case 'domestic violence & abuse':
+              iconData = Icons.family_restroom;
+              break;
           }
           return {
             'id': category['id'],
@@ -161,7 +170,7 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
                 : _filteredCategories.isEmpty
                 ? Center(
               child: Text(
-                'No categories found.',
+                'No categories available.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Colors.white.withOpacity(0.7),
                   fontSize: 18,
