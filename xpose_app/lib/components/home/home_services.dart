@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/animation.dart';
-import 'package:Xpose/services/crime_category_service.dart';
 import 'package:Xpose/pages/crime_categories/crime_categories_page.dart';
+import 'package:Xpose/pages/crime_types/crime_types_page.dart';
+import 'package:Xpose/services/crime_category_service.dart';
 
 class HomeServices extends StatefulWidget {
   const HomeServices({super.key});
@@ -36,9 +37,22 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
     try {
       final categories = await CrimeCategoryService.fetchCategories();
       setState(() {
-        _services = categories.map<Map<String, dynamic>>((category) {
+        _services = categories
+            .asMap()
+            .entries
+            .where((entry) {
+          final category = entry.value;
+          if (category['id'] == null || category['id'] is! int || category['id'] <= 0) {
+            debugPrint('Skipping category "${category['name']}" due to invalid ID: ${category['id']}');
+            return false;
+          }
+          return true;
+        })
+            .map((entry) {
+          final category = entry.value;
           IconData iconData = Icons.category;
-          switch (category['name'].toLowerCase()) {
+          String name = category['name'] ?? 'Unknown Category';
+          switch (name.toLowerCase()) {
             case 'cyber crimes':
               iconData = Icons.security;
               break;
@@ -73,13 +87,22 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
               iconData = Icons.report;
               break;
           }
-          return {'icon': iconData, 'label': category['name']};
-        }).toList();
+          return {
+            'id': category['id'],
+            'icon': iconData,
+            'label': name,
+          };
+        })
+            .toList();
 
         if (_services.length > 8) {
           final List<Map<String, dynamic>> displayedServices = _services.sublist(0, 8);
           if (!displayedServices.any((service) => service['label'] == 'More')) {
-            displayedServices.add({'icon': Icons.more_horiz, 'label': 'More'});
+            displayedServices.add({
+              'id': null,
+              'icon': Icons.more_horiz,
+              'label': 'More'
+            });
           }
           _services = displayedServices;
         }
@@ -141,17 +164,27 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
                 icon: service['icon'],
                 label: service['label'],
                 color: itemColor,
-                onTap: isMoreButton
-                    ? () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const CrimeCategoriesPage()),
-                  );
-                }
-                    : () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Tapped on: ${service['label']}')),
-                  );
+                onTap: () {
+                  if (isMoreButton) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const CrimeCategoriesPage()),
+                    );
+                  } else if (service['id'] is int && service['id'] > 0) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CrimeTypesPage(
+                          categoryId: service['id'],
+                          categoryName: service['label'],
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Cannot navigate: Invalid category ID for ${service['label']}')),
+                    );
+                  }
                 },
               );
             },

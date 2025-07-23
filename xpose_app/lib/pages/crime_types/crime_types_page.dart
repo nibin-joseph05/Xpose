@@ -1,76 +1,85 @@
 import 'package:flutter/material.dart';
-import 'package:Xpose/pages/crime_types/crime_types_page.dart';
-import 'package:Xpose/services/crime_category_service.dart';
+import 'package:Xpose/services/crime_type_service.dart';
 
-class CrimeCategoriesPage extends StatefulWidget {
-  const CrimeCategoriesPage({super.key});
+class CrimeTypesPage extends StatefulWidget {
+  final int categoryId;
+  final String categoryName;
+
+  const CrimeTypesPage({
+    super.key,
+    required this.categoryId,
+    required this.categoryName,
+  });
 
   @override
-  State<CrimeCategoriesPage> createState() => _CrimeCategoriesPageState();
+  State<CrimeTypesPage> createState() => _CrimeTypesPageState();
 }
 
-class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
-  List<Map<String, dynamic>> _allCategories = [];
-  List<Map<String, dynamic>> _filteredCategories = [];
+class _CrimeTypesPageState extends State<CrimeTypesPage> {
+  List<Map<String, dynamic>> _allCrimeTypes = [];
+  List<Map<String, dynamic>> _filteredCrimeTypes = [];
   bool _isLoading = true;
   TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _fetchCrimeCategories();
+    _fetchCrimeTypes();
   }
 
-  Future<void> _fetchCrimeCategories() async {
+  Future<void> _fetchCrimeTypes() async {
     try {
-      final categories = await CrimeCategoryService.fetchCategories();
+      final crimeTypes = await CrimeTypeService.fetchCrimeTypesByCategory(widget.categoryId);
       setState(() {
-        _allCategories = categories.map<Map<String, dynamic>>((category) {
-          IconData iconData = Icons.category;
-          String name = category['name'] ?? 'Unknown Category';
+        _allCrimeTypes = crimeTypes.map<Map<String, dynamic>>((crime) {
+          IconData iconData = Icons.warning;
+          String name = crime['name'] ?? 'Unknown Crime Type';
           switch (name.toLowerCase()) {
-            case 'cyber crimes':
-              iconData = Icons.security;
+            case 'hacking':
+            case 'phishing':
+              iconData = Icons.computer;
               break;
-            case 'violent crimes':
+            case 'assault':
+            case 'murder':
               iconData = Icons.gavel;
               break;
-            case 'theft & robbery':
-              iconData = Icons.local_mall;
+            case 'burglary':
+            case 'robbery':
+              iconData = Icons.lock_open;
               break;
-            case 'sexual offenses':
+            case 'sexual assault':
               iconData = Icons.no_adult_content;
               break;
-            case 'child abuse & exploitation':
+            case 'child abuse':
               iconData = Icons.child_care;
               break;
-            case 'corruption & bribery':
-              iconData = Icons.balance;
+            case 'bribery':
+              iconData = Icons.money_off;
               break;
-            case 'missing persons / abductions':
+            case 'kidnapping':
               iconData = Icons.person_search;
               break;
-            case 'vandalism & property damage':
+            case 'vandalism':
               iconData = Icons.broken_image;
               break;
-            case 'traffic violations & hit-and-run':
-              iconData = Icons.directions_car;
+            case 'hit and run':
+              iconData = Icons.car_crash;
               break;
-            case 'environmental crimes':
-              iconData = Icons.eco;
+            case 'poaching':
+              iconData = Icons.nature;
               break;
             default:
-              iconData = Icons.report;
+              iconData = Icons.warning;
               break;
           }
           return {
-            'id': category['id'],
             'icon': iconData,
             'label': name,
-            'description': category['description'] ?? 'No description available.',
+            'description': crime['description'] ?? 'No description available.',
+            'priority': crime['priority'] ?? 'Unknown',
           };
         }).toList();
-        _filteredCategories = _allCategories;
+        _filteredCrimeTypes = _allCrimeTypes;
         _isLoading = false;
       });
     } catch (e) {
@@ -78,20 +87,20 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load categories: $e')),
+        SnackBar(content: Text('Failed to load crime types: $e')),
       );
     }
   }
 
-  void _filterCategories(String query) {
+  void _filterCrimeTypes(String query) {
     setState(() {
       if (query.isEmpty) {
-        _filteredCategories = _allCategories;
+        _filteredCrimeTypes = _allCrimeTypes;
       } else {
-        _filteredCategories = _allCategories
-            .where((category) =>
-        category['label'].toLowerCase().contains(query.toLowerCase()) ||
-            category['description'].toLowerCase().contains(query.toLowerCase()))
+        _filteredCrimeTypes = _allCrimeTypes
+            .where((crime) =>
+        crime['label'].toLowerCase().contains(query.toLowerCase()) ||
+            crime['description'].toLowerCase().contains(query.toLowerCase()))
             .toList();
       }
     });
@@ -108,7 +117,7 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Crime Categories',
+          '${widget.categoryName} Types',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -121,10 +130,10 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
             padding: const EdgeInsets.all(16.0),
             child: TextField(
               controller: _searchController,
-              onChanged: _filterCategories,
+              onChanged: _filterCrimeTypes,
               style: const TextStyle(color: Colors.white70),
               decoration: InputDecoration(
-                hintText: 'Search categories or descriptions...',
+                hintText: 'Search crime types or descriptions...',
                 hintStyle: const TextStyle(color: Colors.white54),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70),
                 filled: true,
@@ -144,10 +153,10 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredCategories.isEmpty
+                : _filteredCrimeTypes.isEmpty
                 ? Center(
               child: Text(
-                'No categories found.',
+                'No crime types found.',
                 style: Theme.of(context)
                     .textTheme
                     .bodyLarge
@@ -164,16 +173,16 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              itemCount: _filteredCategories.length,
+              itemCount: _filteredCrimeTypes.length,
               itemBuilder: (context, index) {
                 final Color itemColor =
                 Theme.of(context).colorScheme.primary.withOpacity(0.8);
-                return _buildCategoryCard(
+                return _buildCrimeTypeCard(
                   context,
-                  id: _filteredCategories[index]['id'],
-                  icon: _filteredCategories[index]['icon'],
-                  label: _filteredCategories[index]['label'],
-                  description: _filteredCategories[index]['description'],
+                  icon: _filteredCrimeTypes[index]['icon'],
+                  label: _filteredCrimeTypes[index]['label'],
+                  description: _filteredCrimeTypes[index]['description'],
+                  priority: _filteredCrimeTypes[index]['priority'],
                   color: itemColor,
                 );
               },
@@ -184,12 +193,12 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
     );
   }
 
-  Widget _buildCategoryCard(
+  Widget _buildCrimeTypeCard(
       BuildContext context, {
-        required int id,
         required IconData icon,
         required String label,
         required String description,
+        required String priority,
         required Color color,
       }) {
     return Card(
@@ -203,14 +212,8 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CrimeTypesPage(
-                categoryId: id,
-                categoryName: label,
-              ),
-            ),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Selected: $label')),
           );
         },
         splashColor: color.withOpacity(0.3),
@@ -247,8 +250,18 @@ class _CrimeCategoriesPageState extends State<CrimeCategoriesPage> {
                     color: Colors.white70,
                     fontWeight: FontWeight.w400,
                   ),
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Priority: $priority',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
