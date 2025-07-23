@@ -95,11 +95,16 @@ export default function CrimePage() {
     }
   };
 
+  const normalizeString = (str: string) => {
+    return str.toLowerCase().replace(/\s+/g, '');
+  };
+
   const filteredCrimeTypes = useMemo(() => {
+    const normalizedQuery = normalizeString(crimeSearchQuery);
     return crimeTypes.filter(crime =>
-      crime.name.toLowerCase().includes(crimeSearchQuery.toLowerCase()) ||
-      crime.description.toLowerCase().includes(crimeSearchQuery.toLowerCase()) ||
-      crime.categoryName.toLowerCase().includes(crimeSearchQuery.toLowerCase())
+      normalizeString(crime.name).includes(normalizedQuery) ||
+      normalizeString(crime.description).includes(normalizedQuery) ||
+      normalizeString(crime.categoryName).includes(normalizedQuery)
     );
   }, [crimeTypes, crimeSearchQuery]);
 
@@ -138,9 +143,10 @@ export default function CrimePage() {
   };
 
   const filteredCategories = useMemo(() => {
+    const normalizedQuery = normalizeString(categorySearchQuery);
     return categories.filter(category =>
-      category.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
-      category.description.toLowerCase().includes(categorySearchQuery.toLowerCase())
+      normalizeString(category.name).includes(normalizedQuery) ||
+      normalizeString(category.description).includes(normalizedQuery)
     );
   }, [categories, categorySearchQuery]);
 
@@ -289,9 +295,9 @@ export default function CrimePage() {
                         <td className="p-4">{getPriorityBadge(crime.priority)}</td>
                         <td className="p-4 text-center">
                           {crime.requiresImmediateAttention ? (
-                            <span className="text-green-500 text-lg">&#10003;</span>
+                            <span className="text-green-500 text-lg">✓</span>
                           ) : (
-                            <span className="text-red-500 text-lg">&#10006;</span>
+                            <span className="text-red-500 text-lg">✖</span>
                           )}
                         </td>
                         <td className="p-4 text-center">
