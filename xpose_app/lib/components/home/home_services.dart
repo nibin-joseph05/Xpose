@@ -42,28 +42,24 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             .entries
             .where((entry) {
           final category = entry.value;
-          if (category['id'] == null || category['id'] is! int || category['id'] <= 0) {
-            debugPrint('Skipping category "${category['name']}" due to invalid ID: ${category['id']}');
-            return false;
-          }
-          return true;
+          return category['id'] != null && category['id'] is int && category['id'] > 0;
         })
             .map((entry) {
           final category = entry.value;
-          IconData iconData = Icons.category;
-          String name = category['name'] ?? 'Unknown Category';
+          IconData iconData = Icons.report_problem;
+          String name = category['name']?.toString() ?? 'Unknown Category';
           switch (name.toLowerCase()) {
             case 'cyber crimes':
               iconData = Icons.security;
               break;
             case 'violent crimes':
-              iconData = Icons.gavel;
+              iconData = Icons.warning_rounded;
               break;
             case 'theft & robbery':
               iconData = Icons.local_mall;
               break;
             case 'sexual offenses':
-              iconData = Icons.no_adult_content;
+              iconData = Icons.block;
               break;
             case 'child abuse & exploitation':
               iconData = Icons.child_care;
@@ -75,16 +71,13 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
               iconData = Icons.person_search;
               break;
             case 'vandalism & property damage':
-              iconData = Icons.broken_image;
+              iconData = Icons.handyman;
               break;
             case 'traffic violations & hit-and-run':
               iconData = Icons.directions_car;
               break;
             case 'environmental crimes':
               iconData = Icons.eco;
-              break;
-            default:
-              iconData = Icons.report;
               break;
           }
           return {
@@ -136,12 +129,13 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             'Report Crime',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: Colors.white,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
             ),
           ),
           const SizedBox(height: 16),
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: Colors.white))
               : GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -154,11 +148,9 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
             ),
             itemCount: _services.length,
             itemBuilder: (context, index) {
-              final Color itemColor = Theme.of(context).colorScheme.primary.withOpacity(0.8);
+              final Color itemColor = Theme.of(context).colorScheme.primary.withOpacity(0.9);
               final service = _services[index];
-
               bool isMoreButton = service['label'] == 'More' && service['icon'] == Icons.more_horiz;
-
               return _buildServiceButton(
                 context,
                 icon: service['icon'],
@@ -182,7 +174,12 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Cannot navigate: Invalid category ID for ${service['label']}')),
+                      SnackBar(
+                        content: Text('Cannot navigate: Invalid category ID for ${service['label']}'),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     );
                   }
                 },
@@ -229,7 +226,7 @@ class _HomeServicesState extends State<HomeServices> with SingleTickerProviderSt
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white70,
+                    color: Colors.white,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,

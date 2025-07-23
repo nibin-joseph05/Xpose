@@ -33,50 +33,34 @@ class _CrimeTypesPageState extends State<CrimeTypesPage> {
       setState(() {
         _allCrimeTypes = crimeTypes.map<Map<String, dynamic>>((crime) {
           IconData iconData = Icons.warning;
-          String name = crime['name'] ?? 'Unknown Crime Type';
+          String name = crime['name']?.toString() ?? 'Unknown Crime Type';
           switch (name.toLowerCase()) {
-            case 'hacking':
-            case 'phishing':
+            case 'phishing scam':
+            case 'cyberbullying':
               iconData = Icons.computer;
               break;
-            case 'assault':
-            case 'murder':
+            case 'domestic violence':
+            case 'homicide':
+            case 'aggravated assault':
               iconData = Icons.gavel;
               break;
             case 'burglary':
-            case 'robbery':
               iconData = Icons.lock_open;
               break;
             case 'sexual assault':
               iconData = Icons.no_adult_content;
               break;
-            case 'child abuse':
-              iconData = Icons.child_care;
-              break;
-            case 'bribery':
-              iconData = Icons.money_off;
-              break;
-            case 'kidnapping':
-              iconData = Icons.person_search;
-              break;
-            case 'vandalism':
-              iconData = Icons.broken_image;
-              break;
-            case 'hit and run':
+            case 'illegal parking':
               iconData = Icons.car_crash;
               break;
-            case 'poaching':
-              iconData = Icons.nature;
-              break;
-            default:
-              iconData = Icons.warning;
+            case 'graffiti':
+              iconData = Icons.broken_image;
               break;
           }
           return {
             'icon': iconData,
             'label': name,
-            'description': crime['description'] ?? 'No description available.',
-            'priority': crime['priority'] ?? 'Unknown',
+            'description': crime['description']?.toString() ?? 'No description available.',
           };
         }).toList();
         _filteredCrimeTypes = _allCrimeTypes;
@@ -115,14 +99,19 @@ class _CrimeTypesPageState extends State<CrimeTypesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: Text(
           '${widget.categoryName} Types',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
           ),
         ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.2),
       ),
       body: Column(
         children: [
@@ -131,58 +120,57 @@ class _CrimeTypesPageState extends State<CrimeTypesPage> {
             child: TextField(
               controller: _searchController,
               onChanged: _filterCrimeTypes,
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: Colors.white, fontSize: 16),
               decoration: InputDecoration(
-                hintText: 'Search crime types or descriptions...',
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                hintText: 'Search crime types...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
+                prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.8)),
                 filled: true,
-                fillColor: Theme.of(context).colorScheme.surface,
+                fillColor: Colors.white.withOpacity(0.1),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary, width: 1.5),
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
+                  ),
                 ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
               ),
             ),
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
                 : _filteredCrimeTypes.isEmpty
                 ? Center(
               child: Text(
-                'No crime types found.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
-                    ?.copyWith(color: Colors.white70),
+                'No crime types available.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 18,
+                ),
               ),
             )
                 : GridView.builder(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0, vertical: 8.0),
-              gridDelegate:
-              const SliverGridDelegateWithFixedCrossAxisCount(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.85,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                childAspectRatio: 0.9,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
               ),
               itemCount: _filteredCrimeTypes.length,
               itemBuilder: (context, index) {
-                final Color itemColor =
-                Theme.of(context).colorScheme.primary.withOpacity(0.8);
+                final Color itemColor = Theme.of(context).colorScheme.primary.withOpacity(0.9);
                 return _buildCrimeTypeCard(
                   context,
                   icon: _filteredCrimeTypes[index]['icon'],
                   label: _filteredCrimeTypes[index]['label'],
                   description: _filteredCrimeTypes[index]['description'],
-                  priority: _filteredCrimeTypes[index]['priority'],
                   color: itemColor,
                 );
               },
@@ -198,70 +186,64 @@ class _CrimeTypesPageState extends State<CrimeTypesPage> {
         required IconData icon,
         required String label,
         required String description,
-        required String priority,
         required Color color,
       }) {
     return Card(
-      elevation: 4,
-      shadowColor: color.withOpacity(0.3),
+      elevation: 6,
+      shadowColor: Colors.black.withOpacity(0.3),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: color.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withOpacity(0.3)),
       ),
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(context).colorScheme.surface.withOpacity(0.95),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Selected: $label')),
+            SnackBar(
+              content: Text('Reporting: $label'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           );
         },
-        splashColor: color.withOpacity(0.3),
+        splashColor: color.withOpacity(0.4),
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(12.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 36,
+                size: 40,
                 color: color,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Flexible(
                 child: Text(
                   description,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.white70,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
                     fontWeight: FontWeight.w400,
                   ),
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Priority: $priority',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.white54,
-                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
