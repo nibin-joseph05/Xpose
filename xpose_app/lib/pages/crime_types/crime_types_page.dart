@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/services/crime_type_service.dart';
+import 'package:Xpose/pages/crime_report/crime_report_page.dart';
 
 class CrimeTypesPage extends StatefulWidget {
   final int categoryId;
@@ -343,12 +344,14 @@ class _CrimeTypesPageState extends State<CrimeTypesPage> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Reporting: $label'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CrimeReportPage(
+                categoryId: widget.categoryId,
+                categoryName: widget.categoryName,
+                crimeType: label,
+              ),
             ),
           );
         },
