@@ -1,0 +1,13 @@
+# Ignore virtual environment
+xpose_env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# Environment/Secrets
+.env
