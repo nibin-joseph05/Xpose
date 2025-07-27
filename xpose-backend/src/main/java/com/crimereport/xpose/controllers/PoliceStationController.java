@@ -22,15 +22,15 @@ public class PoliceStationController {
         return ResponseEntity.ok(policeStationService.getNearbyPoliceStations(lat, lng, radius));
     }
 
-//    @GetMapping("/by-district")
-//    public ResponseEntity<?> getStationsByDistrict(
-//            @RequestParam String state,
-//            @RequestParam String district,
-//            @RequestParam(defaultValue = "10000") int radius) {
-//
-//        return ResponseEntity.ok(
-//                policeStationService.getStationsByDistrict(state.trim(), district.trim(), radius)
-//        );
-//    }
+    @GetMapping("/by-district")
+    public ResponseEntity<?> getStationsByDistrict(
+            @RequestParam String state,
+            @RequestParam String district,
+            @RequestParam(defaultValue = "10000") int radius) {
+
+        return ResponseEntity.ok(
+                policeStationService.getStationsByDistrict(state.trim(), district.trim(), radius)
+        );
+    }
 
 }
