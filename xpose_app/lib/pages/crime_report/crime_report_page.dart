@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/pages/crime_categories/crime_categories_page.dart';
-import 'package:Xpose/services/crime_category_service.dart';
-import 'package:Xpose/services/crime_type_service.dart';
+import 'package:Xpose/components/crime_report/crime_description.dart';
+import 'package:Xpose/components/crime_report/police_station_selection.dart';
+import 'package:Xpose/components/crime_report/recaptcha_verification.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class CrimeReportPage extends StatefulWidget {
   final int categoryId;
@@ -30,132 +29,47 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
   String? _selectedState;
   String? _selectedDistrict;
   String? _selectedPoliceStation;
-  List<String> _states = ['Select State'];
-  List<String> _districts = ['Select District'];
-  List<String> _policeStations = ['Select Police Station'];
   List<PlatformFile> _selectedFiles = [];
   bool _isLoading = false;
   bool _useCurrentLocation = false;
+  bool _isRecaptchaVerified = false;
 
   @override
   void initState() {
     super.initState();
-    _loadStates();
     _checkLocationPermission();
   }
 
-  Future<void> _loadStates() async {
-    try {
-      final response = await http.get(Uri.parse('https://api.example.com/states'));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        setState(() {
-          _states = ['Select State', ...data.map((e) => e['name'].toString())];
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load states: $e')),
-      );
-    }
-  }
-
-  Future<void> _loadDistricts(String state) async {
-    if (state != 'Select State') {
-      try {
-        final response = await http.get(Uri.parse('https://api.example.com/districts?state=$state'));
-        if (response.statusCode == 200) {
-          final List<dynamic> data = json.decode(response.body);
-          setState(() {
-            _districts = ['Select District', ...data.map((e) => e['name'].toString())];
-            _selectedDistrict = null;
-            _policeStations = ['Select Police Station'];
-            _selectedPoliceStation = null;
-          });
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load districts: $e')),
-        );
-      }
-    } else {
-      setState(() {
-        _districts = ['Select District'];
-        _selectedDistrict = null;
-        _policeStations = ['Select Police Station'];
-        _selectedPoliceStation = null;
-      });
-    }
-  }
-
-  Future<void> _loadPoliceStations(String district) async {
-    if (district != 'Select District') {
-      try {
-        final response = await http.get(Uri.parse('https://api.example.com/police-stations?district=$district'));
-        if (response.statusCode == 200) {
-          final List<dynamic> data = json.decode(response.body);
-          setState(() {
-            _policeStations = ['Select Police Station', ...data.map((e) => e['name'].toString())];
-            _selectedPoliceStation = null;
-          });
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load police stations: $e')),
-        );
-      }
-    } else {
-      setState(() {
-        _policeStations = ['Select Police Station'];
-        _selectedPoliceStation = null;
-      });
-    }
-  }
-
   Future<void> _checkLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location services are disabled. Please enable them.')),
+      );
+      return;
+    }
+
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-      setState(() {
-        _useCurrentLocation = true;
-      });
-    }
-  }
-
-  Future<void> _fetchCurrentLocation() async {
-    try {
-      setState(() {
-        _isLoading = true;
-      });
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      final response = await http.get(
-        Uri.parse('https://api.example.com/nearest-police-station?lat=${position.latitude}&long=${position.longitude}'),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        setState(() {
-          _placeController.text = data['address'] ?? 'Lat: ${position.latitude}, Long: ${position.longitude}';
-          _selectedState = data['state'] ?? 'Select State';
-          _selectedDistrict = data['district'] ?? 'Select District';
-          _selectedPoliceStation = data['police_station'] ?? 'Nearest Station';
-          _useCurrentLocation = true;
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to fetch police station');
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permissions are denied.')),
+        );
+        return;
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to fetch location: $e')),
-      );
     }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location permissions are permanently denied. Please enable them in settings.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _useCurrentLocation = true;
+    });
   }
 
   Future<void> _pickFiles() async {
@@ -178,6 +92,12 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
   }
 
   void _submitReport() {
+    if (!_isRecaptchaVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please verify reCAPTCHA first')),
+      );
+      return;
+    }
     if (_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -361,28 +281,8 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              TextFormField(
+              CrimeDescription(
                 controller: _descriptionController,
-                maxLines: 5,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                decoration: InputDecoration(
-                  hintText: 'Describe the crime in detail...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.1),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2.5,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a description of the crime';
@@ -391,198 +291,20 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
                 },
               ),
               const SizedBox(height: 24),
-              TextFormField(
-                controller: _placeController,
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                decoration: InputDecoration(
-                  hintText: 'Place of occurrence...',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.1),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2.5,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  suffixIcon: _useCurrentLocation
-                      ? IconButton(
-                    icon: Icon(
-                      Icons.location_on,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 28,
-                    ),
-                    onPressed: _fetchCurrentLocation,
-                  )
-                      : null,
-                ),
-                readOnly: _useCurrentLocation,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter the place of occurrence';
-                  }
-                  return null;
-                },
+              PoliceStationSelection(
+                placeController: _placeController,
+                onStateChanged: (value) => setState(() => _selectedState = value),
+                onDistrictChanged: (value) => setState(() => _selectedDistrict = value),
+                onPoliceStationChanged: (value) => setState(() => _selectedPoliceStation = value),
+                selectedState: _selectedState,
+                selectedDistrict: _selectedDistrict,
+                selectedPoliceStation: _selectedPoliceStation,
+                useCurrentLocation: _useCurrentLocation,
               ),
               const SizedBox(height: 24),
-              AnimatedOpacity(
-                opacity: _useCurrentLocation ? 0.5 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: DropdownButtonFormField<String>(
-                  value: _selectedState,
-                  items: _states
-                      .map((state) => DropdownMenuItem(
-                    value: state,
-                    child: Text(
-                      state,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ))
-                      .toList(),
-                  onChanged: _useCurrentLocation
-                      ? null
-                      : (value) {
-                    setState(() {
-                      _selectedState = value;
-                      _loadDistricts(value!);
-                    });
-                  },
-                  style: const TextStyle(color: Colors.white),
-                  dropdownColor: Theme.of(context).colorScheme.surface,
-                  decoration: InputDecoration(
-                    labelText: 'State',
-                    labelStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 2.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  ),
-                  validator: (value) {
-                    if (!_useCurrentLocation && (value == null || value == 'Select State')) {
-                      return 'Please select a state';
-                    }
-                    return null;
-                  },
-                ),
+              RecaptchaVerification(
+                onVerified: (isVerified) => setState(() => _isRecaptchaVerified = isVerified),
               ),
-              const SizedBox(height: 24),
-              AnimatedOpacity(
-                opacity: _useCurrentLocation ? 0.5 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: DropdownButtonFormField<String>(
-                  value: _selectedDistrict,
-                  items: _districts
-                      .map((district) => DropdownMenuItem(
-                    value: district,
-                    child: Text(
-                      district,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ))
-                      .toList(),
-                  onChanged: _useCurrentLocation || _selectedState == 'Select State'
-                      ? null
-                      : (value) {
-                    setState(() {
-                      _selectedDistrict = value;
-                      _loadPoliceStations(value!);
-                    });
-                  },
-                  style: const TextStyle(color: Colors.white),
-                  dropdownColor: Theme.of(context).colorScheme.surface,
-                  decoration: InputDecoration(
-                    labelText: 'District',
-                    labelStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 2.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  ),
-                  validator: (value) {
-                    if (!_useCurrentLocation && (value == null || value == 'Select District')) {
-                      return 'Please select a district';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-              AnimatedOpacity(
-                opacity: _useCurrentLocation ? 0.5 : 1.0,
-                duration: const Duration(milliseconds: 300),
-                child: DropdownButtonFormField<String>(
-                  value: _selectedPoliceStation,
-                  items: _policeStations
-                      .map((station) => DropdownMenuItem(
-                    value: station,
-                    child: Text(
-                      station,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ))
-                      .toList(),
-                  onChanged: _useCurrentLocation || _selectedDistrict == 'Select District'
-                      ? null
-                      : (value) {
-                    setState(() {
-                      _selectedPoliceStation = value;
-                    });
-                  },
-                  style: const TextStyle(color: Colors.white),
-                  dropdownColor: Theme.of(context).colorScheme.surface,
-                  decoration: InputDecoration(
-                    labelText: 'Police Station',
-                    labelStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 2.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  ),
-                  validator: (value) {
-                    if (!_useCurrentLocation && (value == null || value == 'Select Police Station')) {
-                      return 'Please select a police station';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _pickFiles,
                 icon: const Icon(Icons.attach_file, color: Colors.white, size: 24),
