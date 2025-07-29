@@ -18,8 +18,9 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
   bool _isVerified = false;
 
   void _handleToken(String token) async {
-    if (token == 'expired' || token == 'error') {
+    if (token.isEmpty || token == 'expired' || token == 'error') {
       widget.onVerified(false);
+      setState(() => _isVerified = false);
       return;
     }
 
@@ -29,7 +30,46 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
       setState(() => _isVerified = isValid);
     } catch (e) {
       widget.onVerified(false);
+      setState(() => _isVerified = false);
     }
+  }
+
+  void _showRecaptchaDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Container(
+            height: 500,
+            width: MediaQuery.of(context).size.width * 0.9,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: RecaptchaWebView(
+                    siteKey: _siteKey,
+                    onVerified: (token) {
+                      _handleToken(token);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.red, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -38,9 +78,24 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_siteKey.isNotEmpty)
-          RecaptchaWebView(
-            siteKey: _siteKey,
-            onVerified: _handleToken,
+          ElevatedButton.icon(
+            onPressed: _showRecaptchaDialog,
+            icon: const Icon(Icons.verified_user, color: Colors.white),
+            label: const Text(
+              'Verify I\'m not a robot',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            ),
           ),
         if (_siteKey.isEmpty)
           const Text(
@@ -51,9 +106,12 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
         if (_isVerified)
           Row(
             children: [
-              Icon(Icons.verified, color: Colors.green),
+              const Icon(Icons.verified, color: Colors.green),
               const SizedBox(width: 8),
-              Text('Verified', style: TextStyle(color: Colors.green)),
+              Text(
+                'Verified',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
             ],
           ),
       ],

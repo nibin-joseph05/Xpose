@@ -305,6 +305,7 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
               RecaptchaVerification(
                 onVerified: (isVerified) => setState(() => _isRecaptchaVerified = isVerified),
               ),
+              const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: _pickFiles,
                 icon: const Icon(Icons.attach_file, color: Colors.white, size: 24),
