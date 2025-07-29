@@ -42,16 +42,18 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             }
             return NavigationDecision.navigate;
           },
+          onWebResourceError: (error) {
+            debugPrint('WebView error: ${error.description}');
+            widget.onVerified('error: ${error.description}');
+            Navigator.of(context).pop();
+          },
         ),
       )
       ..addJavaScriptChannel(
         'RecaptchaVerification',
         onMessageReceived: (message) {
-          if (message.message == 'expired' || message.message == 'error') {
-            widget.onVerified('');
-          } else {
-            widget.onVerified(message.message);
-          }
+          widget.onVerified(message.message);
+          Navigator.of(context).pop();
         },
       )
       ..loadHtmlString(
@@ -66,26 +68,15 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
         if (typeof grecaptcha !== 'undefined') {
           grecaptcha.render('recaptcha-container', {
             'sitekey': '${widget.siteKey}',
-            'callback': (token) => {
-              RecaptchaVerification.postMessage(token);
-              window.flutter_close_dialog();
-            },
-            'expired-callback': () => {
-              RecaptchaVerification.postMessage('expired');
-              window.flutter_close_dialog();
-            },
-            'error-callback': () => {
-              RecaptchaVerification.postMessage('error');
-              window.flutter_close_dialog();
-            }
+            'callback': (token) => RecaptchaVerification.postMessage(token),
+            'expired-callback': () => RecaptchaVerification.postMessage('expired'),
+            'error-callback': () => RecaptchaVerification.postMessage('error')
           });
         } else {
           RecaptchaVerification.postMessage('error: reCAPTCHA not loaded');
-          window.flutter_close_dialog();
         }
       } catch (e) {
         RecaptchaVerification.postMessage('error: ' + e.toString());
-        window.flutter_close_dialog();
       }
     ''');
   }
@@ -96,7 +87,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script src="https://www.google.com/recaptcha/api.js?render=explicit&onload=onRecaptchaLoad" async defer></script>
+        <script src="https://www.google.com/recaptcha/api.js?render=explicit" async defer></script>
         <style>
           body, html { 
             margin: 0; 
@@ -116,17 +107,24 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 10px;
+            box-sizing: border-box;
           }
           .g-recaptcha {
             display: inline-block;
           }
         </style>
         <script>
-          window.flutter_close_dialog = function() {
+          function onRecaptchaLoad() {
+            // Signal that reCAPTCHA script has loaded
             try {
-              FlutterCloseDialog.postMessage('close');
-            } catch (e) {}
-          };
+              if (typeof grecaptcha !== 'undefined') {
+                // Ready to render
+              }
+            } catch (e) {
+              RecaptchaVerification.postMessage('error: ' + e.toString());
+            }
+          }
         </script>
       </head>
       <body>
@@ -142,7 +140,11 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       children: [
         WebViewWidget(controller: _controller),
         if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
+          Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
       ],
     );
   }
