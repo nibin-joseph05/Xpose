@@ -87,14 +87,15 @@ class CrimeReportService {
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'token': token}),
       );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return data['success'] == true;
-      } else {
-        throw Exception('Failed to verify reCAPTCHA');
       }
+      return false;
     } catch (e) {
-      throw Exception('Failed to verify reCAPTCHA: $e');
+      print('Recaptcha verification error: $e');
+      return false;
     }
   }
 }
