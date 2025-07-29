@@ -24,6 +24,7 @@ dependencies:
   geolocator: ^12.0.0
   flutter_recaptcha_v2_compat: ^1.0.5
   webview_flutter: ^4.8.0
+  webview_flutter_android: ^4.8.2
 
 
 dev_dependencies:
