@@ -89,11 +89,11 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="https://www.google.com/recaptcha/api.js" async defer></script>
         <style>
-          body, html { 
-            margin: 0; 
-            padding: 0; 
-            background: transparent; 
-            width: 100%; 
+          body, html {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            width: 100%;
             height: 100%;
             display: flex;
             justify-content: center;
@@ -121,7 +121,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       children: [
         SizedBox(
           width: widget.compact ? 300 : double.infinity,
-          height: widget.compact ? 74 : 120,
+          height: widget.compact ? 76 : 80,
           child: WebViewWidget(controller: _controller),
         ),
         if (_isLoading)

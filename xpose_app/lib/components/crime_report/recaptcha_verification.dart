@@ -16,7 +16,6 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
   final CrimeReportService _crimeReportService = CrimeReportService();
   final String _siteKey = dotenv.env['RECAPTCHA_SITE_KEY'] ?? '';
   bool _isVerified = false;
-  bool _showVerificationDialog = false;
 
   void _handleToken(String token) async {
     if (token.isEmpty || token.startsWith('error') || token == 'expired') {
@@ -44,7 +43,6 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
       widget.onVerified(isValid);
       setState(() {
         _isVerified = isValid;
-        _showVerificationDialog = false;
       });
       if (isValid) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -71,7 +69,6 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
       widget.onVerified(false);
       setState(() {
         _isVerified = false;
-        _showVerificationDialog = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -113,7 +110,6 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
                 const SizedBox(height: 12),
                 if (!_isVerified)
                   Container(
-                    height: 80,
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey),
                       borderRadius: BorderRadius.circular(4),
@@ -121,7 +117,6 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
                     child: RecaptchaWebView(
                       siteKey: _siteKey,
                       onVerified: _handleToken,
-                      compact: true,
                     ),
                   ),
                 if (_isVerified)
@@ -132,10 +127,10 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(color: Colors.green),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
                         Icon(Icons.verified, color: Colors.green),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Text(
                           'Verified',
                           style: TextStyle(
