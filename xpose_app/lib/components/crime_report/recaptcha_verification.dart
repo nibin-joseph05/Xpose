@@ -29,6 +29,8 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
       _isLoading = true;
     });
 
+    print('Flutter received reCAPTCHA token: $token');
+
     if (token.isEmpty || token.startsWith('error') || token == 'expired') {
       widget.onVerified(false);
       setState(() => _isVerified = false);

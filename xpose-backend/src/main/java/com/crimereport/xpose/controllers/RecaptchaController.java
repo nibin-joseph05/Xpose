@@ -21,6 +21,9 @@ public class RecaptchaController {
     @PostMapping("/verify")
     public ResponseEntity<?> verifyToken(@RequestBody Map<String, String> payload) {
         String token = payload.get("token");
+        System.out.println("Spring Boot received token from Flutter: '" + token + "'");
+        System.out.println("Token length: " + (token != null ? token.length() : "null"));
+
         boolean isValid = recaptchaService.verifyToken(token);
 
         if (isValid) {

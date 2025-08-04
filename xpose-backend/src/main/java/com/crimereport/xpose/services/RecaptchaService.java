@@ -21,6 +21,10 @@ public class RecaptchaService {
     private static final String VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 
     public boolean verifyToken(String token) {
+        System.out.println("DEBUG: Recaptcha Secret Key loaded by Spring: '" + recaptchaSecret + "'");
+        System.out.println("DEBUG: Recaptcha Secret Key length: " + (recaptchaSecret != null ? recaptchaSecret.length() : "null"));
+
+
         RestTemplate restTemplate = new RestTemplate();
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
