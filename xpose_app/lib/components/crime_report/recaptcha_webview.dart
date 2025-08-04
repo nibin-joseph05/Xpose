@@ -21,6 +21,7 @@ class RecaptchaWebView extends StatefulWidget {
 class _RecaptchaWebViewState extends State<RecaptchaWebView> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -32,6 +33,12 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       ..setBackgroundColor(Colors.transparent)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onPageStarted: (url) {
+            setState(() {
+              _isLoading = true;
+              _hasError = false;
+            });
+          },
           onPageFinished: (url) {
             setState(() => _isLoading = false);
             _injectRecaptchaScript();
@@ -45,6 +52,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
           },
           onWebResourceError: (error) {
             debugPrint('WebView error: ${error.description}');
+            setState(() => _hasError = true);
             widget.onVerified('error: ${error.description}');
           },
         ),
@@ -87,7 +95,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+        <script src="https://www.google.com/recaptcha/api.js?hl=en" async defer></script>
         <style>
           body, html {
             margin: 0;
@@ -98,13 +106,17 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             display: flex;
             justify-content: center;
             align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           }
           #recaptcha-container {
-            width: 100%;
-            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
+            width: 100%;
+            height: 100%;
+          }
+          .grecaptcha-badge {
+            visibility: hidden;
           }
         </style>
       </head>
@@ -115,22 +127,58 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
     ''';
   }
 
+  void _reloadRecaptcha() {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+    _controller.reload();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        SizedBox(
-          width: widget.compact ? 300 : double.infinity,
-          height: widget.compact ? 76 : 80,
-          child: WebViewWidget(controller: _controller),
-        ),
-        if (_isLoading)
-          Center(
-            child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: widget.compact ? 164 : 304,
+            height: widget.compact ? 144 : 78,
+            child: Stack(
+              children: [
+                WebViewWidget(controller: _controller),
+                if (_isLoading)
+                  Center(
+                    child: CircularProgressIndicator(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+              ],
             ),
           ),
-      ],
+          if (_hasError)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.red, size: 18),
+                  const SizedBox(width: 8),
+                  const Text('Failed to load reCAPTCHA'),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _reloadRecaptcha,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

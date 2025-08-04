@@ -16,34 +16,42 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
   final CrimeReportService _crimeReportService = CrimeReportService();
   final String _siteKey = dotenv.env['RECAPTCHA_SITE_KEY'] ?? '';
   bool _isVerified = false;
+  bool _isLoading = false;
 
   void _handleToken(String token) async {
     if (token.isEmpty || token.startsWith('error') || token == 'expired') {
       widget.onVerified(false);
       setState(() => _isVerified = false);
-      String errorMessage = token.startsWith('error')
-          ? token.replaceFirst('error: ', '')
-          : token == 'expired'
-          ? 'reCAPTCHA session expired. Please try again.'
-          : 'reCAPTCHA verification failed.';
+
+      String errorMessage = 'Verification failed. Please try again.';
+      if (token.startsWith('error: network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (token == 'expired') {
+        errorMessage = 'Session expired. Please verify again.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
     }
+
+    setState(() => _isLoading = true);
 
     try {
       final isValid = await _crimeReportService.verifyRecaptcha(token);
       widget.onVerified(isValid);
       setState(() {
         _isVerified = isValid;
+        _isLoading = false;
       });
+
       if (isValid) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -51,17 +59,17 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 2),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('reCAPTCHA verification failed. Invalid token.'),
-            backgroundColor: Colors.red,
+            content: const Text('Verification failed. Please try again.'),
+            backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -69,10 +77,11 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
       widget.onVerified(false);
       setState(() {
         _isVerified = false;
+        _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification error: $e'),
+          content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -87,6 +96,14 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          'Security Verification',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
         if (_siteKey.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(16),
@@ -100,54 +117,79 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Verify you are human',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const Text(
+                  'Please verify you are not a robot',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-                const SizedBox(height: 12),
-                if (!_isVerified)
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: RecaptchaWebView(
-                      siteKey: _siteKey,
-                      onVerified: _handleToken,
+                const SizedBox(height: 16),
+
+                if (!_isVerified && !_isLoading)
+                  RecaptchaWebView(
+                    siteKey: _siteKey,
+                    onVerified: _handleToken,
+                  ),
+
+                if (_isLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: CircularProgressIndicator(),
                     ),
                   ),
+
                 if (_isVerified)
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.green),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.verified, color: Colors.green),
-                        SizedBox(width: 8),
-                        Text(
-                          'Verified',
+                        Icon(Icons.verified_user, color: Colors.green.shade300),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Identity Verified',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.green,
                             fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                const SizedBox(height: 16),
+                const Text(
+                  'This helps us prevent spam and abuse. '
+                      'Your information is protected by reCAPTCHA and Google\'s '
+                      'Privacy Policy and Terms of Service apply.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
               ],
             ),
           ),
+
         if (_siteKey.isEmpty)
-          const Text(
-            'reCAPTCHA configuration error',
-            style: TextStyle(color: Colors.red, fontSize: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 12),
+                Text(
+                  'reCAPTCHA configuration error',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
           ),
       ],
     );
