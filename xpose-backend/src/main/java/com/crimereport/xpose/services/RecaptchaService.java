@@ -10,6 +10,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class RecaptchaService {
@@ -31,7 +32,24 @@ public class RecaptchaService {
 
         if (response.getStatusCode() == HttpStatus.OK) {
             Map<String, Object> body = response.getBody();
+            System.out.println("reCAPTCHA verification successful response: " + body);
             return (Boolean) body.get("success");
+        } else {
+            Map<String, Object> errorBody = response.getBody();
+            System.err.println("reCAPTCHA verification failed with status: " + response.getStatusCode());
+            System.err.println("reCAPTCHA error body: " + errorBody);
+
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(errorBody);
+                System.err.println("Pretty-printed reCAPTCHA error body:\n" + json);
+            } catch (Exception e) {
+                System.err.println("Could not pretty print error body: " + e.getMessage());
+            }
+
+            if (errorBody != null && errorBody.containsKey("error-codes")) {
+                System.err.println("reCAPTCHA specific error codes: " + errorBody.get("error-codes"));
+            }
         }
 
         return false;
