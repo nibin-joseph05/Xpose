@@ -44,6 +44,11 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             _injectRecaptchaScript();
           },
           onNavigationRequest: (request) {
+            if (request.url.startsWith('https://www.google.com/recaptcha/') ||
+                request.url.startsWith('https://www.gstatic.com/recaptcha/') ||
+                request.url.startsWith('data:')) {
+              return NavigationDecision.navigate;
+            }
             if (request.url.startsWith('http://localhost') ||
                 request.url.startsWith('about:blank')) {
               return NavigationDecision.prevent;
@@ -94,7 +99,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       <!DOCTYPE html>
       <html>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
         <script src="https://www.google.com/recaptcha/api.js?hl=en" async defer></script>
         <style>
           body, html {
@@ -107,16 +112,28 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             justify-content: center;
             align-items: center;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
           }
           #recaptcha-container {
+            flex-shrink: 0;
+            min-width: 304px;
+            min-height: 78px;
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 100%;
-            height: 100%;
+            overflow: hidden;
+            max-width: 100%;
+            max-height: 100%;
           }
           .grecaptcha-badge {
-            visibility: hidden;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            display: none !important;
+          }
+          .grecaptcha-bubble-border, .grecaptcha-bubble-content {
+            box-sizing: border-box;
+            max-width: 100%;
+            height: auto;
           }
         </style>
       </head>
@@ -137,48 +154,48 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: widget.compact ? 164 : 304,
-            height: widget.compact ? 144 : 78,
-            child: Stack(
-              children: [
-                WebViewWidget(controller: _controller),
-                if (_isLoading)
-                  Center(
-                    child: CircularProgressIndicator(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-              ],
+    return Stack(
+      children: [
+        WebViewWidget(controller: _controller),
+        if (_isLoading)
+          Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          if (_hasError)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
+        if (_hasError)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error, color: Colors.red, size: 18),
-                  const SizedBox(width: 8),
-                  const Text('Failed to load reCAPTCHA'),
-                  const Spacer(),
-                  TextButton(
+                  const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Failed to load reCAPTCHA.',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const Text(
+                    'Check internet or retry.',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
                     onPressed: _reloadRecaptcha,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    ),
                     child: const Text('Retry'),
                   ),
                 ],
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
