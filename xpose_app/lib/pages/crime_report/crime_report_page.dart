@@ -78,7 +78,9 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
       });
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-      );
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception('Location fetch timed out');
+      });
       final data = await _crimeReportService.fetchNearestPoliceStations(position);
       setState(() {
         _placeController.text = data['address']!;
@@ -354,7 +356,7 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.secondary,
+                            backgroundColor: Colors.blueGrey[700],
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 12),

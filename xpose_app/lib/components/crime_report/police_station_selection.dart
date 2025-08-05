@@ -128,7 +128,9 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
       });
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-      );
+      ).timeout(const Duration(seconds: 10), onTimeout: () {
+        throw Exception('Location fetch timed out');
+      });
       final data = await _crimeReportService.fetchNearestPoliceStations(position);
       setState(() {
         widget.placeController.text = data['address']!;
@@ -180,7 +182,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
               ),
             ),
             Container(
-              constraints: const BoxConstraints(maxHeight: 300),
+              constraints: const BoxConstraints(maxHeight: 300, maxWidth: 300),
               child: SingleChildScrollView(
                 child: Column(
                   children: _policeStations
@@ -188,6 +190,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                     title: Text(
                       station,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () {
                       widget.onPoliceStationChanged(station == 'Select Police Station' ? null : station);
@@ -316,7 +319,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                             ),
                           ),
                           Container(
-                            constraints: const BoxConstraints(maxHeight: 300),
+                            constraints: const BoxConstraints(maxHeight: 300, maxWidth: 300),
                             child: SingleChildScrollView(
                               child: Column(
                                 children: _states
@@ -324,6 +327,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                                   title: Text(
                                     state,
                                     style: const TextStyle(color: Colors.white, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   onTap: () {
                                     widget.onStateChanged(state == 'Select State' ? null : state);
@@ -405,7 +409,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                             ),
                           ),
                           Container(
-                            constraints: const BoxConstraints(maxHeight: 300),
+                            constraints: const BoxConstraints(maxHeight: 300, maxWidth: 300),
                             child: SingleChildScrollView(
                               child: Column(
                                 children: _districts
@@ -413,6 +417,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                                   title: Text(
                                     district,
                                     style: const TextStyle(color: Colors.white, fontSize: 14),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   onTap: () {
                                     widget.onDistrictChanged(district == 'Select District' ? null : district);
@@ -454,11 +459,14 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    widget.selectedPoliceStation ?? 'Select Police Station',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(widget.selectedPoliceStation == null || widget.selectedPoliceStation == 'Select Police Station' ? 0.6 : 1.0),
-                      fontSize: 14,
+                  Flexible(
+                    child: Text(
+                      widget.selectedPoliceStation ?? 'Select Police Station',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(widget.selectedPoliceStation == null || widget.selectedPoliceStation == 'Select Police Station' ? 0.6 : 1.0),
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Icon(
