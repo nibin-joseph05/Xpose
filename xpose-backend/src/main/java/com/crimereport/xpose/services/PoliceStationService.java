@@ -66,5 +66,37 @@ public class PoliceStationService {
     private double[] getLatLngForDistrict(String state, String district) {
         return districtCoordinates.get((state.trim().toLowerCase()) + "-" + (district.trim().toLowerCase()));
     }
+
+    public List<String> getAllStates() {
+        Set<String> states = new HashSet<>();
+        for (String key : districtCoordinates.keySet()) {
+            String state = key.split("-")[0];
+            states.add(capitalizeWords(state));
+        }
+        return states.stream().sorted().toList();
+    }
+
+    private String capitalizeWords(String input) {
+        return Arrays.stream(input.split(" "))
+                .map(word -> word.substring(0, 1).toUpperCase() + word.substring(1))
+                .reduce((a, b) -> a + " " + b)
+                .orElse(input);
+    }
+
+    public List<String> getDistrictsByState(String state) {
+        String normalizedState = state.trim().toLowerCase();
+        Set<String> districts = new HashSet<>();
+
+        for (String key : districtCoordinates.keySet()) {
+            if (key.startsWith(normalizedState + "-")) {
+                String district = key.split("-")[1];
+                districts.add(capitalizeWords(district));
+            }
+        }
+
+        return districts.stream().sorted().toList();
+    }
+
+
 }
 

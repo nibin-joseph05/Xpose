@@ -11,7 +11,7 @@ class CrimeReportService {
       final response = await http.get(Uri.parse('$_baseUrl/api/police-stations/states'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((e) => e['name'].toString()).toList();
+        return data.map((e) => e.toString()).toList();
       } else {
         throw Exception('Failed to load states');
       }
@@ -24,11 +24,11 @@ class CrimeReportService {
     if (state == 'Select State') return [];
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/police-stations/by-district?state=$state&district=&radius=10000'),
+        Uri.parse('$_baseUrl/api/police-stations/districts?state=$state'),
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((e) => e['district'].toString()).toList();
+        return data.map((e) => e.toString()).toList();
       } else {
         throw Exception('Failed to load districts');
       }
@@ -37,15 +37,16 @@ class CrimeReportService {
     }
   }
 
-  Future<List<String>> fetchPoliceStations(String district) async {
-    if (district == 'Select District') return [];
+  Future<List<String>> fetchPoliceStations(String state, String district) async {
+    if (state == 'Select State' || district == 'Select District') return [];
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/police-stations/by-district?state=&district=$district&radius=10000'),
+        Uri.parse('$_baseUrl/api/police-stations/by-district?state=$state&district=$district&radius=10000'),
       );
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((e) => e['name'].toString()).toList();
+        final Map<String, dynamic> data = json.decode(response.body);
+        final results = data['results'] ?? [];
+        return List<String>.from(results.map((e) => e['name'].toString()));
       } else {
         throw Exception('Failed to load police stations');
       }
@@ -60,13 +61,14 @@ class CrimeReportService {
         Uri.parse('$_baseUrl/api/police-stations?lat=${position.latitude}&lng=${position.longitude}&radius=3000'),
       );
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          final station = data.first;
+        final Map<String, dynamic> data = json.decode(response.body);
+        final results = data['results'] ?? [];
+        if (results.isNotEmpty) {
+          final station = results[0];
           return {
-            'address': station['address'] ?? 'Lat: ${position.latitude}, Long: ${position.longitude}',
-            'state': station['state'] ?? 'Select State',
-            'district': station['district'] ?? 'Select District',
+            'address': station['vicinity'] ?? 'Lat: ${position.latitude}, Long: ${position.longitude}',
+            'state': 'Unknown',
+            'district': 'Unknown',
             'police_station': station['name'] ?? 'Nearest Station',
           };
         } else {

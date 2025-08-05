@@ -33,4 +33,16 @@ public class PoliceStationController {
         );
     }
 
+    @GetMapping("/states")
+    public ResponseEntity<?> getStates() {
+        return ResponseEntity.ok(policeStationService.getAllStates());
+    }
+
+    @GetMapping("/districts")
+    public ResponseEntity<?> getDistricts(@RequestParam String state) {
+        return ResponseEntity.ok(policeStationService.getDistrictsByState(state));
+    }
+
+
+
 }

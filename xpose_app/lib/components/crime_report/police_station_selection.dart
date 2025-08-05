@@ -43,43 +43,80 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
 
   Future<void> _loadStates() async {
     try {
+      setState(() {
+        _isLoading = true;
+      });
       final states = await _crimeReportService.fetchStates();
       setState(() {
         _states = ['Select State', ...states];
+        _isLoading = false;
       });
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text('Error loading states: $e')),
       );
     }
   }
 
   Future<void> _loadDistricts(String state) async {
+    if (state == 'Select State') {
+      setState(() {
+        _districts = ['Select District'];
+        _policeStations = ['Select Police Station'];
+        widget.onDistrictChanged(null);
+        widget.onPoliceStationChanged(null);
+      });
+      return;
+    }
     try {
+      setState(() {
+        _isLoading = true;
+      });
       final districts = await _crimeReportService.fetchDistricts(state);
       setState(() {
         _districts = ['Select District', ...districts];
-        widget.onDistrictChanged(null);
         _policeStations = ['Select Police Station'];
+        widget.onDistrictChanged(null);
         widget.onPoliceStationChanged(null);
+        _isLoading = false;
       });
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text('Error loading districts: $e')),
       );
     }
   }
 
-  Future<void> _loadPoliceStations(String district) async {
+  Future<void> _loadPoliceStations(String state, String district) async {
+    if (state == 'Select State' || district == 'Select District') {
+      setState(() {
+        _policeStations = ['Select Police Station'];
+        widget.onPoliceStationChanged(null);
+      });
+      return;
+    }
     try {
-      final stations = await _crimeReportService.fetchPoliceStations(district);
+      setState(() {
+        _isLoading = true;
+      });
+      final stations = await _crimeReportService.fetchPoliceStations(state, district);
       setState(() {
         _policeStations = ['Select Police Station', ...stations];
         widget.onPoliceStationChanged(null);
+        _isLoading = false;
       });
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text('Error loading police stations: $e')),
       );
     }
   }
@@ -105,7 +142,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
         _isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text('Error fetching location: $e')),
       );
     }
   }
@@ -137,12 +174,17 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
             contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             suffixIcon: widget.useCurrentLocation
                 ? IconButton(
-              icon: Icon(
+              icon: _isLoading
+                  ? CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+                strokeWidth: 2,
+              )
+                  : Icon(
                 Icons.location_on,
                 color: Theme.of(context).colorScheme.primary,
                 size: 28,
               ),
-              onPressed: _fetchCurrentLocation,
+              onPressed: _isLoading ? null : _fetchCurrentLocation,
             )
                 : null,
           ),
@@ -222,7 +264,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                 ? null
                 : (value) {
               widget.onDistrictChanged(value);
-              _loadPoliceStations(value!);
+              _loadPoliceStations(widget.selectedState!, value!);
             },
             style: const TextStyle(color: Colors.white),
             dropdownColor: Theme.of(context).colorScheme.surface,
@@ -300,6 +342,14 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
             },
           ),
         ),
+        if (_isLoading) ...[
+          const SizedBox(height: 16),
+          Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
       ],
     );
   }
