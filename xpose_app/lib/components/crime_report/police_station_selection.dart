@@ -296,7 +296,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
         ),
         const SizedBox(height: 24),
         AnimatedOpacity(
-          opacity: widget.useCurrentLocation ? 0.5 : 1.0,
+          opacity: widget.useCurrentLocation || widget.selectedState == 'Select State' || widget.selectedDistrict == 'Select District' ? 0.5 : 1.0,
           duration: const Duration(milliseconds: 300),
           child: DropdownButtonFormField<String>(
             value: widget.selectedPoliceStation,
@@ -309,7 +309,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
               ),
             ))
                 .toList(),
-            onChanged: widget.useCurrentLocation || widget.selectedDistrict == 'Select District'
+            onChanged: widget.useCurrentLocation || widget.selectedState == 'Select State' || widget.selectedDistrict == 'Select District'
                 ? null
                 : (value) {
               widget.onPoliceStationChanged(value);
