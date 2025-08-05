@@ -135,7 +135,6 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
         final double webViewHeight = screenHeight * 0.65;
         final double effectiveWebViewHeight = webViewHeight > 450 ? webViewHeight : 450;
 
-
         return AlertDialog(
           backgroundColor: Theme.of(context).colorScheme.surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -211,13 +210,15 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Card(
           elevation: 6,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+              color: _isVerified
+                  ? Colors.green.withOpacity(0.7)
+                  : Theme.of(context).colorScheme.primary.withOpacity(0.6),
               width: 1.5,
             ),
           ),
@@ -227,57 +228,94 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
             borderRadius: BorderRadius.circular(16),
             splashColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
             highlightColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 24.0),
-              child: Row(
-                children: [
-                  _isLoading
-                      ? SizedBox(
-                    width: 32,
-                    height: 32,
-                    child: CircularProgressIndicator(
-                      color: Theme.of(context).colorScheme.secondary,
-                      strokeWidth: 3,
-                    ),
-                  )
-                      : Icon(
-                    _isVerified ? Icons.check_circle_rounded : Icons.check_box_outline_blank,
-                    color: _isVerified ? Colors.lightGreenAccent.shade400 : Colors.blueGrey.shade200,
-                    size: 32,
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Text(
-                      _isLoading
-                          ? 'Verifying...'
-                          : _isVerified
-                          ? 'Identity Verified Successfully!'
-                          : 'I\'m not a robot',
-                      style: TextStyle(
-                        color: _isVerified ? Colors.green.shade300 : Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: _isVerified
+                      ? [
+                    Colors.green.withOpacity(0.15),
+                    Colors.green.withOpacity(0.05),
+                  ]
+                      : [
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
+                child: Row(
+                  children: [
+                    _isLoading
+                        ? SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        color: Theme.of(context).colorScheme.primary,
+                        strokeWidth: 3,
+                      ),
+                    )
+                        : AnimatedScale(
+                      scale: _isVerified ? 1.05 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        _isVerified
+                            ? Icons.check_circle_rounded
+                            : Icons.verified_user_rounded,
+                        color: _isVerified
+                            ? Colors.green.shade400
+                            : Theme.of(context).colorScheme.primary,
+                        size: 28,
                       ),
                     ),
-                  ),
-                  if (!_isVerified && !_isLoading)
-                    Icon(Icons.arrow_forward_ios, size: 20, color: Colors.white60),
-                ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        _isLoading
+                            ? 'Verifying...'
+                            : _isVerified
+                            ? 'Verified!'
+                            : 'I\'m Not a Robot',
+                        style: TextStyle(
+                          color: _isVerified
+                              ? Colors.green.shade300
+                              : Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    if (!_isVerified && !_isLoading)
+                      AnimatedOpacity(
+                        opacity: _isLoading ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.arrow_forward_ios,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         const Text(
           'This helps us prevent spam and abuse. '
               'Your information is protected by reCAPTCHA and Google\'s '
               'Privacy Policy and Terms of Service apply.',
-          style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+          style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
         ),
         if (_siteKey.isEmpty)
           Container(
-            margin: const EdgeInsets.only(top: 20),
-            padding: const EdgeInsets.all(18),
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.red.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
@@ -286,13 +324,16 @@ class _RecaptchaVerificationState extends State<RecaptchaVerification> {
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
-                SizedBox(width: 15),
+                Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'SECURITY ALERT: reCAPTCHA site key missing! '
                         'Please ensure RECAPTCHA_SITE_KEY is set in your .env file.',
-                    style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
