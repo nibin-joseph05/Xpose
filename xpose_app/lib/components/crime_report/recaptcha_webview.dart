@@ -41,11 +41,14 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
           },
           onPageFinished: (url) {
             setState(() => _isLoading = false);
-            _injectRecaptchaScript();
+            Future.delayed(const Duration(milliseconds: 500), () {
+              _injectRecaptchaScript();
+            });
           },
           onNavigationRequest: (request) {
             if (request.url.startsWith('https://www.google.com/recaptcha/') ||
                 request.url.startsWith('https://www.gstatic.com/recaptcha/') ||
+                request.url.startsWith('https://recaptcha.net/') ||
                 request.url.startsWith('data:')) {
               return NavigationDecision.navigate;
             }
@@ -65,7 +68,10 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       ..addJavaScriptChannel(
         'RecaptchaVerification',
         onMessageReceived: (message) {
-          widget.onVerified(message.message);
+          final token = message.message.trim();
+          // print('Flutter WebView received token: ${token.substring(0, 50)}...');
+          // print('Token length: ${token.length}');
+          widget.onVerified(token);
         },
       )
       ..loadHtmlString(
@@ -76,21 +82,40 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
 
   void _injectRecaptchaScript() {
     _controller.runJavaScript('''
-      try {
-        if (typeof grecaptcha !== 'undefined') {
-          grecaptcha.render('recaptcha-container', {
-            'sitekey': '${widget.siteKey}',
-            'size': '${widget.compact ? 'compact' : 'normal'}',
-            'callback': (token) => RecaptchaVerification.postMessage(token),
-            'expired-callback': () => RecaptchaVerification.postMessage('expired'),
-            'error-callback': () => RecaptchaVerification.postMessage('error')
-          });
+      console.log('Injecting reCAPTCHA script...');
+      
+      function waitForRecaptcha() {
+        if (typeof grecaptcha !== 'undefined' && grecaptcha.render) {
+          console.log('reCAPTCHA is ready, rendering...');
+          try {
+            grecaptcha.render('recaptcha-container', {
+              'sitekey': '${widget.siteKey}',
+              'size': '${widget.compact ? 'compact' : 'normal'}',
+              'theme': 'light',
+              'callback': function(token) {
+                console.log('reCAPTCHA success, token length:', token.length);
+                RecaptchaVerification.postMessage(token);
+              },
+              'expired-callback': function() {
+                console.log('reCAPTCHA expired');
+                RecaptchaVerification.postMessage('expired');
+              },
+              'error-callback': function(error) {
+                console.log('reCAPTCHA error:', error);
+                RecaptchaVerification.postMessage('error: ' + error);
+              }
+            });
+          } catch (e) {
+            console.error('Error rendering reCAPTCHA:', e);
+            RecaptchaVerification.postMessage('error: ' + e.toString());
+          }
         } else {
-          RecaptchaVerification.postMessage('error: reCAPTCHA not loaded');
+          console.log('reCAPTCHA not ready yet, retrying...');
+          setTimeout(waitForRecaptcha, 100);
         }
-      } catch (e) {
-        RecaptchaVerification.postMessage('error: ' + e.toString());
       }
+      
+      waitForRecaptcha();
     ''');
   }
 
@@ -100,7 +125,8 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
       <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-        <script src="https://www.google.com/recaptcha/api.js?hl=en" async defer></script>
+        <meta charset="UTF-8">
+        <script src="https://www.google.com/recaptcha/api.js?render=explicit&hl=en" async defer></script>
         <style>
           body, html {
             margin: 0;
@@ -121,7 +147,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
+            overflow: visible;
             max-width: 100%;
             max-height: 100%;
           }
@@ -135,10 +161,27 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
             max-width: 100%;
             height: auto;
           }
+          
+          /* Ensure reCAPTCHA iframe is properly sized */
+          iframe[src*="recaptcha"] {
+            max-width: 100% !important;
+            max-height: 100% !important;
+          }
         </style>
       </head>
       <body>
         <div id="recaptcha-container"></div>
+        <script>
+          console.log('HTML loaded, waiting for reCAPTCHA API...');
+          
+          window.onerror = function(msg, url, lineNo, columnNo, error) {
+            console.error('Script error:', msg, 'at', url, lineNo, columnNo);
+            if (typeof RecaptchaVerification !== 'undefined') {
+              RecaptchaVerification.postMessage('error: Script loading failed');
+            }
+            return false;
+          };
+        </script>
       </body>
       </html>
     ''';
@@ -159,8 +202,18 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
         WebViewWidget(controller: _controller),
         if (_isLoading)
           Center(
-            child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Loading reCAPTCHA...',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ],
             ),
           ),
         if (_hasError)
@@ -178,7 +231,7 @@ class _RecaptchaWebViewState extends State<RecaptchaWebView> {
                     textAlign: TextAlign.center,
                   ),
                   const Text(
-                    'Check internet or retry.',
+                    'Check internet connection or try again.',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                     textAlign: TextAlign.center,
                   ),
