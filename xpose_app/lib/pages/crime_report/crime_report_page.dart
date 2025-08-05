@@ -90,6 +90,7 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
     } catch (e) {
       setState(() {
         _isLoading = false;
+        _useCurrentLocation = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -97,6 +98,16 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
         );
       }
     }
+  }
+
+  void _resetToManual() {
+    setState(() {
+      _useCurrentLocation = false;
+      _placeController.clear();
+      _selectedState = null;
+      _selectedDistrict = null;
+      _selectedPoliceStation = null;
+    });
   }
 
   Future<void> _pickFiles() async {
@@ -290,35 +301,70 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              AnimatedScale(
-                scale: _isLoading ? 0.95 : 1.0,
-                duration: const Duration(milliseconds: 200),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _detectCurrentLocation,
-                    icon: Icon(
-                      Icons.my_location,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    label: const Text(
-                      'Detect My Location',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  Expanded(
+                    child: AnimatedScale(
+                      scale: _isLoading ? 0.95 : 1.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: ElevatedButton.icon(
+                        onPressed: _isLoading ? null : _detectCurrentLocation,
+                        icon: Icon(
+                          Icons.my_location,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        label: const Text(
+                          'Detect My Location',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          elevation: 3,
+                        ),
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      elevation: 3,
-                    ),
                   ),
-                ),
+                  if (_useCurrentLocation) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AnimatedScale(
+                        scale: _isLoading ? 0.95 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _resetToManual,
+                          icon: Icon(
+                            Icons.edit_location_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          label: const Text(
+                            'Manual Location',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.secondary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 3,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 20),
               Text(

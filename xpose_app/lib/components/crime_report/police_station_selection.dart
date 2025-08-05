@@ -248,7 +248,6 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
             ),
             contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           ),
-          readOnly: widget.useCurrentLocation,
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter the place of occurrence';
@@ -436,7 +435,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
         ),
         const SizedBox(height: 16),
         AnimatedOpacity(
-          opacity: 1.0,
+          opacity: _policeStations.length > 1 ? 1.0 : 0.5,
           duration: const Duration(milliseconds: 300),
           child: GestureDetector(
             onTap: _policeStations.length > 1 ? _showPoliceStationDialog : null,
