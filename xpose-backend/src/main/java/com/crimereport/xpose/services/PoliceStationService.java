@@ -18,6 +18,7 @@ public class PoliceStationService {
     private String placesApiKey;
 
     private final String PLACES_BASE_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+    private final String GEOCODING_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
     private Map<String, double[]> districtCoordinates = new HashMap<>();
 
     @PostConstruct
@@ -50,7 +51,12 @@ public class PoliceStationService {
                 .toUriString();
 
         RestTemplate restTemplate = new RestTemplate();
-        return restTemplate.getForObject(uri, Map.class);
+        Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+
+        Map<String, String> locationDetails = findStateAndDistrict(lat, lng);
+        response.put("state", locationDetails.get("state"));
+        response.put("district", locationDetails.get("district"));
+        return response;
     }
 
     public Map<String, Object> getStationsByDistrict(String state, String district, int radius) {
@@ -60,11 +66,50 @@ public class PoliceStationService {
             throw new IllegalArgumentException("Coordinates not found for given district.");
         }
 
-        return getNearbyPoliceStations(coords[0], coords[1], radius);
+        Map<String, Object> response = getNearbyPoliceStations(coords[0], coords[1], radius);
+        response.put("state", capitalizeWords(state));
+        response.put("district", capitalizeWords(district));
+        return response;
     }
 
     private double[] getLatLngForDistrict(String state, String district) {
         return districtCoordinates.get((state.trim().toLowerCase()) + "-" + (district.trim().toLowerCase()));
+    }
+
+    public Map<String, String> findStateAndDistrict(double lat, double lng) {
+        double minDistance = Double.MAX_VALUE;
+        String closestState = "Unknown";
+        String closestDistrict = "Unknown";
+
+        for (Map.Entry<String, double[]> entry : districtCoordinates.entrySet()) {
+            String[] parts = entry.getKey().split("-");
+            String state = parts[0];
+            String district = parts[1];
+            double[] coords = entry.getValue();
+            double distance = calculateDistance(lat, lng, coords[0], coords[1]);
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestState = capitalizeWords(state);
+                closestDistrict = capitalizeWords(district);
+            }
+        }
+
+        return Map.of("state", closestState, "district", closestDistrict);
+    }
+
+    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+        double earthRadius = 6371e3;
+        double lat1Rad = Math.toRadians(lat1);
+        double lat2Rad = Math.toRadians(lat2);
+        double deltaLat = Math.toRadians(lat2 - lat1);
+        double deltaLng = Math.toRadians(lng2 - lng1);
+
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+                        Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadius * c;
     }
 
     public List<String> getAllStates() {
@@ -96,7 +141,4 @@ public class PoliceStationService {
 
         return districts.stream().sorted().toList();
     }
-
-
 }
-

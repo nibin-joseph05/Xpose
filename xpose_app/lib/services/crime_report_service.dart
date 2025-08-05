@@ -2,6 +2,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:file_picker/file_picker.dart';
 
 class CrimeReportService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.220.2:8080';
@@ -55,7 +56,7 @@ class CrimeReportService {
     }
   }
 
-  Future<Map<String, String>> fetchNearestPoliceStation(Position position) async {
+  Future<Map<String, dynamic>> fetchNearestPoliceStations(Position position) async {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/api/police-stations?lat=${position.latitude}&lng=${position.longitude}&radius=3000'),
@@ -64,18 +65,17 @@ class CrimeReportService {
         final Map<String, dynamic> data = json.decode(response.body);
         final results = data['results'] ?? [];
         if (results.isNotEmpty) {
-          final station = results[0];
           return {
-            'address': station['vicinity'] ?? 'Lat: ${position.latitude}, Long: ${position.longitude}',
-            'state': 'Unknown',
-            'district': 'Unknown',
-            'police_station': station['name'] ?? 'Nearest Station',
+            'address': results[0]['vicinity'] ?? 'Lat: ${position.latitude}, Long: ${position.longitude}',
+            'state': data['state'] ?? 'Unknown',
+            'district': data['district'] ?? 'Unknown',
+            'police_stations': List<String>.from(results.map((e) => e['name'].toString())),
           };
         } else {
           throw Exception('No nearby police stations found');
         }
       } else {
-        throw Exception('Failed to fetch police station');
+        throw Exception('Failed to fetch police stations: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Failed to fetch location: $e');
@@ -98,6 +98,42 @@ class CrimeReportService {
     } catch (e) {
       print('Recaptcha verification error: $e');
       return false;
+    }
+  }
+
+  Future<void> submitReport({
+    required int categoryId,
+    required String categoryName,
+    required String crimeType,
+    required String description,
+    required String place,
+    required String? state,
+    required String? district,
+    required String policeStation,
+    required List<PlatformFile> files,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/crime-reports/submit'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'categoryId': categoryId,
+          'categoryName': categoryName,
+          'crimeType': crimeType,
+          'description': description,
+          'place': place,
+          'state': state,
+          'district': district,
+          'policeStation': policeStation,
+          'files': files.map((file) => file.name).toList(),
+        }),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to send report: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error sending report: $e');
     }
   }
 }

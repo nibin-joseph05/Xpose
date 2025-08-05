@@ -129,12 +129,13 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      final data = await _crimeReportService.fetchNearestPoliceStation(position);
+      final data = await _crimeReportService.fetchNearestPoliceStations(position);
       setState(() {
         widget.placeController.text = data['address']!;
         widget.onStateChanged(data['state']);
         widget.onDistrictChanged(data['district']);
-        widget.onPoliceStationChanged(data['police_station']);
+        _policeStations = ['Select Police Station', ...data['police_stations']];
+        widget.onPoliceStationChanged(null);
         _isLoading = false;
       });
     } catch (e) {
@@ -149,7 +150,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
     }
   }
 
-  void _showDropdownDialog({required String title, required List<String> items, required Function(String?) onChanged, String? value}) {
+  void _showPoliceStationDialog() {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -164,7 +165,7 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    title,
+                    'Select Police Station',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -182,14 +183,14 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
               constraints: const BoxConstraints(maxHeight: 300),
               child: SingleChildScrollView(
                 child: Column(
-                  children: items
-                      .map((item) => ListTile(
+                  children: _policeStations
+                      .map((station) => ListTile(
                     title: Text(
-                      item,
+                      station,
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                     ),
                     onTap: () {
-                      onChanged(item);
+                      widget.onPoliceStationChanged(station == 'Select Police Station' ? null : station);
                       Navigator.of(context).pop();
                     },
                   ))
@@ -207,6 +208,9 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
   void initState() {
     super.initState();
     _loadStates();
+    if (widget.useCurrentLocation) {
+      _fetchCurrentLocation();
+    }
   }
 
   @override
@@ -243,21 +247,6 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
               ),
             ),
             contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            suffixIcon: widget.useCurrentLocation
-                ? IconButton(
-              icon: _isLoading
-                  ? CircularProgressIndicator(
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 2,
-              )
-                  : Icon(
-                Icons.my_location,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-              onPressed: _isLoading ? null : _fetchCurrentLocation,
-            )
-                : null,
           ),
           readOnly: widget.useCurrentLocation,
           validator: (value) {
@@ -273,49 +262,86 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
           duration: const Duration(milliseconds: 300),
           child: AbsorbPointer(
             absorbing: widget.useCurrentLocation,
-            child: GestureDetector(
-              onTap: () {
-                if (!widget.useCurrentLocation) {
-                  _showDropdownDialog(
-                    title: 'Select State',
-                    items: _states,
-                    onChanged: (value) {
-                      widget.onStateChanged(value);
-                      _loadDistricts(value!);
-                    },
-                    value: widget.selectedState,
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+            child: TextFormField(
+              readOnly: true,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: widget.selectedState ?? 'Select State',
+                hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(widget.selectedState == null || widget.selectedState == 'Select State' ? 0.6 : 1.0),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.1),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: widget.selectedState == null || widget.selectedState == 'Select State'
-                        ? Colors.transparent
-                        : Theme.of(context).colorScheme.primary,
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
                     width: 2,
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      widget.selectedState ?? 'Select State',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(widget.selectedState == null || widget.selectedState == 'Select State' ? 0.6 : 1.0),
-                        fontSize: 14,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              ),
+              controller: TextEditingController(text: widget.selectedState ?? 'Select State'),
+              onTap: () {
+                if (!widget.useCurrentLocation) {
+                  showDialog(
+                    context: context,
+                    builder: (context) => Dialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Select State',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                                  onPressed: () => Navigator.of(context).pop(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 300),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: _states
+                                    .map((state) => ListTile(
+                                  title: Text(
+                                    state,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                                  ),
+                                  onTap: () {
+                                    widget.onStateChanged(state == 'Select State' ? null : state);
+                                    _loadDistricts(state);
+                                    Navigator.of(context).pop();
+                                  },
+                                ))
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      color: Colors.white.withOpacity(0.6),
-                    ),
-                  ],
-                ),
-              ),
+                  );
+                }
+              },
             ),
           ),
         ),
@@ -325,99 +351,122 @@ class _PoliceStationSelectionState extends State<PoliceStationSelection> {
           duration: const Duration(milliseconds: 300),
           child: AbsorbPointer(
             absorbing: widget.useCurrentLocation || widget.selectedState == 'Select State',
-            child: GestureDetector(
-              onTap: () {
-                if (!widget.useCurrentLocation && widget.selectedState != 'Select State') {
-                  _showDropdownDialog(
-                    title: 'Select District',
-                    items: _districts,
-                    onChanged: (value) {
-                      widget.onDistrictChanged(value);
-                      _loadPoliceStations(widget.selectedState!, value!);
-                    },
-                    value: widget.selectedDistrict,
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+            child: TextFormField(
+              readOnly: true,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: widget.selectedDistrict ?? 'Select District',
+                hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(widget.selectedDistrict == null || widget.selectedDistrict == 'Select District' ? 0.6 : 1.0),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.1),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: widget.selectedDistrict == null || widget.selectedDistrict == 'Select District'
-                        ? Colors.transparent
-                        : Theme.of(context).colorScheme.primary,
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
                     width: 2,
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      widget.selectedDistrict ?? 'Select District',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(widget.selectedDistrict == null || widget.selectedDistrict == 'Select District' ? 0.6 : 1.0),
-                        fontSize: 14,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              ),
+              controller: TextEditingController(text: widget.selectedDistrict ?? 'Select District'),
+              onTap: () {
+                if (!widget.useCurrentLocation && widget.selectedState != 'Select State') {
+                  showDialog(
+                    context: context,
+                    builder: (context) => Dialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Select District',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                                  onPressed: () => Navigator.of(context).pop(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 300),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: _districts
+                                    .map((district) => ListTile(
+                                  title: Text(
+                                    district,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                                  ),
+                                  onTap: () {
+                                    widget.onDistrictChanged(district == 'Select District' ? null : district);
+                                    _loadPoliceStations(widget.selectedState!, district);
+                                    Navigator.of(context).pop();
+                                  },
+                                ))
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      color: Colors.white.withOpacity(0.6),
-                    ),
-                  ],
-                ),
-              ),
+                  );
+                }
+              },
             ),
           ),
         ),
         const SizedBox(height: 16),
         AnimatedOpacity(
-          opacity: widget.useCurrentLocation || widget.selectedState == 'Select State' || widget.selectedDistrict == 'Select District' ? 0.5 : 1.0,
+          opacity: 1.0,
           duration: const Duration(milliseconds: 300),
-          child: AbsorbPointer(
-            absorbing: widget.useCurrentLocation || widget.selectedState == 'Select State' || widget.selectedDistrict == 'Select District',
-            child: GestureDetector(
-              onTap: () {
-                if (!widget.useCurrentLocation && widget.selectedState != 'Select State' && widget.selectedDistrict != 'Select District') {
-                  _showDropdownDialog(
-                    title: 'Select Police Station',
-                    items: _policeStations,
-                    onChanged: (value) {
-                      widget.onPoliceStationChanged(value);
-                    },
-                    value: widget.selectedPoliceStation,
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: widget.selectedPoliceStation == null || widget.selectedPoliceStation == 'Select Police Station'
-                        ? Colors.transparent
-                        : Theme.of(context).colorScheme.primary,
-                    width: 2,
+          child: GestureDetector(
+            onTap: _policeStations.length > 1 ? _showPoliceStationDialog : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: widget.selectedPoliceStation == null || widget.selectedPoliceStation == 'Select Police Station'
+                      ? Colors.transparent
+                      : Theme.of(context).colorScheme.primary,
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    widget.selectedPoliceStation ?? 'Select Police Station',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(widget.selectedPoliceStation == null || widget.selectedPoliceStation == 'Select Police Station' ? 0.6 : 1.0),
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      widget.selectedPoliceStation ?? 'Select Police Station',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(widget.selectedPoliceStation == null || widget.selectedPoliceStation == 'Select Police Station' ? 0.6 : 1.0),
-                        fontSize: 14,
-                      ),
-                    ),
-                    Icon(
-                      Icons.arrow_drop_down,
-                      color: Colors.white.withOpacity(0.6),
-                    ),
-                  ],
-                ),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: Colors.white.withOpacity(0.6),
+                  ),
+                ],
               ),
             ),
           ),

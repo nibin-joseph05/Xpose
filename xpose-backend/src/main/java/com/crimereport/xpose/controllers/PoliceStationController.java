@@ -18,7 +18,6 @@ public class PoliceStationController {
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "3000") int radius) {
-
         return ResponseEntity.ok(policeStationService.getNearbyPoliceStations(lat, lng, radius));
     }
 
@@ -27,7 +26,6 @@ public class PoliceStationController {
             @RequestParam String state,
             @RequestParam String district,
             @RequestParam(defaultValue = "10000") int radius) {
-
         return ResponseEntity.ok(
                 policeStationService.getStationsByDistrict(state.trim(), district.trim(), radius)
         );
@@ -42,7 +40,4 @@ public class PoliceStationController {
     public ResponseEntity<?> getDistricts(@RequestParam String state) {
         return ResponseEntity.ok(policeStationService.getDistrictsByState(state));
     }
-
-
-
 }

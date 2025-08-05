@@ -5,8 +5,7 @@ import 'package:Xpose/components/crime_report/police_station_selection.dart';
 import 'package:Xpose/components/crime_report/recaptcha_verification.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:Xpose/services/crime_report_service.dart';
 
 class CrimeReportPage extends StatefulWidget {
   const CrimeReportPage({
@@ -35,6 +34,7 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
   bool _isLoading = false;
   bool _useCurrentLocation = false;
   bool _isRecaptchaVerified = false;
+  final CrimeReportService _crimeReportService = CrimeReportService();
 
   Future<void> _checkLocationPermission() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -68,10 +68,35 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
       }
       return;
     }
+  }
 
-    setState(() {
-      _useCurrentLocation = true;
-    });
+  Future<void> _detectCurrentLocation() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _useCurrentLocation = true;
+      });
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final data = await _crimeReportService.fetchNearestPoliceStations(position);
+      setState(() {
+        _placeController.text = data['address']!;
+        _selectedState = data['state'];
+        _selectedDistrict = data['district'];
+        _selectedPoliceStation = null;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error detecting location: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _pickFiles() async {
@@ -103,48 +128,47 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
       return;
     }
     if (_formKey.currentState!.validate()) {
+      if (_selectedPoliceStation == null || _selectedPoliceStation == 'Select Police Station') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a police station')),
+        );
+        return;
+      }
       setState(() {
         _isLoading = true;
       });
       try {
-        final response = await http.post(
-          Uri.parse('http://192.168.220.2:8080/api/crime-reports/submit'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'categoryId': widget.categoryId,
-            'categoryName': widget.categoryName,
-            'crimeType': widget.crimeType,
-            'description': _descriptionController.text,
-            'place': _placeController.text,
-            'state': _selectedState,
-            'district': _selectedDistrict,
-            'policeStation': _selectedPoliceStation,
-            'files': _selectedFiles.map((file) => file.name).toList(),
-          }),
+        await _crimeReportService.submitReport(
+          categoryId: widget.categoryId,
+          categoryName: widget.categoryName,
+          crimeType: widget.crimeType,
+          description: _descriptionController.text,
+          place: _placeController.text,
+          state: _selectedState,
+          district: _selectedDistrict,
+          policeStation: _selectedPoliceStation!,
+          files: _selectedFiles,
         );
 
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Crime report sent successfully'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          );
-          _formKey.currentState!.reset();
-          _descriptionController.clear();
-          _placeController.clear();
-          setState(() {
-            _selectedState = null;
-            _selectedDistrict = null;
-            _selectedPoliceStation = null;
-            _selectedFiles = [];
-            _isRecaptchaVerified = false;
-          });
-        } else {
-          throw Exception('Failed to send report: ${response.statusCode}');
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Crime report sent successfully'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        _formKey.currentState!.reset();
+        _descriptionController.clear();
+        _placeController.clear();
+        setState(() {
+          _selectedState = null;
+          _selectedDistrict = null;
+          _selectedPoliceStation = null;
+          _selectedFiles = [];
+          _isRecaptchaVerified = false;
+          _useCurrentLocation = false;
+        });
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error sending report: $e')),
@@ -262,6 +286,37 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              AnimatedScale(
+                scale: _isLoading ? 0.95 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _detectCurrentLocation,
+                    icon: Icon(
+                      Icons.my_location,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    label: const Text(
+                      'Detect My Location',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      elevation: 3,
+                    ),
                   ),
                 ),
               ),
