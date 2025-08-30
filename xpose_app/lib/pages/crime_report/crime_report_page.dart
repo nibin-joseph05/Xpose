@@ -116,7 +116,6 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
 
   Future<void> _pickFiles() async {
     try {
-
       final formData = {
         'description': _descriptionController.text,
         'place': _placeController.text,
@@ -125,20 +124,48 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
         'selectedPoliceStation': _selectedPoliceStation,
         'isRecaptchaVerified': _isRecaptchaVerified,
       };
-
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'png', 'mp4', 'mp3', 'pdf'],
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'mp4', 'mp3', 'pdf'],
+        withData: false,
+        allowCompression: true,
       );
-
-      if (result != null) {
+      if (result != null && result.files.isNotEmpty) {
+        const int maxFileSize = 50 * 1024 * 1024;
+        List<PlatformFile> validFiles = [];
+        List<String> rejectedFiles = [];
+        for (var file in result.files) {
+          if (file.size <= maxFileSize) {
+            validFiles.add(file);
+          } else {
+            rejectedFiles.add('${file.name} (too large)');
+          }
+        }
         setState(() {
-          _selectedFiles = result.files;
+          _selectedFiles.addAll(validFiles);
           if (_descriptionController.text.isEmpty && formData['description'] != null) {
             _descriptionController.text = formData['description'] as String;
           }
         });
+        if (validFiles.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Added ${validFiles.length} file(s) successfully'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        if (rejectedFiles.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Rejected files: ${rejectedFiles.join(', ')}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -146,6 +173,131 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
           SnackBar(content: Text('Failed to pick files: $e')),
         );
       }
+    }
+  }
+  Widget _buildFilesList() {
+    if (_selectedFiles.isEmpty) return const SizedBox.shrink();
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+        ),
+      ),
+      color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Selected Files: ${_selectedFiles.length}',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.85),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedFiles.clear();
+                    });
+                  },
+                  child: Text(
+                    'Clear All',
+                    style: TextStyle(
+                      color: Colors.red.shade300,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...List.generate(_selectedFiles.length, (index) {
+              final file = _selectedFiles[index];
+              final fileSizeMB = (file.size / (1024 * 1024)).toStringAsFixed(1);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _getFileIcon(file.extension),
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            file.name,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${fileSizeMB}MB',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedFiles.removeAt(index);
+                        });
+                      },
+                      icon: Icon(
+                        Icons.remove_circle_outline,
+                        color: Colors.red.shade300,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+  IconData _getFileIcon(String? extension) {
+    switch (extension?.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image;
+      case 'mp4':
+        return Icons.video_file;
+      case 'mp3':
+        return Icons.audio_file;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      default:
+        return Icons.attach_file;
     }
   }
 
@@ -624,47 +776,11 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
                   ),
                 ),
               ),
-              if (_selectedFiles.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Selected Files: ${_selectedFiles.length}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.85),
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ..._selectedFiles.map((file) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Text(
-                            file.name,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 13,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+
+              const SizedBox(height: 12),
+              _buildFilesList(),
               const SizedBox(height: 20),
+
               AnimatedScale(
                 scale: _isLoading ? 0.95 : 1.0,
                 duration: const Duration(milliseconds: 200),
