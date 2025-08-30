@@ -114,14 +114,28 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
 
   Future<void> _pickFiles() async {
     try {
+
+      final formData = {
+        'description': _descriptionController.text,
+        'place': _placeController.text,
+        'selectedState': _selectedState,
+        'selectedDistrict': _selectedDistrict,
+        'selectedPoliceStation': _selectedPoliceStation,
+        'isRecaptchaVerified': _isRecaptchaVerified,
+      };
+
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['jpg', 'png', 'mp4', 'mp3', 'pdf'],
       );
+
       if (result != null) {
         setState(() {
           _selectedFiles = result.files;
+          if (_descriptionController.text.isEmpty && formData['description'] != null) {
+            _descriptionController.text = formData['description'] as String;
+          }
         });
       }
     } catch (e) {
