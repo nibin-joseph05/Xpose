@@ -3,9 +3,11 @@ import 'package:Xpose/pages/crime_categories/crime_categories_page.dart';
 import 'package:Xpose/components/crime_report/crime_description.dart';
 import 'package:Xpose/components/crime_report/police_station_selection.dart';
 import 'package:Xpose/components/crime_report/recaptcha_verification.dart';
+import 'package:Xpose/components/crime_report/report_success_dialog.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:Xpose/services/crime_report_service.dart';
+
 
 class CrimeReportPage extends StatefulWidget {
   const CrimeReportPage({
@@ -148,44 +150,108 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
   }
 
   Future<void> _submitReport() async {
+    List<String> validationErrors = [];
+
     if (!_isRecaptchaVerified) {
+      validationErrors.add('Please verify reCAPTCHA');
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      validationErrors.add('Please fill in all required fields correctly');
+    }
+
+    if (_descriptionController.text.trim().isEmpty) {
+      validationErrors.add('Crime description is required');
+    } else if (_descriptionController.text.trim().length < 20) {
+      validationErrors.add('Description must be at least 20 characters');
+    }
+
+    if (_placeController.text.trim().isEmpty) {
+      validationErrors.add('Place of occurrence is required');
+    }
+
+    if (_selectedState == null || _selectedState == 'Select State' || _selectedState!.isEmpty) {
+      validationErrors.add('State selection is required');
+    }
+
+    if (_selectedDistrict == null || _selectedDistrict == 'Select District' || _selectedDistrict!.isEmpty) {
+      validationErrors.add('District selection is required');
+    }
+
+    if (_selectedPoliceStation == null || _selectedPoliceStation == 'Select Police Station' || _selectedPoliceStation!.isEmpty) {
+      validationErrors.add('Police station selection is required');
+    }
+
+    if (validationErrors.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify reCAPTCHA first')),
+        SnackBar(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Please Complete All Required Fields',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ...validationErrors.take(3).map((error) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.circle, size: 6, color: Colors.white70),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        error,
+                        style: const TextStyle(fontSize: 12, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+              if (validationErrors.length > 3)
+                Text(
+                  '... and ${validationErrors.length - 3} more',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+            ],
+          ),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          duration: const Duration(seconds: 4),
+        ),
       );
       return;
     }
-    if (_formKey.currentState!.validate()) {
-      if (_selectedPoliceStation == null || _selectedPoliceStation == 'Select Police Station') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a police station')),
-        );
-        return;
-      }
-      setState(() {
-        _isLoading = true;
-      });
-      try {
-        await _crimeReportService.submitReport(
-          categoryId: widget.categoryId,
-          categoryName: widget.categoryName,
-          crimeType: widget.crimeType,
-          description: _descriptionController.text,
-          place: _placeController.text,
-          state: _selectedState,
-          district: _selectedDistrict,
-          policeStation: _selectedPoliceStation!,
-          files: _selectedFiles,
-        );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Crime report sent successfully'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-        _formKey.currentState!.reset();
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _crimeReportService.submitReport(
+        categoryId: widget.categoryId,
+        categoryName: widget.categoryName,
+        crimeType: widget.crimeType,
+        description: _descriptionController.text.trim(),
+        place: _placeController.text.trim(),
+        state: _selectedState,
+        district: _selectedDistrict,
+        policeStation: _selectedPoliceStation!,
+        files: _selectedFiles,
+      );
+
+      final reportId = 'CR${DateTime.now().millisecondsSinceEpoch}';
+
+      if (mounted) {
+        _formKey.currentState?.reset();
         _descriptionController.clear();
         _placeController.clear();
         setState(() {
@@ -196,11 +262,70 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
           _isRecaptchaVerified = false;
           _useCurrentLocation = false;
         });
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sending report: $e')),
+
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => ReportSuccessDialog(reportId: reportId),
         );
-      } finally {
+      }
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Submission Failed',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Error: ${e.toString()}',
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Colors.white70, size: 16),
+                    const SizedBox(width: 6),
+                    const Expanded(
+                      child: Text(
+                        'Check your internet connection and try again',
+                        style: TextStyle(fontSize: 11, color: Colors.white70),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'RETRY',
+              textColor: Colors.white,
+              backgroundColor: Colors.red.shade800,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                _submitReport();
+              },
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           _isLoading = false;
         });

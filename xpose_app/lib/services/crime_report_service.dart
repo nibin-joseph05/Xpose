@@ -101,7 +101,7 @@ class CrimeReportService {
     }
   }
 
-  Future<void> submitReport({
+  Future<Map<String, dynamic>> submitReport({
     required int categoryId,
     required String categoryName,
     required String crimeType,
@@ -129,11 +129,31 @@ class CrimeReportService {
         }),
       );
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to send report: ${response.statusCode}');
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        try {
+          final responseData = json.decode(response.body);
+          return responseData;
+        } catch (e) {
+          return {
+            'success': true,
+            'message': 'Report submitted successfully',
+            'statusCode': response.statusCode
+          };
+        }
+      } else {
+        try {
+          final errorData = json.decode(response.body);
+          throw Exception('Server error: ${errorData['message'] ?? 'Unknown error'} (${response.statusCode})');
+        } catch (e) {
+          throw Exception('Failed to send report: HTTP ${response.statusCode}');
+        }
       }
     } catch (e) {
-      throw Exception('Error sending report: $e');
+      if (e is Exception) {
+        rethrow;
+      } else {
+        throw Exception('Network error: $e');
+      }
     }
   }
 }

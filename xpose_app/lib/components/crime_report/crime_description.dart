@@ -29,7 +29,7 @@ class CrimeDescription extends StatelessWidget {
         TextFormField(
           controller: controller,
           maxLines: 5,
-          maxLength: 1000, // character limit
+          maxLength: 1000, // Add character limit
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Describe the incident in detail...\n\n'
@@ -76,10 +76,13 @@ class CrimeDescription extends StatelessWidget {
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
-              return 'Please enter a description of the incident';
+              return 'Crime description is required';
             }
             if (value.trim().length < 20) {
               return 'Description must be at least 20 characters';
+            }
+            if (value.trim().length > 1000) {
+              return 'Description cannot exceed 1000 characters';
             }
             return null;
           },
