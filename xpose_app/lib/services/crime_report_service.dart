@@ -59,7 +59,7 @@ class CrimeReportService {
   Future<Map<String, dynamic>> fetchNearestPoliceStations(Position position) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/police-stations?lat=${position.latitude}&lng=${position.longitude}&radius=3000'),
+        Uri.parse('$_baseUrl/api/police-stations?lat=${position.latitude}&lng=${position.longitude}&radius=10000'),
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
