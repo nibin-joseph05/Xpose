@@ -42,7 +42,7 @@ class CrimeReportService {
     if (state == 'Select State' || district == 'Select District') return [];
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/police-stations/by-district?state=$state&district=$district&radius=10000'),
+        Uri.parse('$_baseUrl/api/police-stations/by-district?state=$state&district=$district'),
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -59,7 +59,7 @@ class CrimeReportService {
   Future<Map<String, dynamic>> fetchNearestPoliceStations(Position position) async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/police-stations?lat=${position.latitude}&lng=${position.longitude}&radius=10000'),
+        Uri.parse('$_baseUrl/api/police-stations?lat=${position.latitude}&lng=${position.longitude}'),
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
