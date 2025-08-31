@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:Xpose/services/crime_report_service.dart';
 
+
 class CrimeReportPage extends StatefulWidget {
   const CrimeReportPage({
     super.key,
@@ -35,7 +36,6 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
   bool _isLoading = false;
   bool _useCurrentLocation = false;
   bool _isRecaptchaVerified = false;
-  String _loadingStatus = '';
   final CrimeReportService _crimeReportService = CrimeReportService();
 
   Future<void> _checkLocationPermission() async {
@@ -385,14 +385,9 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
 
     setState(() {
       _isLoading = true;
-      _loadingStatus = 'Analyzing description...';
     });
 
     try {
-      setState(() {
-        _loadingStatus = 'Translating description to English...';
-      });
-
       await _crimeReportService.submitReport(
         categoryId: widget.categoryId,
         categoryName: widget.categoryName,
@@ -485,7 +480,6 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadingStatus = '';
         });
       }
     }
@@ -545,23 +539,7 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
         ],
       ),
       body: _isLoading
-          ? Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              _loadingStatus,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      )
+          ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Form(
