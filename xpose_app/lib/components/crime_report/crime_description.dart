@@ -29,7 +29,7 @@ class CrimeDescription extends StatelessWidget {
         TextFormField(
           controller: controller,
           maxLines: 5,
-          maxLength: 1000, // Add character limit
+          maxLength: 1000, // character limit
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Describe the incident in detail...\n\n'

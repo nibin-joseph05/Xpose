@@ -3,24 +3,41 @@ package com.crimereport.xpose.services;
 import com.crimereport.xpose.dto.CrimeReportRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
 public class CrimeReportService {
+
+    @Autowired
+    private GeminiService geminiService;
 
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
         try {
             logger.info("=== CRIME REPORT RECEIVED ===");
+
+            String originalDescription = request.getDescription();
+            String translatedDescription = originalDescription;
+
+            if (!isProbablyEnglish(originalDescription)) {
+                translatedDescription = geminiService.translateToEnglish(originalDescription);
+                logger.info("Translated Description: {}", translatedDescription);
+            } else {
+                logger.info("Description already in English, skipping translation.");
+            }
+
             logger.info("Timestamp: {}", LocalDateTime.now());
             logger.info("Category ID: {}", request.getCategoryId());
             logger.info("Category Name: {}", request.getCategoryName());
             logger.info("Crime Type: {}", request.getCrimeType());
-            logger.info("Description: {}", request.getDescription());
+            logger.info("Original Description: {}", originalDescription);
+            logger.info("Final Description (English): {}", translatedDescription);
             logger.info("Place: {}", request.getPlace());
             logger.info("State: {}", request.getState());
             logger.info("District: {}", request.getDistrict());
@@ -34,7 +51,7 @@ public class CrimeReportService {
             logger.info("=== END CRIME REPORT ===");
 
             // Simulate processing - in real implementation, you would:
-            // 1. Save to database
+            // 1. Save to database (store both original + translated description)
             // 2. Generate unique report ID
             // 3. Send notifications
             // 4. Process file uploads
@@ -46,7 +63,9 @@ public class CrimeReportService {
                     "message", "Crime report submitted successfully",
                     "reportId", "CR" + System.currentTimeMillis(),
                     "timestamp", LocalDateTime.now().toString(),
-                    "status", "RECEIVED"
+                    "status", "RECEIVED",
+                    "originalDescription", originalDescription,
+                    "translatedDescription", translatedDescription
             );
 
         } catch (Exception e) {
@@ -89,5 +108,28 @@ public class CrimeReportService {
                 "message", "Your report is being processed",
                 "submittedAt", LocalDateTime.now().minusHours(1).toString()
         );
+    }
+
+    /**
+     * Utility function to check if text is probably English.
+     * Very simple heuristic: if most characters are A-Z, assume English.
+     */
+    private boolean isProbablyEnglish(String text) {
+        if (text == null || text.isEmpty()) return true;
+
+        int englishChars = 0;
+        int totalChars = 0;
+
+        for (char c : text.toCharArray()) {
+            if (Character.isLetter(c)) {
+                totalChars++;
+                if (c < 128 && Character.UnicodeBlock.of(c) == Character.UnicodeBlock.BASIC_LATIN) {
+                    englishChars++;
+                }
+            }
+        }
+
+        // If 70%+ letters are English, assume it's English
+        return totalChars == 0 || (englishChars * 100 / totalChars) > 70;
     }
 }
