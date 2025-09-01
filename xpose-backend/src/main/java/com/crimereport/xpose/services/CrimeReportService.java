@@ -38,21 +38,23 @@ public class CrimeReportService {
             }
 
             Map<String, Object> mlResult = mlService.classifyDescription(processedDescription);
-            logger.info("===  ML CLASSIFICATION RESULTS ===");
-            logMLResults(mlResult);
+            Map<String, Object> validatedResult = applyValidationOverrides(mlResult, processedDescription);
 
-            boolean isSpamOrToxic = (Boolean) mlResult.getOrDefault("is_spam", false) ||
-                    (Boolean) mlResult.getOrDefault("is_toxic", false) ||
-                    (Boolean) mlResult.getOrDefault("is_hate_speech", false);
+            logger.info("===  ML CLASSIFICATION RESULTS ===");
+            logMLResults(validatedResult);
+
+            boolean isSpamOrToxic = (Boolean) validatedResult.getOrDefault("is_spam", false) ||
+                    (Boolean) validatedResult.getOrDefault("is_toxic", false) ||
+                    (Boolean) validatedResult.getOrDefault("is_hate_speech", false);
 
             if (isSpamOrToxic) {
-                logger.warn("Report flagged as spam/toxic/hate speech");
-                return createRejectedResponse(originalDescription, processedDescription, mlResult);
+                logger.warn("Report flagged as spam/toxic/hate speech after validation");
+                return createRejectedResponse(originalDescription, processedDescription, validatedResult);
             }
 
-            logReportDetails(request, originalDescription, processedDescription, mlResult);
+            logReportDetails(request, originalDescription, processedDescription, validatedResult);
 
-            return createSuccessResponse(originalDescription, processedDescription, mlResult);
+            return createSuccessResponse(originalDescription, processedDescription, validatedResult);
 
         } catch (Exception e) {
             logger.error("Error processing crime report submission: {}", e.getMessage(), e);
@@ -66,12 +68,14 @@ public class CrimeReportService {
 
     private String processDescription(String originalDescription) {
         try {
-            if (!geminiService.isTextInEnglish(originalDescription)) {
-                logger.info("Text not in English, translating...");
+            boolean isEnglish = geminiService.isTextInEnglish(originalDescription);
+
+            if (!isEnglish) {
+                logger.info("Text not in English, force translating...");
                 String translated = geminiService.translateToEnglish(originalDescription);
                 return geminiService.processAndCleanText(translated);
             } else {
-                logger.info("Text is in English, processing for spelling/grammar...");
+                logger.info("Text is in English, processing for spam detection and grammar...");
                 return geminiService.processAndCleanText(originalDescription);
             }
         } catch (Exception e) {
@@ -335,5 +339,71 @@ public class CrimeReportService {
             default:
                 return "24-48 hours";
         }
+    }
+
+    private boolean isLikelyFalsePositive(Map<String, Object> mlResult, String description) {
+        Boolean isSpam = (Boolean) mlResult.getOrDefault("is_spam", false);
+        Boolean isHateSpeech = (Boolean) mlResult.getOrDefault("is_hate_speech", false);
+        Double spamScore = (Double) mlResult.getOrDefault("spam_score", 0.0);
+
+        Map<String, Object> toxicityAnalysis = (Map<String, Object>) mlResult.get("toxicity_analysis");
+        if (toxicityAnalysis == null) return false;
+
+        Double toxicity = (Double) toxicityAnalysis.getOrDefault("toxicity", 0.0);
+        Double hateSpeechScore = (Double) toxicityAnalysis.getOrDefault("hate_speech_score", 0.0);
+
+        String[] crimeWords = {"robbery", "theft", "assault", "murder", "gun", "knife", "attack", "violence",
+                "stolen", "burglary", "harassment", "threat", "emergency", "help", "police"};
+        String[] legitWords = {"report", "incident", "happened", "occurred", "witnessed", "location", "time", "date"};
+
+        String lowerDesc = description.toLowerCase();
+        long crimeCount = java.util.Arrays.stream(crimeWords).mapToLong(word ->
+                lowerDesc.contains(word) ? 1 : 0).sum();
+        long legitCount = java.util.Arrays.stream(legitWords).mapToLong(word ->
+                lowerDesc.contains(word) ? 1 : 0).sum();
+
+        boolean hasGoodStructure = description.split("\\s+").length >= 8 &&
+                (crimeCount >= 1 || legitCount >= 1);
+
+        if (isSpam && spamScore < 0.3 && hasGoodStructure) {
+            logger.info("Overriding spam classification - likely false positive due to crime content");
+            return true;
+        }
+
+        if (isHateSpeech && hateSpeechScore > 0.7 && toxicity < 0.2 && crimeCount >= 1) {
+            logger.info("Overriding hate speech classification - likely false positive due to crime vocabulary");
+            return true;
+        }
+
+        return false;
+    }
+
+    private Map<String, Object> applyValidationOverrides(Map<String, Object> mlResult, String description) {
+        if (isLikelyFalsePositive(mlResult, description)) {
+            Map<String, Object> correctedResult = new java.util.HashMap<>(mlResult);
+
+            Double spamScore = (Double) mlResult.getOrDefault("spam_score", 0.0);
+            if (spamScore < 0.3) {
+                correctedResult.put("is_spam", false);
+            }
+
+            Map<String, Object> toxicityAnalysis = (Map<String, Object>) mlResult.get("toxicity_analysis");
+            if (toxicityAnalysis != null) {
+                Double toxicity = (Double) toxicityAnalysis.getOrDefault("toxicity", 0.0);
+                if (toxicity < 0.2) {
+                    correctedResult.put("is_hate_speech", false);
+                }
+            }
+
+            String currentQuality = (String) mlResult.getOrDefault("report_quality", "LOW");
+            if ("LOW".equals(currentQuality) && description.split("\\s+").length >= 8) {
+                correctedResult.put("report_quality", "MEDIUM");
+            }
+
+            logger.info("Applied validation overrides to reduce false positives");
+            return correctedResult;
+        }
+
+        return mlResult;
     }
 }

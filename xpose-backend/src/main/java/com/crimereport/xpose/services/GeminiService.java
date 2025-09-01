@@ -26,7 +26,6 @@ public class GeminiService {
                 .build();
     }
 
-
     public String processAndCleanText(String text) {
         try {
             logger.info("Processing text with Gemini: {}", text.substring(0, Math.min(50, text.length())));
@@ -59,7 +58,7 @@ public class GeminiService {
 
     public String translateToEnglish(String text) {
         try {
-            logger.info("Translating text to English: {}", text.substring(0, Math.min(50, text.length())));
+            logger.info("Force translating text to English: {}", text.substring(0, Math.min(50, text.length())));
 
             String model = "gemini-2.5-pro";
             String prompt = "Translate this text to English. Only return the translated text, nothing else:\n\n" + text;
@@ -94,7 +93,7 @@ public class GeminiService {
     public boolean isTextInEnglish(String text) {
         try {
             String model = "gemini-2.5-pro";
-            String prompt = "Is this text written in English? Answer only 'YES' or 'NO':\n\n" + text;
+            String prompt = "Is this text primarily in English? Answer only 'YES' or 'NO'. Consider mixed language as 'NO':\n\n" + text;
 
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
@@ -110,7 +109,9 @@ public class GeminiService {
 
             String result = extractTextFromGeminiResponse(response);
             if (result != null) {
-                return result.trim().toUpperCase().contains("YES");
+                boolean isEnglish = result.trim().toUpperCase().contains("YES");
+                logger.info("Language detection result: {} -> {}", result.trim(), isEnglish ? "English" : "Non-English");
+                return isEnglish;
             }
         } catch (Exception e) {
             logger.error("Error checking language: {}", e.getMessage(), e);
@@ -149,24 +150,30 @@ public class GeminiService {
 
     private String buildComprehensivePrompt(String text) {
         return """
-                Analyze and improve this crime report text. Perform these tasks in order:
+                Analyze this crime report text and perform these tasks:
 
-                1. DETECT LANGUAGE: If not English, translate to English
-                2. SPELLING & GRAMMAR: Correct any spelling mistakes and grammatical errors
-                3. CLARITY: Improve clarity while preserving the original meaning
-                4. STRUCTURE: Organize information logically if needed
+                1. DETECT LANGUAGE: If not primarily English, translate to English first
+                2. SPAM DETECTION: If this looks like spam, jokes, tests, or fake content, return: "SPAM_DETECTED"
+                3. CORRECTION: Fix spelling mistakes and grammatical errors
+                4. CLARITY: Improve clarity while preserving original meaning
+
+                Spam indicators:
+                - Repeated words like "lol", "haha", "test"
+                - Marketing language: "click here", "free money", "win prizes"
+                - Jokes about crime: "robbery but just joking"
+                - Nonsensical or very short meaningless text
 
                 Rules:
                 - Keep the core meaning intact
                 - Don't add information that wasn't there
                 - Don't remove important details
                 - Make it professional but preserve urgency
-                - If it's clearly spam/joke text, return: "SPAM_DETECTED"
+                - If clearly spam/fake, return only: "SPAM_DETECTED"
 
                 Original text:
                 """ + text + """
 
-                Return only the improved text:""";
+                Return only the improved text or "SPAM_DETECTED":""";
     }
 
     private boolean isProbablyEnglish(String text) {
@@ -183,6 +190,6 @@ public class GeminiService {
                 }
             }
         }
-        return totalChars == 0 || (englishChars * 100 / totalChars) > 70;
+        return totalChars == 0 || (englishChars * 100 / totalChars) > 60;
     }
 }

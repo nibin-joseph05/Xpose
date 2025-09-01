@@ -1,4 +1,3 @@
-# classifier.py
 from transformers import BertTokenizer, BertForSequenceClassification, pipeline
 import torch
 import re
@@ -18,13 +17,21 @@ hate_speech_detector = pipeline("text-classification", model="unitary/toxic-bert
 spam_keywords = [
     'click here', 'free money', 'congratulations', 'winner', 'prize',
     'urgent', 'act now', 'limited time', 'earn money', 'work from home',
-    'haha', 'lol', 'testing', 'test', 'fake', 'joke', 'prank'
+    'haha', 'lol', 'testing', 'test', 'fake', 'joke', 'prank',
+    'buy now', 'amazing deal', 'discount', 'offer expires'
 ]
 
 crime_keywords = [
     'murder', 'killed', 'assault', 'robbery', 'theft', 'burglary',
     'violence', 'attack', 'weapon', 'gun', 'knife', 'threat',
-    'harassment', 'abuse', 'fraud', 'scam', 'drugs', 'trafficking'
+    'harassment', 'abuse', 'fraud', 'scam', 'drugs', 'trafficking',
+    'stolen', 'vandalism', 'breaking', 'entering', 'shot', 'stabbed'
+]
+
+legitimate_crime_words = [
+    'police', 'report', 'incident', 'happened', 'occurred', 'witnessed',
+    'victim', 'suspect', 'location', 'time', 'date', 'emergency',
+    'help', 'assistance', 'investigation', 'evidence'
 ]
 
 def preprocess_text(text: str) -> str:
@@ -36,25 +43,37 @@ def calculate_spam_score(text: str) -> float:
     text_lower = text.lower()
     spam_count = sum(1 for keyword in spam_keywords if keyword in text_lower)
     crime_count = sum(1 for keyword in crime_keywords if keyword in text_lower)
+    legit_count = sum(1 for keyword in legitimate_crime_words if keyword in text_lower)
 
     if len(text.split()) < 5:
-        spam_count += 2
+        spam_count += 1
 
     if re.search(r'\b(ha){2,}|\b(lo){2,}', text_lower):
-        spam_count += 3
-
-    if len(set(text.split())) < len(text.split()) * 0.5:
         spam_count += 2
+
+    if len(set(text.split())) < len(text.split()) * 0.4:
+        spam_count += 1
 
     spam_ratio = spam_count / max(1, len(text.split()))
     crime_ratio = crime_count / max(1, len(text.split()))
+    legit_ratio = legit_count / max(1, len(text.split()))
 
-    return max(0, min(1, spam_ratio - crime_ratio * 0.5))
+    final_score = max(0, min(1, spam_ratio - (crime_ratio * 0.7) - (legit_ratio * 0.5)))
+    return final_score
 
 def detect_toxicity(text: str) -> dict:
     try:
         toxicity_scores = detox.predict(text)
         hate_result = hate_speech_detector(text)[0]
+
+        hate_score = float(hate_result['score']) if hate_result['label'] == 'TOXIC' else 1 - float(hate_result['score'])
+
+        text_lower = text.lower()
+        crime_word_count = sum(1 for word in crime_keywords if word in text_lower)
+        legit_word_count = sum(1 for word in legitimate_crime_words if word in text_lower)
+
+        if crime_word_count > 0 and legit_word_count > 0 and toxicity_scores['toxicity'] < 0.3:
+            hate_score = min(hate_score, 0.3)
 
         return {
             'toxicity': float(toxicity_scores['toxicity']),
@@ -63,7 +82,7 @@ def detect_toxicity(text: str) -> dict:
             'threat': float(toxicity_scores['threat']),
             'insult': float(toxicity_scores['insult']),
             'identity_attack': float(toxicity_scores['identity_attack']),
-            'hate_speech_score': float(hate_result['score']) if hate_result['label'] == 'TOXIC' else 1 - float(hate_result['score'])
+            'hate_speech_score': hate_score
         }
     except Exception as e:
         logger.error(f"Toxicity detection failed: {e}")
@@ -79,15 +98,15 @@ def detect_toxicity(text: str) -> dict:
 
 def classify_urgency(text: str, toxicity_scores: dict) -> str:
     text_lower = text.lower()
-    high_urgency_words = ['murder', 'killed', 'gun', 'weapon', 'emergency', 'help', 'urgent', 'immediate']
-    medium_urgency_words = ['theft', 'robbery', 'assault', 'harassment', 'threat']
+    high_urgency_words = ['murder', 'killed', 'gun', 'weapon', 'emergency', 'help', 'urgent', 'immediate', 'shot', 'bleeding']
+    medium_urgency_words = ['theft', 'robbery', 'assault', 'harassment', 'threat', 'attack', 'violence']
 
     high_count = sum(1 for word in high_urgency_words if word in text_lower)
     medium_count = sum(1 for word in medium_urgency_words if word in text_lower)
 
-    if high_count >= 2 or toxicity_scores['threat'] > 0.7:
+    if high_count >= 2 or toxicity_scores['threat'] > 0.7 or toxicity_scores['toxicity'] > 0.8:
         return 'HIGH'
-    elif high_count >= 1 or medium_count >= 2 or toxicity_scores['toxicity'] > 0.6:
+    elif high_count >= 1 or medium_count >= 2 or toxicity_scores['toxicity'] > 0.5:
         return 'MEDIUM'
     else:
         return 'LOW'
@@ -106,14 +125,20 @@ def classify_report(text: str) -> dict:
         spam_score = calculate_spam_score(text)
         toxicity_scores = detect_toxicity(text)
 
+        word_count = len(text.split())
+
         is_spam = (
-                spam_score > 0.3 or
-                predicted_class.item() == 1 or
-                len(text.split()) < 3 or
-                toxicity_scores['toxicity'] < 0.1 and len(text.split()) < 5
+                spam_score > 0.4 or
+                (word_count < 3) or
+                (word_count < 8 and spam_score > 0.2) or
+                (toxicity_scores['toxicity'] < 0.05 and word_count < 6 and spam_score > 0.1)
         )
 
-        is_hate_speech = toxicity_scores['hate_speech_score'] > 0.7
+        is_hate_speech = (
+                toxicity_scores['hate_speech_score'] > 0.75 and
+                toxicity_scores['toxicity'] > 0.2
+        )
+
         is_toxic = toxicity_scores['toxicity'] > 0.6
 
         urgency = classify_urgency(text, toxicity_scores)
@@ -124,7 +149,11 @@ def classify_report(text: str) -> dict:
                 min(1.0, sum(toxicity_scores.values()) / len(toxicity_scores)) * 0.3
         )
 
-        report_quality = 'HIGH' if not is_spam and not is_toxic and len(text.split()) >= 10 else 'LOW'
+        report_quality = (
+            'HIGH' if not is_spam and not is_toxic and word_count >= 10 and spam_score < 0.2
+            else 'MEDIUM' if not is_spam and word_count >= 5
+            else 'LOW'
+        )
 
         return {
             "is_spam": bool(is_spam),
@@ -135,7 +164,7 @@ def classify_report(text: str) -> dict:
             "spam_score": float(spam_score),
             "report_quality": report_quality,
             "toxicity_analysis": toxicity_scores,
-            "word_count": len(text.split()),
+            "word_count": word_count,
             "char_count": len(text),
             "needs_review": bool(is_hate_speech or toxicity_scores['threat'] > 0.5)
         }
