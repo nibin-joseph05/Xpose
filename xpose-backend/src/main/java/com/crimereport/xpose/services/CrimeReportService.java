@@ -16,6 +16,9 @@ public class CrimeReportService {
     @Autowired
     private GeminiService geminiService;
 
+    @Autowired
+    private MLService mlService;
+
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
@@ -31,6 +34,10 @@ public class CrimeReportService {
             } else {
                 logger.info("Description already in English, skipping translation.");
             }
+
+            //ml
+            Map<String, Object> mlResult = mlService.classifyDescription(translatedDescription);
+            logger.info("ML Classification Result -> {}", mlResult);
 
             logger.info("Timestamp: {}", LocalDateTime.now());
             logger.info("Category ID: {}", request.getCategoryId());
@@ -65,7 +72,8 @@ public class CrimeReportService {
                     "timestamp", LocalDateTime.now().toString(),
                     "status", "RECEIVED",
                     "originalDescription", originalDescription,
-                    "translatedDescription", translatedDescription
+                    "translatedDescription", translatedDescription,
+                    "mlClassification", mlResult
             );
 
         } catch (Exception e) {
