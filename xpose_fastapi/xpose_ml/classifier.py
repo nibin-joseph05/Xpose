@@ -1,22 +1,158 @@
-from transformers import BertTokenizer, BertForSequenceClassification
+# classifier.py
+from transformers import BertTokenizer, BertForSequenceClassification, pipeline
 import torch
+import re
+import logging
+from detoxify import Detoxify
+import numpy as np
+
+logger = logging.getLogger("uvicorn")
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
+model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=3)
 model.eval()
 
-def classify_report(text: str):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-    with torch.no_grad():
-        outputs = model(**inputs)
-        probs = torch.nn.functional.softmax(outputs.logits, dim=1)
-        confidence, predicted_class = torch.max(probs, dim=1)
+detox = Detoxify('original')
+hate_speech_detector = pipeline("text-classification", model="unitary/toxic-bert")
 
-    is_spam = predicted_class.item() == 1
-    urgency = "HIGH" if len(text.split()) > 10 else "LOW"
+spam_keywords = [
+    'click here', 'free money', 'congratulations', 'winner', 'prize',
+    'urgent', 'act now', 'limited time', 'earn money', 'work from home',
+    'haha', 'lol', 'testing', 'test', 'fake', 'joke', 'prank'
+]
 
-    return {
-        "is_spam": is_spam,
-        "urgency": urgency,
-        "confidence": confidence.item()
-    }
+crime_keywords = [
+    'murder', 'killed', 'assault', 'robbery', 'theft', 'burglary',
+    'violence', 'attack', 'weapon', 'gun', 'knife', 'threat',
+    'harassment', 'abuse', 'fraud', 'scam', 'drugs', 'trafficking'
+]
+
+def preprocess_text(text: str) -> str:
+    text = re.sub(r'[^\w\s]', ' ', text.lower())
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def calculate_spam_score(text: str) -> float:
+    text_lower = text.lower()
+    spam_count = sum(1 for keyword in spam_keywords if keyword in text_lower)
+    crime_count = sum(1 for keyword in crime_keywords if keyword in text_lower)
+
+    if len(text.split()) < 5:
+        spam_count += 2
+
+    if re.search(r'\b(ha){2,}|\b(lo){2,}', text_lower):
+        spam_count += 3
+
+    if len(set(text.split())) < len(text.split()) * 0.5:
+        spam_count += 2
+
+    spam_ratio = spam_count / max(1, len(text.split()))
+    crime_ratio = crime_count / max(1, len(text.split()))
+
+    return max(0, min(1, spam_ratio - crime_ratio * 0.5))
+
+def detect_toxicity(text: str) -> dict:
+    try:
+        toxicity_scores = detox.predict(text)
+        hate_result = hate_speech_detector(text)[0]
+
+        return {
+            'toxicity': float(toxicity_scores['toxicity']),
+            'severe_toxicity': float(toxicity_scores['severe_toxicity']),
+            'obscene': float(toxicity_scores['obscene']),
+            'threat': float(toxicity_scores['threat']),
+            'insult': float(toxicity_scores['insult']),
+            'identity_attack': float(toxicity_scores['identity_attack']),
+            'hate_speech_score': float(hate_result['score']) if hate_result['label'] == 'TOXIC' else 1 - float(hate_result['score'])
+        }
+    except Exception as e:
+        logger.error(f"Toxicity detection failed: {e}")
+        return {
+            'toxicity': 0.0,
+            'severe_toxicity': 0.0,
+            'obscene': 0.0,
+            'threat': 0.0,
+            'insult': 0.0,
+            'identity_attack': 0.0,
+            'hate_speech_score': 0.0
+        }
+
+def classify_urgency(text: str, toxicity_scores: dict) -> str:
+    text_lower = text.lower()
+    high_urgency_words = ['murder', 'killed', 'gun', 'weapon', 'emergency', 'help', 'urgent', 'immediate']
+    medium_urgency_words = ['theft', 'robbery', 'assault', 'harassment', 'threat']
+
+    high_count = sum(1 for word in high_urgency_words if word in text_lower)
+    medium_count = sum(1 for word in medium_urgency_words if word in text_lower)
+
+    if high_count >= 2 or toxicity_scores['threat'] > 0.7:
+        return 'HIGH'
+    elif high_count >= 1 or medium_count >= 2 or toxicity_scores['toxicity'] > 0.6:
+        return 'MEDIUM'
+    else:
+        return 'LOW'
+
+def classify_report(text: str) -> dict:
+    try:
+        processed_text = preprocess_text(text)
+
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            probs = torch.nn.functional.softmax(outputs.logits, dim=1)
+            confidence, predicted_class = torch.max(probs, dim=1)
+
+        spam_score = calculate_spam_score(text)
+        toxicity_scores = detect_toxicity(text)
+
+        is_spam = (
+                spam_score > 0.3 or
+                predicted_class.item() == 1 or
+                len(text.split()) < 3 or
+                toxicity_scores['toxicity'] < 0.1 and len(text.split()) < 5
+        )
+
+        is_hate_speech = toxicity_scores['hate_speech_score'] > 0.7
+        is_toxic = toxicity_scores['toxicity'] > 0.6
+
+        urgency = classify_urgency(text, toxicity_scores)
+
+        overall_confidence = (
+                confidence.item() * 0.4 +
+                (1 - spam_score) * 0.3 +
+                min(1.0, sum(toxicity_scores.values()) / len(toxicity_scores)) * 0.3
+        )
+
+        report_quality = 'HIGH' if not is_spam and not is_toxic and len(text.split()) >= 10 else 'LOW'
+
+        return {
+            "is_spam": bool(is_spam),
+            "is_hate_speech": bool(is_hate_speech),
+            "is_toxic": bool(is_toxic),
+            "urgency": urgency,
+            "confidence": float(overall_confidence),
+            "spam_score": float(spam_score),
+            "report_quality": report_quality,
+            "toxicity_analysis": toxicity_scores,
+            "word_count": len(text.split()),
+            "char_count": len(text),
+            "needs_review": bool(is_hate_speech or toxicity_scores['threat'] > 0.5)
+        }
+
+    except Exception as e:
+        logger.error(f"Classification failed: {e}")
+        return {
+            "is_spam": True,
+            "is_hate_speech": False,
+            "is_toxic": False,
+            "urgency": "LOW",
+            "confidence": 0.0,
+            "spam_score": 1.0,
+            "report_quality": "LOW",
+            "toxicity_analysis": {},
+            "word_count": 0,
+            "char_count": 0,
+            "needs_review": True,
+            "error": str(e)
+        }

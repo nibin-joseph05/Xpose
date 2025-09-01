@@ -385,12 +385,12 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
 
     setState(() {
       _isLoading = true;
-      _loadingStatus = 'Analyzing description...';
+      _loadingStatus = 'Analyzing your report, please wait…';
     });
 
     try {
       setState(() {
-        _loadingStatus = 'Translating description to English...';
+        _loadingStatus = 'Analyzing your report, please wait…';
       });
 
       await _crimeReportService.submitReport(
