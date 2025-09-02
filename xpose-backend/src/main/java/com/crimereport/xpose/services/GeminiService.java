@@ -30,7 +30,7 @@ public class GeminiService {
         try {
             logger.info("Processing text with Gemini: {}", text.substring(0, Math.min(50, text.length())));
 
-            String model = "gemini-2.5-pro";
+            String model = "gemini-1.5-flash";
             String prompt = buildComprehensivePrompt(text);
 
             Map<String, Object> requestBody = Map.of(
@@ -60,7 +60,7 @@ public class GeminiService {
         try {
             logger.info("Force translating text to English: {}", text.substring(0, Math.min(50, text.length())));
 
-            String model = "gemini-2.5-pro";
+            String model = "gemini-1.5-flash";
             String prompt = "Translate this text to English. Only return the translated text, nothing else:\n\n" + text;
 
             Map<String, Object> requestBody = Map.of(
@@ -92,7 +92,7 @@ public class GeminiService {
 
     public boolean isTextInEnglish(String text) {
         try {
-            String model = "gemini-2.5-pro";
+            String model = "gemini-1.5-flash";
             String prompt = "Is this text primarily in English? Answer only 'YES' or 'NO'. Consider mixed language as 'NO':\n\n" + text;
 
             Map<String, Object> requestBody = Map.of(
