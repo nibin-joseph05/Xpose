@@ -1,4 +1,3 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -19,9 +18,17 @@ async def lifespan(app: FastAPI):
     logger.info("Loading ML models...")
 
     try:
-        from xpose_ml.classifier import tokenizer, model, detox
+        from xpose_ml.classifier import tokenizer, model, detox, initialize_shap_explainer
         logger.info("✅ BERT model loaded successfully")
         logger.info("✅ Detoxify model loaded successfully")
+
+        logger.info("Initializing SHAP explainer...")
+        shap_success = initialize_shap_explainer()
+        if shap_success:
+            logger.info("✅ SHAP explainer loaded successfully")
+        else:
+            logger.warning("⚠️  SHAP explainer initialization failed - continuing without explainability")
+
         logger.info("🎯 All ML models are ready!")
     except Exception as e:
         logger.error(f"❌ Failed to load ML models: {e}")
@@ -32,7 +39,7 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 Shutting down Xpose ML API...")
 
 app = FastAPI(
-    title="Xpose Enhanced ML API",
+    title="Xpose Enhanced ML API with SHAP",
     description="""
     Advanced ML API for crime report classification with:
     - Spam detection
@@ -40,8 +47,9 @@ app = FastAPI(
     - Hate speech detection
     - Urgency classification
     - Quality assessment
+    - SHAP explainability for model predictions
     """,
-    version="2.0.0",
+    version="2.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan

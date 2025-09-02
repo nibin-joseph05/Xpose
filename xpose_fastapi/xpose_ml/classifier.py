@@ -4,6 +4,8 @@ import re
 import logging
 from detoxify import Detoxify
 import numpy as np
+import shap
+from functools import lru_cache
 
 logger = logging.getLogger("uvicorn")
 
@@ -13,6 +15,8 @@ model.eval()
 
 detox = Detoxify('original')
 hate_speech_detector = pipeline("text-classification", model="unitary/toxic-bert")
+
+explainer = None
 
 spam_keywords = [
     'click here', 'free money', 'congratulations', 'winner', 'prize',
@@ -33,6 +37,104 @@ legitimate_crime_words = [
     'victim', 'suspect', 'location', 'time', 'date', 'emergency',
     'help', 'assistance', 'investigation', 'evidence'
 ]
+
+def initialize_shap_explainer():
+    global explainer
+    try:
+        def bert_predict_function(texts):
+            predictions = []
+            for text in texts:
+                inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+                with torch.no_grad():
+                    outputs = model(**inputs)
+                    probs = torch.nn.functional.softmax(outputs.logits, dim=1)
+                    predictions.append(probs.cpu().numpy()[0])
+            return np.array(predictions)
+
+        sample_texts = [
+            "This is a test crime report about theft",
+            "Someone stole my bike yesterday",
+            "Urgent help needed for emergency situation",
+            "Police report about vandalism incident",
+            "Robbery occurred at local store"
+        ]
+
+        masker = shap.maskers.Text(tokenizer)
+        explainer = shap.Explainer(bert_predict_function, masker)
+
+        test_explanation = explainer(["Test crime report"], max_evals=50)
+        logger.info("✅ SHAP explainer initialized successfully")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize SHAP explainer: {e}")
+        return False
+
+@lru_cache(maxsize=100)
+def get_shap_explanation(text: str, max_words: int = 50):
+    global explainer
+    if explainer is None:
+        return None
+
+    try:
+        truncated_text = ' '.join(text.split()[:max_words])
+        shap_values = explainer([truncated_text], max_evals=100)
+
+        explanation = {
+            'words': [],
+            'shap_values': [],
+            'base_value': 0.0
+        }
+
+        if hasattr(shap_values, 'base_values'):
+            base_val = shap_values.base_values[0]
+            if isinstance(base_val, np.ndarray):
+                explanation['base_value'] = float(base_val.flatten()[0]) if base_val.size > 0 else 0.0
+            else:
+                explanation['base_value'] = float(base_val)
+
+        if hasattr(shap_values, 'values') and len(shap_values.values) > 0:
+            values = shap_values.values[0]
+            words = truncated_text.split()
+
+            if isinstance(values, np.ndarray):
+                if len(values.shape) > 1:
+                    values = values[:, 0] if values.shape[1] > 0 else values.flatten()
+                values = values.flatten()
+
+            min_len = min(len(words), len(values))
+            for i in range(min_len):
+                try:
+                    shap_val = values[i]
+                    if isinstance(shap_val, np.ndarray):
+                        shap_val = shap_val.item() if shap_val.size == 1 else float(shap_val.flatten()[0])
+                    else:
+                        shap_val = float(shap_val)
+
+                    explanation['words'].append(words[i])
+                    explanation['shap_values'].append(shap_val)
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Skipping problematic SHAP value at index {i}: {e}")
+                    continue
+
+        if explanation['words']:
+            top_influential = sorted(
+                zip(explanation['words'], explanation['shap_values']),
+                key=lambda x: abs(x[1]),
+                reverse=True
+            )[:5]
+
+            explanation['top_influential_words'] = [
+                {'word': word, 'impact': float(impact), 'influence': 'positive' if impact > 0 else 'negative'}
+                for word, impact in top_influential
+            ]
+        else:
+            explanation['top_influential_words'] = []
+
+        return explanation
+
+    except Exception as e:
+        logger.error(f"Error generating SHAP explanation: {e}")
+        return None
 
 def preprocess_text(text: str) -> str:
     text = re.sub(r'[^\w\s]', ' ', text.lower())
@@ -155,7 +257,9 @@ def classify_report(text: str) -> dict:
             else 'LOW'
         )
 
-        return {
+        shap_explanation = get_shap_explanation(text) if not is_spam else None
+
+        result = {
             "is_spam": bool(is_spam),
             "is_hate_speech": bool(is_hate_speech),
             "is_toxic": bool(is_toxic),
@@ -166,8 +270,14 @@ def classify_report(text: str) -> dict:
             "toxicity_analysis": toxicity_scores,
             "word_count": word_count,
             "char_count": len(text),
-            "needs_review": bool(is_hate_speech or toxicity_scores['threat'] > 0.5)
+            "needs_review": bool(is_hate_speech or toxicity_scores['threat'] > 0.5),
+            "shap_explanation": shap_explanation
         }
+
+        if shap_explanation:
+            logger.info(f"SHAP analysis completed - Top influential words: {[w['word'] for w in shap_explanation.get('top_influential_words', [])]}")
+
+        return result
 
     except Exception as e:
         logger.error(f"Classification failed: {e}")
@@ -183,5 +293,6 @@ def classify_report(text: str) -> dict:
             "word_count": 0,
             "char_count": 0,
             "needs_review": True,
-            "error": str(e)
+            "error": str(e),
+            "shap_explanation": None
         }

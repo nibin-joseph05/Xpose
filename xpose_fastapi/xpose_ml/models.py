@@ -1,6 +1,5 @@
-# models.py
 from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from enum import Enum
 
 class UrgencyLevel(str, Enum):
@@ -25,6 +24,17 @@ class ToxicityAnalysis(BaseModel):
     identity_attack: float = Field(..., ge=0.0, le=1.0)
     hate_speech_score: float = Field(..., ge=0.0, le=1.0)
 
+class InfluentialWord(BaseModel):
+    word: str = Field(..., description="The influential word")
+    impact: float = Field(..., description="SHAP value indicating impact strength")
+    influence: str = Field(..., description="Whether influence is positive or negative")
+
+class ShapExplanation(BaseModel):
+    words: List[str] = Field(..., description="List of words in the text")
+    shap_values: List[float] = Field(..., description="SHAP values for each word")
+    base_value: float = Field(..., description="Base value of the model")
+    top_influential_words: List[InfluentialWord] = Field(..., description="Top 5 most influential words")
+
 class ReportClassification(BaseModel):
     is_spam: bool = Field(..., description="Whether the report is classified as spam")
     is_hate_speech: bool = Field(..., description="Whether the report contains hate speech")
@@ -37,6 +47,7 @@ class ReportClassification(BaseModel):
     word_count: int = Field(..., ge=0, description="Number of words in the report")
     char_count: int = Field(..., ge=0, description="Number of characters in the report")
     needs_review: bool = Field(..., description="Whether the report needs manual review")
+    shap_explanation: Optional[ShapExplanation] = Field(None, description="SHAP explainability analysis")
     error: Optional[str] = Field(None, description="Error message if classification failed")
 
 class HealthResponse(BaseModel):
