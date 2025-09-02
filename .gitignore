@@ -1,2 +1,5 @@
 xpose-backend/env.properties
 xpose_app/.env
+xpose-admin/.env
+xpose_chain/.env
+xpose_fastapi/.env
