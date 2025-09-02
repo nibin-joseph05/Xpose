@@ -1,27 +1,22 @@
-// blockchain/blockchain.go
 package blockchain
-
-import (
-	"xposechain/block"
-)
 
 // Blockchain struct contains a slice of Blocks
 type Blockchain struct {
-	Blocks []block.Block
+	Blocks []Block
 }
 
 // NewBlockchain creates a new blockchain with the genesis block
 func NewBlockchain() *Blockchain {
-	genesis := block.CreateBlock(0, "Genesis Block", "")
+	genesis := CreateBlock(0, "Genesis Block", "")
 	return &Blockchain{
-		Blocks: []block.Block{genesis},
+		Blocks: []Block{genesis},
 	}
 }
 
 // AddBlock adds a new block to the chain
 func (bc *Blockchain) AddBlock(data string) {
 	prevBlock := bc.Blocks[len(bc.Blocks)-1]
-	newBlock := block.CreateBlock(prevBlock.Index+1, data, prevBlock.Hash)
+	newBlock := CreateBlock(prevBlock.Index+1, data, prevBlock.Hash)
 	bc.Blocks = append(bc.Blocks, newBlock)
 }
 

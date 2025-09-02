@@ -1,6 +1,6 @@
 // block/block.go
 
-package block
+package blockchain
 
 import (
 	"crypto/sha256"

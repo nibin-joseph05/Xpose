@@ -2,21 +2,35 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 	"xposechain/blockchain"
+	"xposechain/routes"
 )
 
 func main() {
-	bc := blockchain.NewBlockchain()
+	_ = godotenv.Load(".env")
 
-	bc.AddBlock("Report: Drug activity near school.")
-	bc.AddBlock("Report: Suspicious package found.")
-
-	for _, blk := range bc.Blocks {
-		fmt.Printf("Block #%d:\n", blk.Index)
-		fmt.Printf("Data: %s\n", blk.Data)
-		fmt.Printf("Hash: %s\n", blk.Hash)
-		fmt.Printf("Previous Hash: %s\n\n", blk.PreviousHash)
+	address := os.Getenv("BLOCKCHAIN_SERVER_ADDRESS")
+	if address == "" {
+		address = "127.0.0.1"
 	}
 
-	fmt.Println("Is Blockchain Valid?", bc.IsValid())
+	port := os.Getenv("BLOCKCHAIN_SERVER_PORT")
+	if port == "" {
+		port = "9000"
+	}
+
+	bc := blockchain.NewBlockchain()
+
+	mux := http.NewServeMux()
+	routes.RegisterBlockchainRoutes(mux, bc)
+
+	serverAddr := fmt.Sprintf("%s:%s", address, port)
+	log.Printf("🚀 Blockchain server running at http://%s\n", serverAddr)
+
+	log.Fatal(http.ListenAndServe(serverAddr, mux))
 }
