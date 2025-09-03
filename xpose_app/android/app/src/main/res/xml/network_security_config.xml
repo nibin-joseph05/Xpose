@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">192.168.220.6</domain>
         <domain includeSubdomains="true">192.168.220.2</domain>
         <domain includeSubdomains="true">172.22.1.2</domain>
         <domain includeSubdomains="true">google.com</domain>
