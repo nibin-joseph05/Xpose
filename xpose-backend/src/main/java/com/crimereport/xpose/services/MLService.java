@@ -24,12 +24,9 @@ public class MLService {
     @Value("${ml.api.port}")
     private String port;
 
-    @Value("${ml.api.path}")
-    private String path;
-
     public Map<String, Object> classifyDescription(String description) {
         try {
-            String fastApiUrl = String.format("http://%s:%s%s", host, port, path);
+            String fastApiUrl = String.format("http://%s:%s/classify", host, port);
             logger.info("Sending crime description to FastAPI [{}] for ML classification...", fastApiUrl);
 
             Map<String, String> request = Map.of("description", description);
