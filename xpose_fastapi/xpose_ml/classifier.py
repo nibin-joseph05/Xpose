@@ -38,6 +38,7 @@ legitimate_crime_words = [
     'help', 'assistance', 'investigation', 'evidence'
 ]
 
+
 def initialize_shap_explainer():
     global explainer
     try:
@@ -68,6 +69,7 @@ def initialize_shap_explainer():
     except Exception as e:
         logger.error(f"❌ Failed to initialize SHAP explainer: {e}")
         return False
+
 
 @lru_cache(maxsize=100)
 def get_shap_explanation(text: str, max_words: int = 50):
@@ -107,13 +109,15 @@ def get_shap_explanation(text: str, max_words: int = 50):
                     shap_val = values[i]
                     if isinstance(shap_val, np.ndarray):
                         shap_val = shap_val.item() if shap_val.size == 1 else float(shap_val.flatten()[0])
+                    elif shap_val is None or np.isnan(shap_val):
+                        shap_val = 0.0
                     else:
                         shap_val = float(shap_val)
 
                     explanation['words'].append(words[i])
                     explanation['shap_values'].append(shap_val)
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Skipping problematic SHAP value at index {i}: {e}")
+                except Exception as e:
+                    logger.warning(f"Skipping SHAP value at index {i}: {e}")
                     continue
 
         if explanation['words']:
@@ -124,7 +128,11 @@ def get_shap_explanation(text: str, max_words: int = 50):
             )[:5]
 
             explanation['top_influential_words'] = [
-                {'word': word, 'impact': float(impact), 'influence': 'positive' if impact > 0 else 'negative'}
+                {
+                    'word': word,
+                    'impact': float(impact),
+                    'influence': 'positive' if impact > 0 else 'negative'
+                }
                 for word, impact in top_influential
             ]
         else:
@@ -136,10 +144,12 @@ def get_shap_explanation(text: str, max_words: int = 50):
         logger.error(f"Error generating SHAP explanation: {e}")
         return None
 
+
 def preprocess_text(text: str) -> str:
     text = re.sub(r'[^\w\s]', ' ', text.lower())
     text = re.sub(r'\s+', ' ', text).strip()
     return text
+
 
 def calculate_spam_score(text: str) -> float:
     text_lower = text.lower()
@@ -162,6 +172,7 @@ def calculate_spam_score(text: str) -> float:
 
     final_score = max(0, min(1, spam_ratio - (crime_ratio * 0.7) - (legit_ratio * 0.5)))
     return final_score
+
 
 def detect_toxicity(text: str) -> dict:
     try:
@@ -198,9 +209,11 @@ def detect_toxicity(text: str) -> dict:
             'hate_speech_score': 0.0
         }
 
+
 def classify_urgency(text: str, toxicity_scores: dict) -> str:
     text_lower = text.lower()
-    high_urgency_words = ['murder', 'killed', 'gun', 'weapon', 'emergency', 'help', 'urgent', 'immediate', 'shot', 'bleeding']
+    high_urgency_words = ['murder', 'killed', 'gun', 'weapon', 'emergency', 'help', 'urgent', 'immediate', 'shot',
+                          'bleeding']
     medium_urgency_words = ['theft', 'robbery', 'assault', 'harassment', 'threat', 'attack', 'violence']
 
     high_count = sum(1 for word in high_urgency_words if word in text_lower)
@@ -212,6 +225,7 @@ def classify_urgency(text: str, toxicity_scores: dict) -> str:
         return 'MEDIUM'
     else:
         return 'LOW'
+
 
 def classify_report(text: str) -> dict:
     try:
@@ -275,7 +289,8 @@ def classify_report(text: str) -> dict:
         }
 
         if shap_explanation:
-            logger.info(f"SHAP analysis completed - Top influential words: {[w['word'] for w in shap_explanation.get('top_influential_words', [])]}")
+            logger.info(
+                f"SHAP analysis completed - Top influential words: {[w['word'] for w in shap_explanation.get('top_influential_words', [])]}")
 
         return result
 

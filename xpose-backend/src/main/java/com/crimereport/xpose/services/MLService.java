@@ -43,6 +43,24 @@ public class MLService {
                 logger.info("  - Quality: {}", response.get("report_quality"));
                 logger.info("  - Needs Review: {}", response.get("needs_review"));
 
+                if (response.containsKey("shap_explanation")) {
+                    Map<String, Object> shapExplanation = (Map<String, Object>) response.get("shap_explanation");
+                    if (shapExplanation != null) {
+                        logger.info("  - SHAP Explanation available:");
+                        logger.info("    * Base Value: {}", shapExplanation.get("base_value"));
+
+                        java.util.List<Map<String, Object>> words =
+                                (java.util.List<Map<String, Object>>) shapExplanation.get("top_influential_words");
+                        if (words != null) {
+                            for (Map<String, Object> wordData : words) {
+                                logger.info("    * Word: {}, Score: {}",
+                                        wordData.get("word"), wordData.get("score"));
+                            }
+                        }
+                    }
+                }
+
+
                 return response;
             } else {
                 logger.warn("Received null response from FastAPI");
