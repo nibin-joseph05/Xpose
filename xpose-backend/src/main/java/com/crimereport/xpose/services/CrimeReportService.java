@@ -1,6 +1,7 @@
 package com.crimereport.xpose.services;
 
 import com.crimereport.xpose.dto.CrimeReportRequest;
+import com.crimereport.xpose.util.TrackingIdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -129,7 +130,7 @@ public class CrimeReportService {
     }
 
     private Map<String, Object> createSuccessResponse(String original, String processed, Map<String, Object> mlResult) {
-        String reportId = "CR" + System.currentTimeMillis();
+        String reportId = TrackingIdGenerator.newTrackingId();
         String status = determineReportStatus(mlResult);
 
         return Map.ofEntries(
