@@ -4,6 +4,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 import logging
 import time
 from contextlib import asynccontextmanager
+import threading
 from xpose_ml.routes import router
 
 logging.basicConfig(
@@ -12,24 +13,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger("uvicorn")
 
+def init_shap_background():
+    try:
+        from xpose_ml.classifier import initialize_shap_explainer
+        logger.info("Initializing SHAP explainer in background...")
+        shap_success = initialize_shap_explainer()
+        if shap_success:
+            logger.info("✅ SHAP explainer loaded successfully")
+        else:
+            logger.warning("⚠️ SHAP explainer initialization failed - continuing without explainability")
+    except Exception as e:
+        logger.error(f"❌ SHAP initialization error: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Xpose ML API...")
     logger.info("Loading ML models...")
 
     try:
-        from xpose_ml.classifier import tokenizer, model, detox, initialize_shap_explainer
+        from xpose_ml.classifier import tokenizer, model, detox
         logger.info("✅ BERT model loaded successfully")
         logger.info("✅ Detoxify model loaded successfully")
 
-        logger.info("Initializing SHAP explainer...")
-        shap_success = initialize_shap_explainer()
-        if shap_success:
-            logger.info("✅ SHAP explainer loaded successfully")
-        else:
-            logger.warning("⚠️  SHAP explainer initialization failed - continuing without explainability")
+        threading.Thread(target=init_shap_background, daemon=True).start()
 
-        logger.info("🎯 All ML models are ready!")
+        logger.info("🎯 Core ML models are ready! SHAP will initialize in background.")
     except Exception as e:
         logger.error(f"❌ Failed to load ML models: {e}")
         raise
