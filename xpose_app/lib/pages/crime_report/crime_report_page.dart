@@ -389,11 +389,7 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
     });
 
     try {
-      setState(() {
-        _loadingStatus = 'Analyzing your report, please wait…';
-      });
-
-      await _crimeReportService.submitReport(
+      final response = await _crimeReportService.submitReport(
         categoryId: widget.categoryId,
         categoryName: widget.categoryName,
         crimeType: widget.crimeType,
@@ -404,8 +400,6 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
         policeStation: _selectedPoliceStation!,
         files: _selectedFiles,
       );
-
-      final reportId = 'CR${DateTime.now().millisecondsSinceEpoch}';
 
       if (mounted) {
         _formKey.currentState?.reset();
@@ -423,10 +417,9 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => ReportSuccessDialog(reportId: reportId),
+          builder: (context) => ReportSuccessDialog(reportId: response['reportId']),
         );
       }
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

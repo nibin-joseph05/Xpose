@@ -130,23 +130,16 @@ class CrimeReportService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        try {
-          final responseData = json.decode(response.body);
-          return responseData;
-        } catch (e) {
-          return {
-            'success': true,
-            'message': 'Report submitted successfully',
-            'statusCode': response.statusCode
-          };
-        }
+        final responseData = json.decode(response.body);
+        return {
+          'success': true,
+          'reportId': responseData['reportId'] ?? 'Unknown ID',
+          'message': 'Report submitted successfully',
+          'statusCode': response.statusCode
+        };
       } else {
-        try {
-          final errorData = json.decode(response.body);
-          throw Exception('Server error: ${errorData['message'] ?? 'Unknown error'} (${response.statusCode})');
-        } catch (e) {
-          throw Exception('Failed to send report: HTTP ${response.statusCode}');
-        }
+        final errorData = json.decode(response.body);
+        throw Exception('Server error: ${errorData['message'] ?? 'Unknown error'} (${response.statusCode})');
       }
     } catch (e) {
       if (e is Exception) {

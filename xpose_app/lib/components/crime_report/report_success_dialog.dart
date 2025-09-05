@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:Xpose/pages/home/home.dart';
 
 class ReportSuccessDialog extends StatefulWidget {
@@ -59,7 +60,7 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
     _startAnimations();
   }
 
-  void _startAnimations() async {
+  Future<void> _startAnimations() async {
     await Future.delayed(const Duration(milliseconds: 200));
     _scaleController.forward();
 
@@ -74,6 +75,21 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const HomePage()),
           (Route<dynamic> route) => false,
+    );
+  }
+
+  void _copyReportId() {
+    Clipboard.setData(ClipboardData(text: widget.reportId));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Report ID ${widget.reportId} copied!'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -155,12 +171,21 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
+                        width: 1.5,
+                      ),
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(context).colorScheme.primary.withOpacity(0.25),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                     ),
                     child: Column(
@@ -168,19 +193,20 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                         Text(
                           'Report ID',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
+                        const SizedBox(height: 8),
+                        SelectableText(
                           widget.reportId,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.primary,
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ],
@@ -191,9 +217,8 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Text(
-                    'Your report has been received and assigned a unique ID. '
-                        'Our administrators will review and forward it to the appropriate authorities. '
-                        'You may be contacted for additional information if required.',
+                    'Your report has been submitted successfully and assigned a unique Report ID. '
+                        'Please save this ID carefully, as it is the only way to track or reference your report in the future.',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.8),
                       fontSize: 14,
@@ -209,34 +234,25 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () {
-                            // TODO: Implement clipboard functionality
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Report ID ${widget.reportId} copied!'),
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            );
-                          },
+                          onPressed: _copyReportId,
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Theme.of(context).colorScheme.primary,
                             side: BorderSide(
                               color: Theme.of(context).colorScheme.primary,
+                              width: 1.5,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.05),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Copy ID',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ),
@@ -252,8 +268,9 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            elevation: 3,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 4,
+                            shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                           ),
                           child: const Text(
                             'Continue to Home',
@@ -273,10 +290,11 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade900.withOpacity(0.2),
+                      color: Colors.blue.shade900.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.blue.shade700.withOpacity(0.3),
+                        color: Colors.blue.shade700.withOpacity(0.4),
+                        width: 1.5,
                       ),
                     ),
                     child: Row(
@@ -284,9 +302,9 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                         Icon(
                           Icons.info_outline,
                           color: Colors.blue.shade300,
-                          size: 18,
+                          size: 20,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Keep this Report ID for future reference and tracking.',
