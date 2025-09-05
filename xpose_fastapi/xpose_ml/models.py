@@ -30,10 +30,11 @@ class InfluentialWord(BaseModel):
     influence: str = Field(..., description="Whether influence is positive or negative")
 
 class ShapExplanation(BaseModel):
-    words: List[str] = Field(..., description="List of words in the text")
-    shap_values: List[float] = Field(..., description="SHAP values for each word")
+    words: Optional[List[str]] = Field(None, description="List of words in the text")
+    shap_values: Optional[List[float]] = Field(None, description="SHAP values for each word")
     base_value: float = Field(..., description="Base value of the model")
     top_influential_words: List[InfluentialWord] = Field(..., description="Top 5 most influential words")
+    word_importances: Optional[List[Dict]] = Field(None, description="Word importance data")
 
 class ReportClassification(BaseModel):
     is_spam: bool = Field(..., description="Whether the report is classified as spam")

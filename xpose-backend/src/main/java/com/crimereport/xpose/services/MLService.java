@@ -49,17 +49,41 @@ public class MLService {
                         logger.info("  - SHAP Explanation available:");
                         logger.info("    * Base Value: {}", shapExplanation.get("base_value"));
 
-                        java.util.List<Map<String, Object>> words =
+                        java.util.List<Map<String, Object>> topWords =
                                 (java.util.List<Map<String, Object>>) shapExplanation.get("top_influential_words");
-                        if (words != null) {
-                            for (Map<String, Object> wordData : words) {
-                                logger.info("    * Word: {}, Score: {}",
-                                        wordData.get("word"), wordData.get("score"));
+
+                        if (topWords != null && !topWords.isEmpty()) {
+                            logger.info("    * Top Influential Words:");
+                            for (Map<String, Object> wordData : topWords) {
+                                logger.info("      - Word: {}, Impact: {}, Influence: {}",
+                                        wordData.get("word"),
+                                        wordData.get("impact"),
+                                        wordData.get("influence"));
+                            }
+                        } else {
+                            logger.warn("    * No top influential words found in SHAP explanation");
+                        }
+
+                        java.util.List<Map<String, Object>> wordImportances =
+                                (java.util.List<Map<String, Object>>) shapExplanation.get("word_importances");
+
+                        if (wordImportances != null && !wordImportances.isEmpty()) {
+                            logger.info("    * Word Importances (first 10):");
+                            int count = 0;
+                            for (Map<String, Object> wordData : wordImportances) {
+                                if (count >= 10) break;
+                                logger.info("      - Word: {}, Score: {}",
+                                        wordData.get("word"),
+                                        wordData.get("score"));
+                                count++;
                             }
                         }
+                    } else {
+                        logger.warn("  - SHAP Explanation is null");
                     }
+                } else {
+                    logger.warn("  - No SHAP Explanation in response");
                 }
-
 
                 return response;
             } else {

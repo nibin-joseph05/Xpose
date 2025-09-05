@@ -12,7 +12,7 @@ router = APIRouter()
 def health_check():
     return HealthResponse(
         status="healthy",
-        message="Xpose ML API with SHAP is running ✅",
+        message="Xpose ML API with SHAP is running",
         timestamp=datetime.now().isoformat(),
         version="2.1.0"
     )
@@ -21,7 +21,7 @@ def health_check():
 def detailed_health():
     try:
         test_result = classify_report("This is a test message for health check")
-        shap_status = "✅ SHAP explainer working" if test_result.get('shap_explanation') else "⚠️ SHAP explainer unavailable"
+        shap_status = "SHAP explainer working" if test_result.get('shap_explanation') else "SHAP explainer unavailable"
         return HealthResponse(
             status="healthy",
             message=f"All ML models loaded and functioning properly. {shap_status}",
@@ -32,7 +32,7 @@ def detailed_health():
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="ML models not responding properly")
 
-@router.post("/classify", response_model=ReportClassification)
+@router.post("/classify")
 def classify(report: ReportInput):
     try:
         logger.info(f"Received report description from Spring: {report.description[:100]}...")
@@ -47,15 +47,16 @@ def classify(report: ReportInput):
         if result.get('shap_explanation'):
             shap_data = result['shap_explanation']
             top_words = [w['word'] for w in shap_data.get('top_influential_words', [])]
-            logger.info(f"🔍 SHAP Analysis: Top influential words: {top_words}")
-            logger.info(f"📊 SHAP Base value: {shap_data.get('base_value', 0.0):.4f}")
+            logger.info(f"SHAP Analysis: Top influential words: {top_words}")
+            logger.info(f"SHAP Base value: {shap_data.get('base_value', 0.0):.4f}")
         else:
-            logger.info("🔍 SHAP Analysis: Not available for this classification")
+            logger.info("SHAP Analysis: Not available for this classification")
 
         if result.get('error'):
             logger.error(f"Classification error: {result['error']}")
 
-        return ReportClassification(**result)
+        classification_response = ReportClassification(**result)
+        return classification_response.dict()
 
     except HTTPException:
         raise
@@ -100,7 +101,7 @@ def classify_batch(reports: list[ReportInput]):
                     "error": str(e)
                 })
 
-        logger.info(f"📊 Batch processing complete: {len(results)} reports processed, {shap_analysis_count} with SHAP analysis")
+        logger.info(f"Batch processing complete: {len(results)} reports processed, {shap_analysis_count} with SHAP analysis")
 
         return {
             "results": results,

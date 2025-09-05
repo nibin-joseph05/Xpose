@@ -19,11 +19,11 @@ def init_shap_background():
         logger.info("Initializing SHAP explainer in background...")
         shap_success = initialize_shap_explainer()
         if shap_success:
-            logger.info("✅ SHAP explainer loaded successfully")
+            logger.info("SHAP explainer loaded successfully")
         else:
-            logger.warning("⚠️ SHAP explainer initialization failed - continuing without explainability")
+            logger.warning(" SHAP explainer initialization failed - continuing without explainability")
     except Exception as e:
-        logger.error(f"❌ SHAP initialization error: {e}")
+        logger.error(f"SHAP initialization error: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,19 +32,19 @@ async def lifespan(app: FastAPI):
 
     try:
         from xpose_ml.classifier import tokenizer, model, detox
-        logger.info("✅ BERT model loaded successfully")
-        logger.info("✅ Detoxify model loaded successfully")
+        logger.info(" BERT model loaded successfully")
+        logger.info(" Detoxify model loaded successfully")
 
         threading.Thread(target=init_shap_background, daemon=True).start()
 
         logger.info("🎯 Core ML models are ready! SHAP will initialize in background.")
     except Exception as e:
-        logger.error(f"❌ Failed to load ML models: {e}")
+        logger.error(f" Failed to load ML models: {e}")
         raise
 
     yield
 
-    logger.info("🛑 Shutting down Xpose ML API...")
+    logger.info(" Shutting down Xpose ML API...")
 
 app = FastAPI(
     title="Xpose Enhanced ML API with SHAP",

@@ -39,6 +39,83 @@ legitimate_crime_words = [
 ]
 
 
+@lru_cache(maxsize=100)
+def get_shap_explanation(text: str, max_words: int = 50):
+    global explainer
+    if explainer is None:
+        return None
+    try:
+        truncated_text = ' '.join(text.split()[:max_words])
+        shap_values = explainer([truncated_text], max_evals=100)
+        explanation = {
+            'base_value': 0.0,
+            'word_importances': [],
+            'top_influential_words': []
+        }
+        if hasattr(shap_values, 'base_values') and len(shap_values.base_values) > 0:
+            base_val = shap_values.base_values[0]
+            if isinstance(base_val, np.ndarray):
+                if base_val.ndim > 0:
+                    explanation['base_value'] = float(base_val[0]) if len(base_val) > 0 else 0.0
+                else:
+                    explanation['base_value'] = float(base_val)
+            else:
+                explanation['base_value'] = float(base_val)
+        if hasattr(shap_values, 'values') and len(shap_values.values) > 0:
+            values = shap_values.values[0]
+            if hasattr(shap_values, 'data') and len(shap_values.data) > 0:
+                words = shap_values.data[0]
+            else:
+                words = truncated_text.split()
+            if isinstance(values, np.ndarray):
+                if values.ndim > 1:
+                    if values.shape[-1] > 1:
+                        values = np.sum(values, axis=-1)
+                    else:
+                        values = values[:, 0]
+                values = values.flatten()
+            min_len = min(len(words), len(values))
+            for i in range(min_len):
+                try:
+                    word = str(words[i]).strip()
+                    shap_val = values[i]
+                    if isinstance(shap_val, (np.generic, np.ndarray)):
+                        shap_val = float(np.nan_to_num(shap_val, nan=0.0))
+                    else:
+                        shap_val = float(shap_val) if shap_val is not None else 0.0
+                    explanation['word_importances'].append({
+                        "word": word,
+                        "score": shap_val
+                    })
+                except Exception as e:
+                    logger.warning(f"Error processing SHAP value at index {i}: {e}")
+                    explanation['word_importances'].append({
+                        "word": str(words[i]) if i < len(words) else f"word_{i}",
+                        "score": 0.0
+                    })
+        if explanation['word_importances']:
+            sorted_words = sorted(
+                explanation['word_importances'],
+                key=lambda x: abs(x['score']),
+                reverse=True
+            )[:5]
+            explanation['top_influential_words'] = [
+                {
+                    'word': item['word'],
+                    'impact': float(item['score']),
+                    'influence': 'positive' if item['score'] > 0 else 'negative'
+                }
+                for item in sorted_words
+            ]
+        else:
+            logger.warning("No word importances found in SHAP explanation")
+        return explanation
+    except Exception as e:
+        logger.error(f"Error generating SHAP explanation: {e}")
+        logger.error(f"SHAP values type: {type(shap_values) if 'shap_values' in locals() else 'undefined'}")
+        if 'shap_values' in locals():
+            logger.error(f"SHAP values attributes: {dir(shap_values)}")
+        return None
 def initialize_shap_explainer():
     global explainer
     try:
@@ -51,99 +128,22 @@ def initialize_shap_explainer():
                     probs = torch.nn.functional.softmax(outputs.logits, dim=1)
                     predictions.append(probs.cpu().numpy()[0])
             return np.array(predictions)
-
-        sample_texts = [
-            "This is a test crime report about theft",
-            "Someone stole my bike yesterday",
-            "Urgent help needed for emergency situation",
-            "Police report about vandalism incident",
-            "Robbery occurred at local store"
-        ]
-
         masker = shap.maskers.Text(tokenizer)
         explainer = shap.Explainer(bert_predict_function, masker)
-
-        test_explanation = explainer(["Test crime report"], max_evals=50)
+        test_texts = ["A man was stabbed on the street"]
+        test_explanation = explainer(test_texts, max_evals=50)
+        logger.info(f"Test SHAP explanation type: {type(test_explanation)}")
+        logger.info(f"Test SHAP explanation attributes: {dir(test_explanation)}")
+        if hasattr(test_explanation, 'values'):
+            logger.info(f"Test SHAP values shape: {test_explanation.values[0].shape}")
+            logger.info(f"Test SHAP values sample: {test_explanation.values[0][:5]}")
+        if hasattr(test_explanation, 'data'):
+            logger.info(f"Test SHAP data sample: {test_explanation.data[0][:5]}")
         logger.info("✅ SHAP explainer initialized successfully")
         return True
     except Exception as e:
         logger.error(f"❌ Failed to initialize SHAP explainer: {e}")
         return False
-
-
-@lru_cache(maxsize=100)
-def get_shap_explanation(text: str, max_words: int = 50):
-    global explainer
-    if explainer is None:
-        return None
-
-    try:
-        truncated_text = ' '.join(text.split()[:max_words])
-        shap_values = explainer([truncated_text], max_evals=100)
-
-        explanation = {
-            'words': [],
-            'shap_values': [],
-            'base_value': 0.0
-        }
-
-        if hasattr(shap_values, 'base_values'):
-            base_val = shap_values.base_values[0]
-            if isinstance(base_val, np.ndarray):
-                explanation['base_value'] = float(base_val.flatten()[0]) if base_val.size > 0 else 0.0
-            else:
-                explanation['base_value'] = float(base_val)
-
-        if hasattr(shap_values, 'values') and len(shap_values.values) > 0:
-            values = shap_values.values[0]
-            words = truncated_text.split()
-
-            if isinstance(values, np.ndarray):
-                if len(values.shape) > 1:
-                    values = values[:, 0] if values.shape[1] > 0 else values.flatten()
-                values = values.flatten()
-
-            min_len = min(len(words), len(values))
-            for i in range(min_len):
-                try:
-                    shap_val = values[i]
-                    if isinstance(shap_val, np.ndarray):
-                        shap_val = shap_val.item() if shap_val.size == 1 else float(shap_val.flatten()[0])
-                    elif shap_val is None or np.isnan(shap_val):
-                        shap_val = 0.0
-                    else:
-                        shap_val = float(shap_val)
-
-                    explanation['words'].append(words[i])
-                    explanation['shap_values'].append(shap_val)
-                except Exception as e:
-                    logger.warning(f"Skipping SHAP value at index {i}: {e}")
-                    continue
-
-        if explanation['words']:
-            top_influential = sorted(
-                zip(explanation['words'], explanation['shap_values']),
-                key=lambda x: abs(x[1]),
-                reverse=True
-            )[:5]
-
-            explanation['top_influential_words'] = [
-                {
-                    'word': word,
-                    'impact': float(impact),
-                    'influence': 'positive' if impact > 0 else 'negative'
-                }
-                for word, impact in top_influential
-            ]
-        else:
-            explanation['top_influential_words'] = []
-
-        return explanation
-
-    except Exception as e:
-        logger.error(f"Error generating SHAP explanation: {e}")
-        return None
-
 
 def preprocess_text(text: str) -> str:
     text = re.sub(r'[^\w\s]', ' ', text.lower())
@@ -304,10 +304,18 @@ def classify_report(text: str) -> dict:
             "confidence": 0.0,
             "spam_score": 1.0,
             "report_quality": "LOW",
-            "toxicity_analysis": {},
+            "toxicity_analysis": {
+                "toxicity": 0.0,
+                "severe_toxicity": 0.0,
+                "obscene": 0.0,
+                "threat": 0.0,
+                "insult": 0.0,
+                "identity_attack": 0.0,
+                "hate_speech_score": 0.0
+            },
             "word_count": 0,
             "char_count": 0,
             "needs_review": True,
-            "error": str(e),
-            "shap_explanation": None
+            "shap_explanation": None,
+            "error": str(e)
         }
