@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:Xpose/pages/home/home.dart';
+import 'package:Xpose/components/crime_report/pdf_generator.dart';
 
 class ReportSuccessDialog extends StatefulWidget {
   final String reportId;
@@ -69,6 +70,18 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
 
     await Future.delayed(const Duration(milliseconds: 300));
     _fadeController.forward();
+  }
+
+  Future<void> _savePdf() async {
+    await PdfGenerator.shareReportReceipt(widget.reportId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('PDF receipt generated and ready to share!'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _navigateHome() {
@@ -253,6 +266,28 @@ class _ReportSuccessDialogState extends State<ReportSuccessDialog>
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                               color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _savePdf,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            side: const BorderSide(color: Colors.green, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.05),
+                          ),
+                          child: const Text(
+                            'Save as PDF',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
                             ),
                           ),
                         ),
