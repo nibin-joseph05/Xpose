@@ -131,10 +131,25 @@ class CrimeReportService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = json.decode(response.body);
+
         return {
-          'success': true,
+          'success': responseData['success'] ?? false,
           'reportId': responseData['reportId'] ?? 'Unknown ID',
-          'message': 'Report submitted successfully',
+          'message': responseData['message'] ?? 'Response received',
+          'rejectionReason': responseData['rejectionReason'],
+          'improvementSuggestions': responseData['improvementSuggestions'] ?? [],
+          'status': responseData['status'],
+          'timestamp': responseData['timestamp'],
+          'requiresResubmission': responseData['requiresResubmission'] ?? false,
+          'statusCode': response.statusCode
+        };
+      } else if (response.statusCode == 400) {
+        final errorData = json.decode(response.body);
+        return {
+          'success': false,
+          'reportId': 'VALIDATION_FAILED',
+          'message': errorData['message'] ?? 'Validation failed',
+          'error': errorData['error'] ?? 'BAD_REQUEST',
           'statusCode': response.statusCode
         };
       } else {

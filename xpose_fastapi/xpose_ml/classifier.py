@@ -132,13 +132,13 @@ def initialize_shap_explainer():
         explainer = shap.Explainer(bert_predict_function, masker)
         test_texts = ["A man was stabbed on the street"]
         test_explanation = explainer(test_texts, max_evals=50)
-        logger.info(f"Test SHAP explanation type: {type(test_explanation)}")
-        logger.info(f"Test SHAP explanation attributes: {dir(test_explanation)}")
-        if hasattr(test_explanation, 'values'):
-            logger.info(f"Test SHAP values shape: {test_explanation.values[0].shape}")
-            logger.info(f"Test SHAP values sample: {test_explanation.values[0][:5]}")
-        if hasattr(test_explanation, 'data'):
-            logger.info(f"Test SHAP data sample: {test_explanation.data[0][:5]}")
+        # logger.info(f"Test SHAP explanation type: {type(test_explanation)}")
+        # logger.info(f"Test SHAP explanation attributes: {dir(test_explanation)}")
+        # if hasattr(test_explanation, 'values'):
+        #     logger.info(f"Test SHAP values shape: {test_explanation.values[0].shape}")
+        #     logger.info(f"Test SHAP values sample: {test_explanation.values[0][:5]}")
+        # if hasattr(test_explanation, 'data'):
+        #     logger.info(f"Test SHAP data sample: {test_explanation.data[0][:5]}")
         logger.info("✅ SHAP explainer initialized successfully")
         return True
     except Exception as e:

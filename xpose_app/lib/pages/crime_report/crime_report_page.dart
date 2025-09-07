@@ -4,6 +4,7 @@ import 'package:Xpose/components/crime_report/crime_description.dart';
 import 'package:Xpose/components/crime_report/police_station_selection.dart';
 import 'package:Xpose/components/crime_report/recaptcha_verification.dart';
 import 'package:Xpose/components/crime_report/report_success_dialog.dart';
+import 'package:Xpose/components/crime_report/report_rejected_dialog.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:Xpose/services/crime_report_service.dart';
@@ -402,23 +403,39 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
       );
 
       if (mounted) {
-        _formKey.currentState?.reset();
-        _descriptionController.clear();
-        _placeController.clear();
-        setState(() {
-          _selectedState = null;
-          _selectedDistrict = null;
-          _selectedPoliceStation = null;
-          _selectedFiles = [];
-          _isRecaptchaVerified = false;
-          _useCurrentLocation = false;
-        });
+        if (response['success'] == true) {
+          _formKey.currentState?.reset();
+          _descriptionController.clear();
+          _placeController.clear();
+          setState(() {
+            _selectedState = null;
+            _selectedDistrict = null;
+            _selectedPoliceStation = null;
+            _selectedFiles = [];
+            _isRecaptchaVerified = false;
+            _useCurrentLocation = false;
+          });
 
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => ReportSuccessDialog(reportId: response['reportId']),
-        );
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ReportSuccessDialog(reportId: response['reportId']),
+          );
+        } else {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => ReportRejectedDialog(
+              reportId: response['reportId'] ?? 'UNKNOWN',
+              rejectionReason: response['rejectionReason'] ?? 'Content validation failed',
+              message: response['message'] ?? 'Your report could not be processed',
+              improvementSuggestions: List<String>.from(response['improvementSuggestions'] ?? []),
+              onRetry: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
