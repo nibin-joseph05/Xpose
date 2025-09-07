@@ -153,7 +153,7 @@ public class CrimeReportService {
         return Map.of(
                 "success", false,
                 "message", "Report rejected: Content identified as spam or inappropriate",
-                "reportId", "REJECTED_" + System.currentTimeMillis(),
+                "reportId", TrackingIdGenerator.newRejectedId(),
                 "timestamp", LocalDateTime.now().toString(),
                 "status", "REJECTED",
                 "originalDescription", originalDescription,
@@ -168,7 +168,7 @@ public class CrimeReportService {
         return Map.ofEntries(
                 Map.entry("success", false),
                 Map.entry("message", "Report rejected: " + rejectionReason),
-                Map.entry("reportId", "REJECTED_" + System.currentTimeMillis()),
+                Map.entry("reportId", TrackingIdGenerator.newRejectedId()),
                 Map.entry("timestamp", LocalDateTime.now().toString()),
                 Map.entry("status", "REJECTED"),
                 Map.entry("originalDescription", original),

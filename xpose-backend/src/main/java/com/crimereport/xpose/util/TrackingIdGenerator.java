@@ -25,6 +25,20 @@ public class TrackingIdGenerator {
                 + checksum;
     }
 
+    public static String newRejectedId() {
+        char[] core = new char[12];
+        for (int i = 0; i < core.length; i++) {
+            core[i] = ALPHABET[RNG.nextInt(ALPHABET_LEN)];
+        }
+        char checksum = checksum(core);
+
+        return PREFIX + SEP + "RJCT" + SEP
+                + new String(core, 0, 4) + SEP
+                + new String(core, 4, 4) + SEP
+                + new String(core, 8, 4) + SEP
+                + checksum;
+    }
+
     private static char checksum(char[] core) {
         int sum = 0;
         for (char c : core) {
