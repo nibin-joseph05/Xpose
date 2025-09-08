@@ -27,17 +27,17 @@ def init_shap_background():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 Starting Xpose ML API...")
+    logger.info("Starting Xpose ML API...")
     logger.info("Loading ML models...")
 
     try:
         from xpose_ml.classifier import tokenizer, model, detox
-        logger.info(" BERT model loaded successfully")
-        logger.info(" Detoxify model loaded successfully")
+        logger.info("BERT model loaded successfully")
+        logger.info("Detoxify model loaded successfully")
 
         threading.Thread(target=init_shap_background, daemon=True).start()
 
-        logger.info("🎯 Core ML models are ready! SHAP will initialize in background.")
+        logger.info("Core ML models are ready! SHAP will initialize in background.")
     except Exception as e:
         logger.error(f" Failed to load ML models: {e}")
         raise

@@ -139,10 +139,10 @@ def initialize_shap_explainer():
         #     logger.info(f"Test SHAP values sample: {test_explanation.values[0][:5]}")
         # if hasattr(test_explanation, 'data'):
         #     logger.info(f"Test SHAP data sample: {test_explanation.data[0][:5]}")
-        logger.info("✅ SHAP explainer initialized successfully")
+        logger.info("SHAP explainer initialized successfully")
         return True
     except Exception as e:
-        logger.error(f"❌ Failed to initialize SHAP explainer: {e}")
+        logger.error(f"Failed to initialize SHAP explainer: {e}")
         return False
 
 def preprocess_text(text: str) -> str:
