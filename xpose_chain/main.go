@@ -24,7 +24,9 @@ func main() {
         port = "9000"
     }
 
-    bc := blockchain.NewBlockchain()
+    bc := blockchain.NewBlockchain("xpose_leveldb")
+    defer bc.DB.Close()
+
     mux := http.NewServeMux()
     routes.RegisterBlockchainRoutes(mux, bc)
 

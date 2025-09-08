@@ -2,13 +2,17 @@
 package com.crimereport.xpose.services;
 
 import com.crimereport.xpose.dto.CrimeReportRequest;
+import com.crimereport.xpose.models.CrimeReport;
+import com.crimereport.xpose.repository.CrimeReportRepository;
 import com.crimereport.xpose.util.TrackingIdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -25,17 +29,20 @@ public class CrimeReportService {
     @Autowired
     private BlockchainService blockchainService;
 
+    @Autowired
+    private CrimeReportRepository crimeReportRepository;
+
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
         try {
             logger.info("===  CRIME REPORT PROCESSING STARTED ===");
-
             String originalDescription = request.getDescription();
             logger.info("Original Description: {}", originalDescription);
 
             logger.info("=== PHASE 1: PRE-PROCESSING VALIDATION ===");
-
             String textForMLAnalysis = originalDescription;
             boolean isEnglish = geminiService.isTextInEnglish(originalDescription);
 
@@ -55,7 +62,7 @@ public class CrimeReportService {
 
             if (isPreProcessingSpamOrToxic) {
                 logger.warn("Report REJECTED in pre-processing phase due to spam/toxic/hate speech content");
-                return createRejectedResponse(originalDescription, originalDescription, preProcessingMLResult, "PRE_PROCESSING");
+                return createRejectedResponse(originalDescription, originalDescription, preProcessingMLResult, "PRE_PROCESSING", request);
             }
 
             logger.info("=== PHASE 2: GEMINI PROCESSING FOR READABILITY ===");
@@ -64,7 +71,7 @@ public class CrimeReportService {
 
             if ("SPAM_DETECTED".equals(processedDescription)) {
                 logger.warn("Gemini detected additional spam patterns");
-                return createSpamResponse(originalDescription);
+                return createSpamResponse(originalDescription, request, preProcessingMLResult);
             }
 
             logger.info("=== PHASE 3: POST-PROCESSING QUALITY CHECK ===");
@@ -82,7 +89,7 @@ public class CrimeReportService {
 
             if (isFinalSpamOrToxic) {
                 logger.warn("Report flagged as spam/toxic/hate speech in final validation");
-                return createRejectedResponse(originalDescription, processedDescription, validatedResult, "FINAL_VALIDATION");
+                return createRejectedResponse(originalDescription, processedDescription, validatedResult, "FINAL_VALIDATION", request);
             }
 
             logReportDetails(request, originalDescription, processedDescription, validatedResult);
@@ -221,40 +228,117 @@ public class CrimeReportService {
         logger.info("=== END CRIME REPORT DETAILS ===");
     }
 
-    private Map<String, Object> createSuccessResponse(CrimeReportRequest request, String original, String processed, Map<String, Object> mlResult) {
+    private Map<String, Object> createSuccessResponse(CrimeReportRequest request,
+                                                      String original,
+                                                      String processed,
+                                                      Map<String, Object> mlResult) {
         String reportId = TrackingIdGenerator.newTrackingId();
-        boolean sentToBlockchain = blockchainService.sendReportToBlockchain(request, reportId);
-        logger.info("Report sent to blockchain: {}", sentToBlockchain);
-
         String status = determineReportStatus(mlResult);
 
-        return Map.ofEntries(
-                Map.entry("success", true),
-                Map.entry("message", "Crime report submitted successfully and passed all validation checks"),
-                Map.entry("reportId", reportId),
-                Map.entry("timestamp", LocalDateTime.now().toString()),
-                Map.entry("status", status),
-                Map.entry("originalDescription", original),
-                Map.entry("processedDescription", processed),
-                Map.entry("mlClassification", mlResult),
-                Map.entry("requiresUrgentAttention", "HIGH".equals(mlResult.get("urgency"))),
-                Map.entry("qualityScore", mlResult.get("report_quality")),
-                Map.entry("processingNotes", generateProcessingNotes(original, processed, mlResult)),
-                Map.entry("validationPhases", Map.of(
-                        "preProcessing", "PASSED",
-                        "geminiProcessing", "COMPLETED",
-                        "postProcessing", "PASSED",
-                        "finalValidation", "PASSED"
-                ))
-        );
+        CrimeReport report = new CrimeReport();
+        report.setCrimeCategoryId((long) request.getCategoryId());
+        report.setOriginalDescription(original);
+        report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
+        report.setReadabilityEnhancedDescription(processed);
+        report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
+        report.setAddress(request.getPlace());
+        report.setCity(request.getDistrict());
+        report.setState(request.getState());
+        report.setCountry("India");
+        report.setSubmittedAt(LocalDateTime.now());
+        report.setSpam((Boolean) mlResult.getOrDefault("is_spam", false));
+        report.setToxic((Boolean) mlResult.getOrDefault("is_toxic", false));
+        report.setHateSpeech((Boolean) mlResult.getOrDefault("is_hate_speech", false));
+        report.setUrgencyLevel(CrimeReport.UrgencyLevel.valueOf(mlResult.getOrDefault("urgency", "LOW").toString()));
+        report.setConfidenceScore((Double) mlResult.getOrDefault("confidence", 0.0));
+        report.setNeedsReview((Boolean) mlResult.getOrDefault("needs_review", false));
+        report.setSpamScore((Double) mlResult.getOrDefault("spam_score", 0.0));
+        report.setToxicityScores(convertMapToJson((Map<String, Object>) mlResult.get("toxicity_analysis")));
+        report.setShapExplanation(convertMapToJson((Map<String, Object>) mlResult.get("shap_explanation")));
+        report.setReportQuality(CrimeReport.ReportQuality.valueOf(mlResult.getOrDefault("report_quality", "LOW").toString()));
+        report.setWordCount((Integer) mlResult.getOrDefault("word_count", 0));
+        report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
+        report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
+        report.setStatus(CrimeReport.ReportStatus.ACCEPTED);
+        report.setBlockchainHash(null);
+        report.setBlockchainTxId(null);
+        report.setBlockchainTimestamp(null);
+
+        try {
+            crimeReportRepository.save(report);
+            logger.info("Crime report saved to PostgreSQL with ID: {}", report.getId());
+        } catch (Exception e) {
+            logger.error("Failed to save crime report to PostgreSQL: {}", e.getMessage());
+            return createErrorResponse("Failed to save report: " + e.getMessage());
+        }
+
+        Map<String, Object> blockchainResult = blockchainService.sendReportToBlockchain(request, reportId);
+
+        if (blockchainResult.getOrDefault("success", false).equals(Boolean.TRUE)) {
+            report.setBlockchainHash((String) blockchainResult.get("hash"));
+            report.setBlockchainTxId((String) blockchainResult.get("txId"));
+            report.setBlockchainTimestamp(LocalDateTime.now());
+            crimeReportRepository.save(report);
+            logger.info("Blockchain info saved for report ID: {}", reportId);
+        } else {
+            logger.warn("Blockchain submission failed for report ID: {}", reportId);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Crime report submitted successfully and saved");
+        response.put("reportId", reportId);
+        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("status", status);
+        response.put("originalDescription", original);
+        response.put("processedDescription", processed);
+        response.put("mlClassification", mlResult);
+        response.put("requiresUrgentAttention", "HIGH".equals(mlResult.get("urgency")));
+        response.put("qualityScore", mlResult.get("report_quality"));
+        response.put("processingNotes", generateProcessingNotes(original, processed, mlResult));
+
+        return response;
     }
 
+    private Map<String, Object> createSpamResponse(String originalDescription, CrimeReportRequest request, Map<String, Object> mlResult) {
+        String reportId = TrackingIdGenerator.newRejectedId();
 
-    private Map<String, Object> createSpamResponse(String originalDescription) {
+        CrimeReport report = new CrimeReport();
+        report.setCrimeCategoryId((long) request.getCategoryId());
+        report.setOriginalDescription(originalDescription);
+        report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
+        report.setAddress(request.getPlace());
+        report.setCity(request.getDistrict());
+        report.setState(request.getState());
+        report.setCountry("India");
+        report.setSubmittedAt(LocalDateTime.now());
+        report.setSpam(true);
+        report.setToxic(false);
+        report.setHateSpeech(false);
+        report.setUrgencyLevel(CrimeReport.UrgencyLevel.LOW);
+        report.setConfidenceScore((Double) mlResult.getOrDefault("confidence", 0.0));
+        report.setNeedsReview(false);
+        report.setSpamScore((Double) mlResult.getOrDefault("spam_score", 0.0));
+        report.setToxicityScores(convertMapToJson((Map<String, Object>) mlResult.get("toxicity_analysis")));
+        report.setShapExplanation(convertMapToJson((Map<String, Object>) mlResult.get("shap_explanation")));
+        report.setReportQuality(CrimeReport.ReportQuality.LOW);
+        report.setWordCount((Integer) mlResult.getOrDefault("word_count", 0));
+        report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
+        report.setProcessingPhase(CrimeReport.ProcessingPhase.GEMINI_ENRICHED);
+        report.setStatus(CrimeReport.ReportStatus.REJECTED);
+        report.setRejectionReason("SPAM_DETECTED_BY_GEMINI");
+
+        try {
+            crimeReportRepository.save(report);
+            logger.info("Spam report saved to PostgreSQL with ID: {}", report.getId());
+        } catch (Exception e) {
+            logger.error("Failed to save spam report: {}", e.getMessage());
+        }
+
         return Map.of(
                 "success", false,
                 "message", "Report rejected: Content identified as spam or inappropriate",
-                "reportId", TrackingIdGenerator.newRejectedId(),
+                "reportId", reportId,
                 "timestamp", LocalDateTime.now().toString(),
                 "status", "REJECTED",
                 "originalDescription", originalDescription,
@@ -264,24 +348,65 @@ public class CrimeReportService {
         );
     }
 
-    private Map<String, Object> createRejectedResponse(String original, String processed, Map<String, Object> mlResult, String rejectionPhase) {
+
+    private Map<String, Object> createRejectedResponse(String original, String processed,
+                                                       Map<String, Object> mlResult,
+                                                       String rejectionPhase,
+                                                       CrimeReportRequest request) {
+        String reportId = TrackingIdGenerator.newRejectedId();
         String rejectionReason = determineRejectionReason(mlResult);
 
-        return Map.ofEntries(
-                Map.entry("success", false),
-                Map.entry("message", "Report rejected: " + rejectionReason),
-                Map.entry("reportId", TrackingIdGenerator.newRejectedId()),
-                Map.entry("timestamp", LocalDateTime.now().toString()),
-                Map.entry("status", "REJECTED"),
-                Map.entry("originalDescription", original),
-                Map.entry("processedDescription", processed),
-                Map.entry("rejectionReason", rejectionReason),
-                Map.entry("rejectionPhase", rejectionPhase),
-                Map.entry("mlClassification", mlResult),
-                Map.entry("requiresResubmission", true),
-                Map.entry("improvementSuggestions", generateImprovementSuggestions(mlResult))
-        );
+        CrimeReport report = new CrimeReport();
+        report.setCrimeCategoryId((long) request.getCategoryId());
+        report.setOriginalDescription(original);
+        report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
+        report.setReadabilityEnhancedDescription(processed);
+        report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
+        report.setAddress(request.getPlace());
+        report.setCity(request.getDistrict());
+        report.setState(request.getState());
+        report.setCountry("India");
+        report.setSubmittedAt(LocalDateTime.now());
+        report.setSpam((Boolean) mlResult.getOrDefault("is_spam", false));
+        report.setToxic((Boolean) mlResult.getOrDefault("is_toxic", false));
+        report.setHateSpeech((Boolean) mlResult.getOrDefault("is_hate_speech", false));
+        report.setUrgencyLevel(CrimeReport.UrgencyLevel.valueOf(mlResult.getOrDefault("urgency", "LOW").toString()));
+        report.setConfidenceScore((Double) mlResult.getOrDefault("confidence", 0.0));
+        report.setNeedsReview((Boolean) mlResult.getOrDefault("needs_review", false));
+        report.setSpamScore((Double) mlResult.getOrDefault("spam_score", 0.0));
+        report.setToxicityScores(convertMapToJson((Map<String, Object>) mlResult.get("toxicity_analysis")));
+        report.setShapExplanation(convertMapToJson((Map<String, Object>) mlResult.get("shap_explanation")));
+        report.setReportQuality(CrimeReport.ReportQuality.valueOf(mlResult.getOrDefault("report_quality", "LOW").toString()));
+        report.setWordCount((Integer) mlResult.getOrDefault("word_count", 0));
+        report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
+        report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
+        report.setStatus(CrimeReport.ReportStatus.REJECTED);
+        report.setRejectionReason(rejectionReason);
+
+        try {
+            crimeReportRepository.save(report);
+            logger.info("Rejected report saved to PostgreSQL with ID: {}", report.getId());
+        } catch (Exception e) {
+            logger.error("Failed to save rejected report: {}", e.getMessage());
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("message", "Report rejected: " + rejectionReason);
+        response.put("reportId", reportId);
+        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("status", "REJECTED");
+        response.put("originalDescription", original);
+        response.put("processedDescription", processed);
+        response.put("rejectionReason", rejectionReason);
+        response.put("rejectionPhase", rejectionPhase);
+        response.put("mlClassification", mlResult);
+        response.put("requiresResubmission", true);
+        response.put("improvementSuggestions", generateImprovementSuggestions(mlResult));
+
+        return response;
     }
+
 
     private Map<String, Object> createErrorResponse(String errorMessage) {
         return Map.of(
@@ -552,4 +677,25 @@ public class CrimeReportService {
 
         return mlResult;
     }
+
+    private String convertFilesToJson(java.util.List<String> files) {
+        if (files == null || files.isEmpty()) return "[]";
+        try {
+            return objectMapper.writeValueAsString(files);
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to convert attachments to JSON: {}", e.getMessage());
+            return "[]";
+        }
+    }
+
+    private String convertMapToJson(Map<String, Object> map) {
+        if (map == null || map.isEmpty()) return "{}";
+        try {
+            return objectMapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to convert map to JSON: {}", e.getMessage());
+            return "{}";
+        }
+    }
+
 }

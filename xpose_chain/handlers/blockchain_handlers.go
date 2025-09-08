@@ -24,11 +24,16 @@ func MakeAddBlockHandler(bc *blockchain.Blockchain) http.HandlerFunc {
         log.Println("Processing report and adding to blockchain...")
 
         bc.AddBlock(req)
+        newBlock := bc.Blocks[len(bc.Blocks)-1]
 
         log.Println("Report successfully added to blockchain")
 
         w.Header().Set("Content-Type", "application/json")
-        _ = json.NewEncoder(w).Encode(map[string]string{"status": "Block added"})
+        _ = json.NewEncoder(w).Encode(map[string]string{
+            "status": "Block added",
+            "hash": newBlock.Hash,
+            "timestamp": newBlock.Timestamp,
+        })
     }
 }
 

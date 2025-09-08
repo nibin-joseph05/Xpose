@@ -32,3 +32,4 @@ func CreateBlock(index int, data ReportData, prevHash string) Block {
     block.Hash = block.CalculateHash()
     return block
 }
+

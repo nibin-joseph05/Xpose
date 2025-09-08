@@ -28,7 +28,7 @@ public class BlockchainService {
         this.objectMapper = new ObjectMapper();
     }
 
-    public boolean sendReportToBlockchain(CrimeReportRequest request, String reportId) {
+    public Map<String, Object> sendReportToBlockchain(CrimeReportRequest request, String reportId) {
         try {
             Map<String, Object> blockData = new HashMap<>();
             blockData.put("reportId", reportId);
@@ -37,6 +37,7 @@ public class BlockchainService {
             blockData.put("address", request.getPlace());
             blockData.put("city", request.getDistrict());
             blockData.put("state", request.getState());
+            blockData.put("country", "India");
             blockData.put("submittedAt", LocalDateTime.now().toString());
 
             String jsonData = objectMapper.writeValueAsString(blockData);
@@ -46,13 +47,18 @@ public class BlockchainService {
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(jsonData, headers);
 
-            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
-            return response.getStatusCode() == HttpStatus.OK;
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return response.getBody();
+            } else {
+                return Map.of("success", false);
+            }
 
         } catch (Exception e) {
             System.err.println("Error sending report to blockchain: " + e.getMessage());
-            return false;
+            return Map.of("success", false, "error", e.getMessage());
         }
     }
+
 }

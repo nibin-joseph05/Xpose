@@ -1,1 +1,6 @@
 .env
+
+# LevelDB files
+xpose_leveldb/*
+!xpose_leveldb/.gitignore
+
