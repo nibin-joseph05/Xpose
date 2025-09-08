@@ -236,6 +236,7 @@ public class CrimeReportService {
         String status = determineReportStatus(mlResult);
 
         CrimeReport report = new CrimeReport();
+        report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
         report.setOriginalDescription(original);
         report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
@@ -304,6 +305,7 @@ public class CrimeReportService {
         String reportId = TrackingIdGenerator.newRejectedId();
 
         CrimeReport report = new CrimeReport();
+        report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
         report.setOriginalDescription(originalDescription);
         report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
@@ -357,6 +359,7 @@ public class CrimeReportService {
         String rejectionReason = determineRejectionReason(mlResult);
 
         CrimeReport report = new CrimeReport();
+        report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
         report.setOriginalDescription(original);
         report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());

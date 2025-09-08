@@ -11,8 +11,8 @@ import java.util.UUID;
 public class CrimeReport {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    @Column(name = "id", length = 32)
+    private String id;
 
     @Column(name = "crime_category_id", nullable = false)
     private Long crimeCategoryId;
@@ -78,11 +78,11 @@ public class CrimeReport {
     public enum ProcessingPhase { PRE_PROCESSING, GEMINI_ENRICHED, FINALIZED }
 
 
-    public UUID getId() {
+    public String getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(String id) {
         this.id = id;
     }
 
