@@ -17,7 +17,7 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, UUID> 
 
     List<CrimeReport> findByStatus(ReportStatus status);
 
-    List<CrimeReport> findByCrimeCategoryId(UUID crimeCategoryId);
+    List<CrimeReport> findByCrimeCategoryId(Long crimeCategoryId);
 
     List<CrimeReport> findByUrgencyLevel(CrimeReport.UrgencyLevel urgencyLevel);
 

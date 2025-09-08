@@ -3,6 +3,7 @@ package handlers
 import (
     "encoding/json"
     "net/http"
+    "log"
     "xposechain/blockchain"
 )
 
@@ -19,11 +20,18 @@ func MakeAddBlockHandler(bc *blockchain.Blockchain) http.HandlerFunc {
             return
         }
 
+        log.Printf("Received new report from Spring Boot: %+v\n", req)
+        log.Println("Processing report and adding to blockchain...")
+
         bc.AddBlock(req)
+
+        log.Println("Report successfully added to blockchain")
+
         w.Header().Set("Content-Type", "application/json")
         _ = json.NewEncoder(w).Encode(map[string]string{"status": "Block added"})
     }
 }
+
 
 func MakeGetChainHandler(bc *blockchain.Blockchain) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {

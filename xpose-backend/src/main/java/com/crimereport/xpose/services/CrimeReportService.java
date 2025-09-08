@@ -22,6 +22,9 @@ public class CrimeReportService {
     @Autowired
     private MLService mlService;
 
+    @Autowired
+    private BlockchainService blockchainService;
+
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
@@ -84,7 +87,7 @@ public class CrimeReportService {
 
             logReportDetails(request, originalDescription, processedDescription, validatedResult);
 
-            return createSuccessResponse(originalDescription, processedDescription, validatedResult);
+            return createSuccessResponse(request, originalDescription, processedDescription, validatedResult);
 
         } catch (Exception e) {
             logger.error("Error processing crime report submission: {}", e.getMessage(), e);
@@ -218,8 +221,11 @@ public class CrimeReportService {
         logger.info("=== END CRIME REPORT DETAILS ===");
     }
 
-    private Map<String, Object> createSuccessResponse(String original, String processed, Map<String, Object> mlResult) {
+    private Map<String, Object> createSuccessResponse(CrimeReportRequest request, String original, String processed, Map<String, Object> mlResult) {
         String reportId = TrackingIdGenerator.newTrackingId();
+        boolean sentToBlockchain = blockchainService.sendReportToBlockchain(request, reportId);
+        logger.info("Report sent to blockchain: {}", sentToBlockchain);
+
         String status = determineReportStatus(mlResult);
 
         return Map.ofEntries(
@@ -242,6 +248,7 @@ public class CrimeReportService {
                 ))
         );
     }
+
 
     private Map<String, Object> createSpamResponse(String originalDescription) {
         return Map.of(

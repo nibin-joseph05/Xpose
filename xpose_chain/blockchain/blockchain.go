@@ -2,6 +2,7 @@ package blockchain
 
 import (
     "time"
+    "fmt"
 )
 
 type Blockchain struct {
@@ -25,6 +26,8 @@ func (bc *Blockchain) AddBlock(data ReportData) {
     prevBlock := bc.Blocks[len(bc.Blocks)-1]
     newBlock := CreateBlock(prevBlock.Index+1, data, prevBlock.Hash)
     bc.Blocks = append(bc.Blocks, newBlock)
+
+    fmt.Printf("Added Block %d: %+v\n", newBlock.Index, newBlock)
 }
 
 func (bc *Blockchain) IsValid() bool {
