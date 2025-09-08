@@ -1,3 +1,4 @@
+
 package com.crimereport.xpose.services;
 
 import com.crimereport.xpose.dto.CrimeReportRequest;
@@ -30,27 +31,55 @@ public class CrimeReportService {
             String originalDescription = request.getDescription();
             logger.info("Original Description: {}", originalDescription);
 
-            String processedDescription = processDescription(originalDescription);
+            logger.info("=== PHASE 1: PRE-PROCESSING VALIDATION ===");
+
+            String textForMLAnalysis = originalDescription;
+            boolean isEnglish = geminiService.isTextInEnglish(originalDescription);
+
+            if (!isEnglish) {
+                logger.info("Text not in English, translating for ML analysis only...");
+                textForMLAnalysis = geminiService.translateToEnglish(originalDescription);
+                logger.info("Translated for ML analysis: {}", textForMLAnalysis);
+            }
+
+            Map<String, Object> preProcessingMLResult = mlService.classifyDescription(textForMLAnalysis);
+            logger.info("=== PRE-PROCESSING ML RESULTS ===");
+            logMLResults(preProcessingMLResult);
+
+            boolean isPreProcessingSpamOrToxic = (Boolean) preProcessingMLResult.getOrDefault("is_spam", false) ||
+                    (Boolean) preProcessingMLResult.getOrDefault("is_toxic", false) ||
+                    (Boolean) preProcessingMLResult.getOrDefault("is_hate_speech", false);
+
+            if (isPreProcessingSpamOrToxic) {
+                logger.warn("Report REJECTED in pre-processing phase due to spam/toxic/hate speech content");
+                return createRejectedResponse(originalDescription, originalDescription, preProcessingMLResult, "PRE_PROCESSING");
+            }
+
+            logger.info("=== PHASE 2: GEMINI PROCESSING FOR READABILITY ===");
+            String processedDescription = processDescriptionForReadability(originalDescription);
             logger.info("Processed Description: {}", processedDescription);
 
             if ("SPAM_DETECTED".equals(processedDescription)) {
-                logger.warn("Gemini detected spam in description");
+                logger.warn("Gemini detected additional spam patterns");
                 return createSpamResponse(originalDescription);
             }
 
-            Map<String, Object> mlResult = mlService.classifyDescription(processedDescription);
-            Map<String, Object> validatedResult = applyValidationOverrides(mlResult, processedDescription);
+            logger.info("=== PHASE 3: POST-PROCESSING QUALITY CHECK ===");
+            Map<String, Object> postProcessingMLResult = mlService.classifyDescription(processedDescription);
 
-            logger.info("===  ML CLASSIFICATION RESULTS ===");
+            Map<String, Object> finalResult = combineMlResults(preProcessingMLResult, postProcessingMLResult);
+            Map<String, Object> validatedResult = applyValidationOverrides(finalResult, originalDescription, processedDescription);
+
+            logger.info("===  FINAL ML CLASSIFICATION RESULTS ===");
             logMLResults(validatedResult);
 
-            boolean isSpamOrToxic = (Boolean) validatedResult.getOrDefault("is_spam", false) ||
+            boolean isFinalSpamOrToxic = (Boolean) validatedResult.getOrDefault("is_spam", false) ||
                     (Boolean) validatedResult.getOrDefault("is_toxic", false) ||
                     (Boolean) validatedResult.getOrDefault("is_hate_speech", false);
 
-            if (isSpamOrToxic) {
-                logger.warn("Report flagged as spam/toxic/hate speech after validation");
-                return createRejectedResponse(originalDescription, processedDescription, validatedResult);
+            if (isFinalSpamOrToxic) {
+                logger.warn("Report flagged as spam/toxic/hate speech in final validation");
+                return createRejectedResponse(originalDescription, processedDescription, validatedResult, "FINAL_VALIDATION");
             }
 
             logReportDetails(request, originalDescription, processedDescription, validatedResult);
@@ -67,22 +96,82 @@ public class CrimeReportService {
         return CompletableFuture.supplyAsync(() -> submitCrimeReport(request));
     }
 
-    private String processDescription(String originalDescription) {
+    private String processDescriptionForReadability(String originalDescription) {
         try {
             boolean isEnglish = geminiService.isTextInEnglish(originalDescription);
 
             if (!isEnglish) {
-                logger.info("Text not in English, force translating...");
+                logger.info("Text not in English, translating for readability...");
                 String translated = geminiService.translateToEnglish(originalDescription);
-                return geminiService.processAndCleanText(translated);
+                return geminiService.improveReadabilityOnly(translated);
             } else {
-                logger.info("Text is in English, processing for spam detection and grammar...");
-                return geminiService.processAndCleanText(originalDescription);
+                logger.info("Text is in English, improving readability only...");
+                return geminiService.improveReadabilityOnly(originalDescription);
             }
         } catch (Exception e) {
             logger.error("Error processing description with Gemini: {}", e.getMessage());
             return originalDescription;
         }
+    }
+
+    private Map<String, Object> combineMlResults(Map<String, Object> preResult, Map<String, Object> postResult) {
+        boolean isSpam = (Boolean) preResult.getOrDefault("is_spam", false) ||
+                (Boolean) postResult.getOrDefault("is_spam", false);
+        boolean isHateSpeech = (Boolean) preResult.getOrDefault("is_hate_speech", false) ||
+                (Boolean) postResult.getOrDefault("is_hate_speech", false);
+        boolean isToxic = (Boolean) preResult.getOrDefault("is_toxic", false) ||
+                (Boolean) postResult.getOrDefault("is_toxic", false);
+        boolean needsReview = (Boolean) preResult.getOrDefault("needs_review", false) ||
+                (Boolean) postResult.getOrDefault("needs_review", false);
+
+        String preUrgency = (String) preResult.getOrDefault("urgency", "LOW");
+        String postUrgency = (String) postResult.getOrDefault("urgency", "LOW");
+        String finalUrgency = getHigherUrgency(preUrgency, postUrgency);
+
+        String reportQuality = (String) postResult.getOrDefault("report_quality", "LOW");
+
+        Double preConfidence = (Double) preResult.getOrDefault("confidence", 0.0);
+        Double postConfidence = (Double) postResult.getOrDefault("confidence", 0.0);
+        Double finalConfidence = Math.max(preConfidence, postConfidence);
+
+        Integer wordCount = (Integer) postResult.getOrDefault("word_count", 0);
+        Integer charCount = (Integer) postResult.getOrDefault("char_count", 0);
+
+        Map<String, Object> toxicityAnalysis = (Map<String, Object>) preResult.getOrDefault("toxicity_analysis", postResult.get("toxicity_analysis"));
+
+        Object shapExplanation = postResult.get("shap_explanation");
+
+        return Map.ofEntries(
+                Map.entry("is_spam", isSpam),
+                Map.entry("is_hate_speech", isHateSpeech),
+                Map.entry("is_toxic", isToxic),
+                Map.entry("urgency", finalUrgency),
+                Map.entry("confidence", finalConfidence),
+                Map.entry("spam_score", Math.max((Double) preResult.getOrDefault("spam_score", 0.0),
+                        (Double) postResult.getOrDefault("spam_score", 0.0))),
+                Map.entry("report_quality", reportQuality),
+                Map.entry("toxicity_analysis", toxicityAnalysis),
+                Map.entry("word_count", wordCount),
+                Map.entry("char_count", charCount),
+                Map.entry("needs_review", needsReview),
+                Map.entry("shap_explanation", shapExplanation),
+                Map.entry("pre_processing_flags", Map.of(
+                        "spam", preResult.getOrDefault("is_spam", false),
+                        "toxic", preResult.getOrDefault("is_toxic", false),
+                        "hate_speech", preResult.getOrDefault("is_hate_speech", false)
+                )),
+                Map.entry("post_processing_flags", Map.of(
+                        "spam", postResult.getOrDefault("is_spam", false),
+                        "toxic", postResult.getOrDefault("is_toxic", false),
+                        "hate_speech", postResult.getOrDefault("is_hate_speech", false)
+                ))
+        );
+    }
+
+    private String getHigherUrgency(String urgency1, String urgency2) {
+        if ("HIGH".equals(urgency1) || "HIGH".equals(urgency2)) return "HIGH";
+        if ("MEDIUM".equals(urgency1) || "MEDIUM".equals(urgency2)) return "MEDIUM";
+        return "LOW";
     }
 
     private void logMLResults(Map<String, Object> mlResult) {
@@ -144,10 +233,15 @@ public class CrimeReportService {
                 Map.entry("mlClassification", mlResult),
                 Map.entry("requiresUrgentAttention", "HIGH".equals(mlResult.get("urgency"))),
                 Map.entry("qualityScore", mlResult.get("report_quality")),
-                Map.entry("processingNotes", generateProcessingNotes(original, processed, mlResult))
+                Map.entry("processingNotes", generateProcessingNotes(original, processed, mlResult)),
+                Map.entry("validationPhases", Map.of(
+                        "preProcessing", "PASSED",
+                        "geminiProcessing", "COMPLETED",
+                        "postProcessing", "PASSED",
+                        "finalValidation", "PASSED"
+                ))
         );
     }
-
 
     private Map<String, Object> createSpamResponse(String originalDescription) {
         return Map.of(
@@ -158,11 +252,12 @@ public class CrimeReportService {
                 "status", "REJECTED",
                 "originalDescription", originalDescription,
                 "rejectionReason", "SPAM_DETECTED_BY_GEMINI",
+                "rejectionPhase", "GEMINI_PROCESSING",
                 "requiresResubmission", true
         );
     }
 
-    private Map<String, Object> createRejectedResponse(String original, String processed, Map<String, Object> mlResult) {
+    private Map<String, Object> createRejectedResponse(String original, String processed, Map<String, Object> mlResult, String rejectionPhase) {
         String rejectionReason = determineRejectionReason(mlResult);
 
         return Map.ofEntries(
@@ -174,6 +269,7 @@ public class CrimeReportService {
                 Map.entry("originalDescription", original),
                 Map.entry("processedDescription", processed),
                 Map.entry("rejectionReason", rejectionReason),
+                Map.entry("rejectionPhase", rejectionPhase),
                 Map.entry("mlClassification", mlResult),
                 Map.entry("requiresResubmission", true),
                 Map.entry("improvementSuggestions", generateImprovementSuggestions(mlResult))
@@ -244,7 +340,7 @@ public class CrimeReportService {
         StringBuilder notes = new StringBuilder();
 
         if (!original.equals(processed)) {
-            notes.append("Text was processed by Gemini for language translation and/or grammar correction. ");
+            notes.append("Text was processed by Gemini for language translation and/or readability improvement. ");
         }
 
         Double confidence = (Double) mlResult.get("confidence");
@@ -254,6 +350,19 @@ public class CrimeReportService {
 
         if (Boolean.TRUE.equals(mlResult.get("needs_review"))) {
             notes.append("Flagged for manual review due to content analysis. ");
+        }
+
+        Map<String, Object> preFlags = (Map<String, Object>) mlResult.get("pre_processing_flags");
+        Map<String, Object> postFlags = (Map<String, Object>) mlResult.get("post_processing_flags");
+
+        if (preFlags != null && postFlags != null) {
+            boolean preHadIssues = (Boolean) preFlags.getOrDefault("spam", false) ||
+                    (Boolean) preFlags.getOrDefault("toxic", false) ||
+                    (Boolean) preFlags.getOrDefault("hate_speech", false);
+
+            if (preHadIssues) {
+                notes.append("Dual-pass validation detected potential issues in original content. ");
+            }
         }
 
         return notes.toString().trim();
@@ -287,6 +396,72 @@ public class CrimeReportService {
 
         logger.info(" crime report validation passed");
         return true;
+    }
+
+    private Map<String, Object> applyValidationOverrides(Map<String, Object> mlResult, String originalText, String processedText) {
+        if (isLikelyFalsePositive(mlResult, processedText)) {
+            Map<String, Object> correctedResult = new java.util.HashMap<>(mlResult);
+
+            Double spamScore = (Double) mlResult.getOrDefault("spam_score", 0.0);
+            if (spamScore < 0.3) {
+                correctedResult.put("is_spam", false);
+            }
+
+            Map<String, Object> toxicityAnalysis = (Map<String, Object>) mlResult.get("toxicity_analysis");
+            if (toxicityAnalysis != null) {
+                Double toxicity = (Double) toxicityAnalysis.getOrDefault("toxicity", 0.0);
+                if (toxicity < 0.2) {
+                    correctedResult.put("is_hate_speech", false);
+                }
+            }
+
+            String currentQuality = (String) mlResult.getOrDefault("report_quality", "LOW");
+            if ("LOW".equals(currentQuality) && processedText.split("\\s+").length >= 8) {
+                correctedResult.put("report_quality", "MEDIUM");
+            }
+
+            logger.info("Applied validation overrides to reduce false positives");
+            return correctedResult;
+        }
+
+        return mlResult;
+    }
+
+    private boolean isLikelyFalsePositive(Map<String, Object> mlResult, String description) {
+        Boolean isSpam = (Boolean) mlResult.getOrDefault("is_spam", false);
+        Boolean isHateSpeech = (Boolean) mlResult.getOrDefault("is_hate_speech", false);
+        Double spamScore = (Double) mlResult.getOrDefault("spam_score", 0.0);
+
+        Map<String, Object> toxicityAnalysis = (Map<String, Object>) mlResult.get("toxicity_analysis");
+        if (toxicityAnalysis == null) return false;
+
+        Double toxicity = (Double) toxicityAnalysis.getOrDefault("toxicity", 0.0);
+        Double hateSpeechScore = (Double) toxicityAnalysis.getOrDefault("hate_speech_score", 0.0);
+
+        String[] crimeWords = {"robbery", "theft", "assault", "murder", "gun", "knife", "attack", "violence",
+                "stolen", "burglary", "harassment", "threat", "emergency", "help", "police"};
+        String[] legitWords = {"report", "incident", "happened", "occurred", "witnessed", "location", "time", "date"};
+
+        String lowerDesc = description.toLowerCase();
+        long crimeCount = java.util.Arrays.stream(crimeWords).mapToLong(word ->
+                lowerDesc.contains(word) ? 1 : 0).sum();
+        long legitCount = java.util.Arrays.stream(legitWords).mapToLong(word ->
+                lowerDesc.contains(word) ? 1 : 0).sum();
+
+        boolean hasGoodStructure = description.split("\\s+").length >= 8 &&
+                (crimeCount >= 1 || legitCount >= 1);
+
+        if (isSpam && spamScore < 0.3 && hasGoodStructure) {
+            logger.info("Overriding spam classification - likely false positive due to crime content");
+            return true;
+        }
+
+        if (isHateSpeech && hateSpeechScore > 0.7 && toxicity < 0.2 && crimeCount >= 1) {
+            logger.info("Overriding hate speech classification - likely false positive due to crime vocabulary");
+            return true;
+        }
+
+        return false;
     }
 
     public Map<String, Object> getReportStatus(String reportId) {
@@ -340,43 +515,6 @@ public class CrimeReportService {
             default:
                 return "24-48 hours";
         }
-    }
-
-    private boolean isLikelyFalsePositive(Map<String, Object> mlResult, String description) {
-        Boolean isSpam = (Boolean) mlResult.getOrDefault("is_spam", false);
-        Boolean isHateSpeech = (Boolean) mlResult.getOrDefault("is_hate_speech", false);
-        Double spamScore = (Double) mlResult.getOrDefault("spam_score", 0.0);
-
-        Map<String, Object> toxicityAnalysis = (Map<String, Object>) mlResult.get("toxicity_analysis");
-        if (toxicityAnalysis == null) return false;
-
-        Double toxicity = (Double) toxicityAnalysis.getOrDefault("toxicity", 0.0);
-        Double hateSpeechScore = (Double) toxicityAnalysis.getOrDefault("hate_speech_score", 0.0);
-
-        String[] crimeWords = {"robbery", "theft", "assault", "murder", "gun", "knife", "attack", "violence",
-                "stolen", "burglary", "harassment", "threat", "emergency", "help", "police"};
-        String[] legitWords = {"report", "incident", "happened", "occurred", "witnessed", "location", "time", "date"};
-
-        String lowerDesc = description.toLowerCase();
-        long crimeCount = java.util.Arrays.stream(crimeWords).mapToLong(word ->
-                lowerDesc.contains(word) ? 1 : 0).sum();
-        long legitCount = java.util.Arrays.stream(legitWords).mapToLong(word ->
-                lowerDesc.contains(word) ? 1 : 0).sum();
-
-        boolean hasGoodStructure = description.split("\\s+").length >= 8 &&
-                (crimeCount >= 1 || legitCount >= 1);
-
-        if (isSpam && spamScore < 0.3 && hasGoodStructure) {
-            logger.info("Overriding spam classification - likely false positive due to crime content");
-            return true;
-        }
-
-        if (isHateSpeech && hateSpeechScore > 0.7 && toxicity < 0.2 && crimeCount >= 1) {
-            logger.info("Overriding hate speech classification - likely false positive due to crime vocabulary");
-            return true;
-        }
-
-        return false;
     }
 
     private Map<String, Object> applyValidationOverrides(Map<String, Object> mlResult, String description) {

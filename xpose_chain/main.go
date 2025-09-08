@@ -30,7 +30,7 @@ func main() {
 	routes.RegisterBlockchainRoutes(mux, bc)
 
 	serverAddr := fmt.Sprintf("%s:%s", address, port)
-	log.Printf("🚀 Blockchain server running at http://%s\n", serverAddr)
+	log.Printf("Blockchain server running at http://%s\n", serverAddr)
 
 	log.Fatal(http.ListenAndServe(serverAddr, mux))
 }

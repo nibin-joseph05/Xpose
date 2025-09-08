@@ -26,9 +26,10 @@ public class GeminiService {
                 .build();
     }
 
+    @Deprecated
     public String processAndCleanText(String text) {
         try {
-            logger.info("Processing text with Gemini: {}", text.substring(0, Math.min(50, text.length())));
+            logger.info("Processing text with Gemini (DEPRECATED): {}", text.substring(0, Math.min(50, text.length())));
 
             String model = "gemini-1.5-flash";
             String prompt = buildComprehensivePrompt(text);
@@ -56,12 +57,42 @@ public class GeminiService {
         return text;
     }
 
+    public String improveReadabilityOnly(String text) {
+        try {
+            logger.info("Improving readability with Gemini: {}", text.substring(0, Math.min(50, text.length())));
+
+            String model = "gemini-1.5-flash";
+            String prompt = buildReadabilityOnlyPrompt(text);
+
+            Map<String, Object> requestBody = Map.of(
+                    "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                    "generationConfig", Map.of("temperature", 0.1, "maxOutputTokens", 1024)
+            );
+
+            Map response = webClient.post()
+                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            String result = extractTextFromGeminiResponse(response);
+            if (result != null) {
+                logger.info("Readability improved result: {}", result.substring(0, Math.min(100, result.length())));
+                return result.trim();
+            }
+        } catch (Exception e) {
+            logger.error("Error improving readability with Gemini: {}", e.getMessage(), e);
+        }
+        return text;
+    }
+
     public String translateToEnglish(String text) {
         try {
             logger.info("Force translating text to English: {}", text.substring(0, Math.min(50, text.length())));
 
             String model = "gemini-1.5-flash";
-            String prompt = "Translate this text to English. Only return the translated text, nothing else:\n\n" + text;
+            String prompt = "Translate this text to English. Preserve the original tone, emotion, and intent. Only return the translated text, nothing else:\n\n" + text;
 
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
@@ -87,7 +118,7 @@ public class GeminiService {
     }
 
     public CompletableFuture<String> processTextAsync(String text) {
-        return CompletableFuture.supplyAsync(() -> processAndCleanText(text));
+        return CompletableFuture.supplyAsync(() -> improveReadabilityOnly(text));
     }
 
     public boolean isTextInEnglish(String text) {
@@ -148,6 +179,7 @@ public class GeminiService {
         return (textObj instanceof String) ? (String) textObj : null;
     }
 
+    @Deprecated
     private String buildComprehensivePrompt(String text) {
         return """
                 Analyze this crime report text and perform these tasks:
@@ -174,6 +206,33 @@ public class GeminiService {
                 """ + text + """
 
                 Return only the improved text or "SPAM_DETECTED":""";
+    }
+
+    private String buildReadabilityOnlyPrompt(String text) {
+        return """
+                Improve the readability and grammar of this crime report while preserving ALL original content and meaning:
+
+                INSTRUCTIONS:
+                1. Fix spelling and grammatical errors
+                2. Improve sentence structure for clarity
+                3. Make the text more readable and professional
+                4. PRESERVE the original tone, emotion, and intent
+                5. Do NOT remove, filter, or sanitize any content
+                6. Do NOT add information that wasn't in the original
+                7. If the original contains complaints, anger, or strong language, keep that tone
+                8. If the original contains insults or harsh words, preserve them
+
+                WHAT NOT TO DO:
+                - Do NOT judge whether content is appropriate
+                - Do NOT filter out complaints about police or authorities
+                - Do NOT make the text overly polite if it wasn't originally
+                - Do NOT remove emotional expressions
+                - Do NOT sanitize harsh language
+
+                Original text:
+                """ + text + """
+
+                Return only the improved text with better readability:""";
     }
 
     private boolean isProbablyEnglish(String text) {
