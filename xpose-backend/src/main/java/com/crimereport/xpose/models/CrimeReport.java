@@ -17,6 +17,9 @@ public class CrimeReport {
     @Column(name = "crime_category_id", nullable = false)
     private Long crimeCategoryId;
 
+    @Column(name = "crime_type_id")
+    private Long crimeTypeId;
+
     @Column(name = "original_description", columnDefinition = "TEXT", nullable = false)
     private String originalDescription;
 
@@ -61,6 +64,9 @@ public class CrimeReport {
     @Column(name = "confidence_score")
     private Double confidenceScore;
 
+    @Column(name = "police_station")
+    private String policeStation;
+
     @Column(name = "needs_review")
     private Boolean needsReview;
 
@@ -92,6 +98,14 @@ public class CrimeReport {
 
     public void setCrimeCategoryId(Long crimeCategoryId) {
         this.crimeCategoryId = crimeCategoryId;
+    }
+
+    public Long getCrimeTypeId() {
+        return crimeTypeId;
+    }
+
+    public void setCrimeTypeId(Long crimeTypeId) {
+        this.crimeTypeId = crimeTypeId;
     }
 
     public String getOriginalDescription() {
@@ -172,6 +186,14 @@ public class CrimeReport {
 
     public void setSpam(Boolean spam) {
         isSpam = spam;
+    }
+
+    public String getPoliceStation() {
+        return policeStation;
+    }
+
+    public void setPoliceStation(String policeStation) {
+        this.policeStation = policeStation;
     }
 
     public Boolean getToxic() {

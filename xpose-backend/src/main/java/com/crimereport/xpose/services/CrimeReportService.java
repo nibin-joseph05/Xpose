@@ -3,7 +3,9 @@ package com.crimereport.xpose.services;
 
 import com.crimereport.xpose.dto.CrimeReportRequest;
 import com.crimereport.xpose.models.CrimeReport;
+import com.crimereport.xpose.models.CrimeType;
 import com.crimereport.xpose.repository.CrimeReportRepository;
+import com.crimereport.xpose.repository.CrimeTypeRepository;
 import com.crimereport.xpose.util.TrackingIdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +34,21 @@ public class CrimeReportService {
     @Autowired
     private CrimeReportRepository crimeReportRepository;
 
+    @Autowired
+    private CrimeTypeRepository crimeTypeRepository;
+
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private Long getCrimeTypeIdFromName(String crimeTypeName) {
+        if (crimeTypeName == null || crimeTypeName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Crime type name is null or empty");
+        }
+        return crimeTypeRepository.findByName(crimeTypeName)
+                .map(CrimeType::getId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid crime type: " + crimeTypeName));
+    }
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
         try {
@@ -238,6 +252,7 @@ public class CrimeReportService {
         CrimeReport report = new CrimeReport();
         report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
+        report.setCrimeTypeId(getCrimeTypeIdFromName(request.getCrimeType()));
         report.setOriginalDescription(original);
         report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
         report.setReadabilityEnhancedDescription(processed);
@@ -245,6 +260,7 @@ public class CrimeReportService {
         report.setAddress(request.getPlace());
         report.setCity(request.getDistrict());
         report.setState(request.getState());
+        report.setPoliceStation(request.getPoliceStation());
         report.setCountry("India");
         report.setSubmittedAt(LocalDateTime.now());
         report.setSpam((Boolean) mlResult.getOrDefault("is_spam", false));
@@ -307,11 +323,13 @@ public class CrimeReportService {
         CrimeReport report = new CrimeReport();
         report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
+        report.setCrimeTypeId(getCrimeTypeIdFromName(request.getCrimeType()));
         report.setOriginalDescription(originalDescription);
         report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
         report.setAddress(request.getPlace());
         report.setCity(request.getDistrict());
         report.setState(request.getState());
+        report.setPoliceStation(request.getPoliceStation());
         report.setCountry("India");
         report.setSubmittedAt(LocalDateTime.now());
         report.setSpam(true);
@@ -361,6 +379,7 @@ public class CrimeReportService {
         CrimeReport report = new CrimeReport();
         report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
+        report.setCrimeTypeId(getCrimeTypeIdFromName(request.getCrimeType()));
         report.setOriginalDescription(original);
         report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
         report.setReadabilityEnhancedDescription(processed);
@@ -368,6 +387,7 @@ public class CrimeReportService {
         report.setAddress(request.getPlace());
         report.setCity(request.getDistrict());
         report.setState(request.getState());
+        report.setPoliceStation(request.getPoliceStation());
         report.setCountry("India");
         report.setSubmittedAt(LocalDateTime.now());
         report.setSpam((Boolean) mlResult.getOrDefault("is_spam", false));
@@ -506,6 +526,15 @@ public class CrimeReportService {
     public boolean validateCrimeReport(CrimeReportRequest request) {
         if (request.getCategoryId() <= 0) {
             logger.warn("Invalid category ID: {}", request.getCategoryId());
+            return false;
+        }
+
+        if (request.getCrimeType() == null || request.getCrimeType().trim().isEmpty()) {
+            logger.warn("Empty crime type provided");
+            return false;
+        }
+        if (!crimeTypeRepository.existsByName(request.getCrimeType())) {
+            logger.warn("Invalid crime type: {}", request.getCrimeType());
             return false;
         }
 

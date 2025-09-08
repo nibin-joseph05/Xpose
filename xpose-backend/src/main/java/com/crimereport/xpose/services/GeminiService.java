@@ -251,4 +251,33 @@ public class GeminiService {
         }
         return totalChars == 0 || (englishChars * 100 / totalChars) > 60;
     }
+
+    public String detectLanguage(String text) {
+        try {
+            logger.info("Detecting language for text: {}", text.substring(0, Math.min(50, text.length())));
+            String model = "gemini-1.5-flash";
+            String prompt = "Detect the primary language of this text and return only the language name (e.g., 'English', 'Hindi', 'Spanish'): \n\n" + text;
+
+            Map<String, Object> requestBody = Map.of(
+                    "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))),
+                    "generationConfig", Map.of("temperature", 0.0, "maxOutputTokens", 10)
+            );
+
+            Map response = webClient.post()
+                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            String result = extractTextFromGeminiResponse(response);
+            if (result != null) {
+                logger.info("Detected language: {}", result.trim());
+                return result.trim();
+            }
+        } catch (Exception e) {
+            logger.error("Error detecting language: {}", e.getMessage(), e);
+        }
+        return "Unknown";
+    }
 }
