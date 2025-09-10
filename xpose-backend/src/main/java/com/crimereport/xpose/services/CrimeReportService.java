@@ -14,9 +14,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -43,11 +41,43 @@ public class CrimeReportService {
 
     private Long getCrimeTypeIdFromName(String crimeTypeName) {
         if (crimeTypeName == null || crimeTypeName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Crime type name is null or empty");
+            logger.warn("Empty crime type name provided");
+            return null;
         }
-        return crimeTypeRepository.findByName(crimeTypeName)
-                .map(CrimeType::getId)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid crime type: " + crimeTypeName));
+
+        try {
+            Optional<CrimeType> crimeType = crimeTypeRepository.findByName(crimeTypeName);
+
+            if (crimeType.isPresent()) {
+                return crimeType.get().getId();
+            }
+
+            List<CrimeType> allTypes = crimeTypeRepository.findAll();
+            for (CrimeType type : allTypes) {
+                if (type.getName().equalsIgnoreCase(crimeTypeName)) {
+                    return type.getId();
+                }
+            }
+
+            logger.warn("Crime type not found: {}", crimeTypeName);
+            return null;
+
+        } catch (Exception e) {
+            logger.error("Error finding crime type: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private void validateAndSetCrimeType(CrimeReport report, CrimeReportRequest request) {
+        Long crimeTypeId = getCrimeTypeIdFromName(request.getCrimeType());
+
+        if (crimeTypeId != null) {
+            report.setCrimeTypeId(crimeTypeId);
+            logger.info("Set crime type ID: {} for name: {}", crimeTypeId, request.getCrimeType());
+        } else {
+            logger.warn("Using default crime type for: {}", request.getCrimeType());
+            report.setCrimeTypeId(1L);
+        }
     }
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
@@ -252,7 +282,7 @@ public class CrimeReportService {
         CrimeReport report = new CrimeReport();
         report.setId(reportId);
         report.setCrimeCategoryId((long) request.getCategoryId());
-        report.setCrimeTypeId(getCrimeTypeIdFromName(request.getCrimeType()));
+        validateAndSetCrimeType(report, request);
         report.setOriginalDescription(original);
         report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
         report.setReadabilityEnhancedDescription(processed);
