@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "net/http"
     "log"
+    "strings"
     "xposechain/blockchain"
 )
 
@@ -38,7 +39,6 @@ func MakeAddBlockHandler(bc *blockchain.Blockchain) http.HandlerFunc {
     }
 }
 
-
 func MakeGetChainHandler(bc *blockchain.Blockchain) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
@@ -50,5 +50,32 @@ func MakeValidateHandler(bc *blockchain.Blockchain) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
         _ = json.NewEncoder(w).Encode(map[string]bool{"isValid": bc.IsValid()})
+    }
+}
+
+func MakeGetReportHandler(bc *blockchain.Blockchain) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        if r.Method != http.MethodGet {
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+            return
+        }
+
+        reportID := strings.TrimPrefix(r.URL.Path, "/report/")
+        if reportID == "" {
+            http.Error(w, "Report ID is required", http.StatusBadRequest)
+            return
+        }
+
+        log.Printf("Fetching block for report ID: %s", reportID)
+
+        for _, block := range bc.Blocks {
+            if block.Data.ReportID == reportID {
+                w.Header().Set("Content-Type", "application/json")
+                _ = json.NewEncoder(w).Encode(block)
+                return
+            }
+        }
+
+        http.Error(w, "Report not found", http.StatusNotFound)
     }
 }

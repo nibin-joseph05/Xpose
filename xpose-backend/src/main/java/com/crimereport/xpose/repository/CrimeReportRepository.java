@@ -25,4 +25,7 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
 
     @Query("SELECT cr FROM CrimeReport cr WHERE cr.id = ?1")
     Optional<CrimeReport> findDetailedReportById(String reportId);
+
+    @Query("SELECT cr.id FROM CrimeReport cr WHERE cr.id = ?1")
+    Optional<String> findReportId(String reportId);
 }
