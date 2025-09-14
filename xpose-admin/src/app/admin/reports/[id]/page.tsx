@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/admin/Sidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
+import MLInsights from '@/components/admin/report/MLInsights';
 import { Button } from '@/components/admin/ui/button';
 
 interface CrimeReportDetail {
@@ -180,143 +182,155 @@ export default function ReportDetailPage() {
           {loading ? (
             <div className="text-center text-gray-400 light:text-gray-600">Loading report details...</div>
           ) : !report ? (
-            <div className="text-center text-gray-400 light:text-gray-600">No report data available.</div>
+            <div className="text-center text-gray-400 light:text-gray-600">
+              No report data available for ID: {reportId}. Please check the report ID or contact support at nibinjoseph2019@gmail.com.
+            </div>
           ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="mb-12 overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl dark:hover:border-blue-600 transition-all duration-300 light:border-gray-300 light:bg-white light:bg-opacity-80 light:hover:border-blue-500"
-            >
-              <div className="border-b border-gray-700 p-6 light:border-gray-300">
-                <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Report ID: {report.reportId}</h3>
-              </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">General Information</h4>
-                  <dl className="mt-4 space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Crime Type</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.crimeType} (ID: {report.crimeTypeId || 'N/A'})</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Category</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.categoryName || 'N/A'} (ID: {report.categoryId || 'N/A'})</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Status</dt>
-                      <dd className="mt-1">{getStatusBadge(report.status)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Priority</dt>
-                      <dd className="mt-1">{getPriorityBadge(report.urgency)}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Submitted At</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.submittedAt ? new Date(report.submittedAt).toLocaleString() : 'N/A'}</dd>
-                    </div>
-                  </dl>
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="mb-12 overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl dark:hover:border-blue-600 transition-all duration-300 light:border-gray-300 light:bg-white light:bg-opacity-80 light:hover:border-blue-500"
+              >
+                <div className="border-b border-gray-700 p-6 light:border-gray-300">
+                  <h3 className="text-xl font-bold text-blue-300 light:text-blue-700">Report ID: {report.reportId}</h3>
                 </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Location Details</h4>
-                  <dl className="mt-4 space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Address</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.address || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">City</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.city || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">State</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.state || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Station</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.policeStation || 'N/A'}</dd>
-                    </div>
-                  </dl>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">General Information</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Crime Type</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.crimeType} (ID: {report.crimeTypeId || 'N/A'})</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Category</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.categoryName || 'N/A'} (ID: {report.categoryId || 'N/A'})</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Status</dt>
+                        <dd className="mt-1">{getStatusBadge(report.status)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Priority</dt>
+                        <dd className="mt-1">{getPriorityBadge(report.urgency)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Submitted At</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.submittedAt ? new Date(report.submittedAt).toLocaleString() : 'N/A'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Location Details</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Address</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.address || 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">City</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.city || 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">State</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.state || 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Station</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.policeStation || 'N/A'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Description</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Original Description</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.originalDescription || 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Processed Description</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.processedDescription || 'N/A'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Analysis Scores</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Confidence Score</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.confidenceScore !== null ? report.confidenceScore.toFixed(2) : 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Spam Score</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.spamScore !== null ? report.spamScore.toFixed(2) : 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Toxicity Scores</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">
+                          {report.toxicityScores ? (
+                            <pre className="bg-gray-700 p-2 rounded text-sm light:bg-gray-100">{JSON.stringify(report.toxicityScores, null, 2)}</pre>
+                          ) : (
+                            'N/A'
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">SHAP Explanation</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">
+                          {report.shapExplanation ? (
+                            <pre className="bg-gray-700 p-2 rounded text-sm light:bg-gray-100">{JSON.stringify(report.shapExplanation, null, 2)}</pre>
+                          ) : (
+                            'N/A'
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Report Quality</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.reportQuality || 'N/A'}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Blockchain Information</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Blockchain Hash</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.blockchainHash || 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Blockchain Timestamp</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.blockchainTimestamp ? new Date(report.blockchainTimestamp).toLocaleString() : 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Blockchain Transaction ID</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.blockchainTxId || 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Raw Blockchain Data</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">
+                          {report.rawBlockchainData ? (
+                            <pre className="bg-gray-700 p-2 rounded text-sm light:bg-gray-100">{report.rawBlockchainData}</pre>
+                          ) : (
+                            'N/A'
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div className="md:col-span-2">
+                    <MLInsights
+                      toxicityScores={report.toxicityScores}
+                      shapExplanation={report.shapExplanation}
+                      reportStatus={report.status}
+                      reportQuality={report.reportQuality}
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-2">
-                  <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Description</h4>
-                  <dl className="mt-4 space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Original Description</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.originalDescription || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Processed Description</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.processedDescription || 'N/A'}</dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="md:col-span-2">
-                  <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Analysis Scores</h4>
-                  <dl className="mt-4 space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Confidence Score</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.confidenceScore !== null ? report.confidenceScore.toFixed(2) : 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Spam Score</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.spamScore !== null ? report.spamScore.toFixed(2) : 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Toxicity Scores</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">
-                        {report.toxicityScores ? (
-                          <pre className="bg-gray-700 p-2 rounded text-sm light:bg-gray-100">{JSON.stringify(report.toxicityScores, null, 2)}</pre>
-                        ) : (
-                          'N/A'
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">SHAP Explanation</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">
-                        {report.shapExplanation ? (
-                          <pre className="bg-gray-700 p-2 rounded text-sm light:bg-gray-100">{JSON.stringify(report.shapExplanation, null, 2)}</pre>
-                        ) : (
-                          'N/A'
-                        )}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Report Quality</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.reportQuality || 'N/A'}</dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="md:col-span-2">
-                  <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Blockchain Information</h4>
-                  <dl className="mt-4 space-y-4">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Blockchain Hash</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.blockchainHash || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Blockchain Timestamp</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.blockchainTimestamp ? new Date(report.blockchainTimestamp).toLocaleString() : 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Blockchain Transaction ID</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.blockchainTxId || 'N/A'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Raw Blockchain Data</dt>
-                      <dd className="mt-1 text-gray-200 light:text-gray-800">
-                        {report.rawBlockchainData ? (
-                          <pre className="bg-gray-700 p-2 rounded text-sm light:bg-gray-100">{report.rawBlockchainData}</pre>
-                        ) : (
-                          'N/A'
-                        )}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </>
           )}
         </motion.div>
       </main>
