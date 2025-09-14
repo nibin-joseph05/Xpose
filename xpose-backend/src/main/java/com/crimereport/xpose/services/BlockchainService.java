@@ -33,7 +33,9 @@ public class BlockchainService {
             Map<String, Object> blockData = new HashMap<>();
             blockData.put("reportId", reportId);
             blockData.put("categoryId", request.getCategoryId());
+            blockData.put("crimeTypeId", request.getCrimeTypeId());
             blockData.put("description", request.getDescription());
+            blockData.put("translatedText", request.getTranslatedDescription());
             blockData.put("address", request.getPlace());
             blockData.put("city", request.getDistrict());
             blockData.put("state", request.getState());
@@ -41,6 +43,7 @@ public class BlockchainService {
             blockData.put("submittedAt", LocalDateTime.now().toString());
 
             String jsonData = objectMapper.writeValueAsString(blockData);
+            System.out.println("Sending to blockchain: " + jsonData);
 
             String url = String.format("http://%s:%s/add", host, port);
             HttpHeaders headers = new HttpHeaders();

@@ -88,17 +88,20 @@ public class CrimeReportService {
 
             logger.info("=== PHASE 1: PRE-PROCESSING VALIDATION ===");
             String textForMLAnalysis = originalDescription;
+            String rawTranslation = null;
             boolean isEnglish = geminiService.isTextInEnglish(originalDescription);
 
             if (!isEnglish) {
                 logger.info("Text not in English, translating for ML analysis only...");
-                textForMLAnalysis = geminiService.translateToEnglish(originalDescription);
+                rawTranslation = geminiService.translateToEnglish(originalDescription);
+                textForMLAnalysis = rawTranslation;
                 logger.info("Translated for ML analysis: {}", textForMLAnalysis);
             }
 
             Map<String, Object> preProcessingMLResult = mlService.classifyDescription(textForMLAnalysis);
             logger.info("=== PRE-PROCESSING ML RESULTS ===");
             logMLResults(preProcessingMLResult);
+            preProcessingMLResult.put("translated_description", rawTranslation != null ? rawTranslation : originalDescription);
 
             boolean isPreProcessingSpamOrToxic = (Boolean) preProcessingMLResult.getOrDefault("is_spam", false) ||
                     (Boolean) preProcessingMLResult.getOrDefault("is_toxic", false) ||
@@ -110,7 +113,7 @@ public class CrimeReportService {
             }
 
             logger.info("=== PHASE 2: GEMINI PROCESSING FOR READABILITY ===");
-            String processedDescription = processDescriptionForReadability(originalDescription);
+            String processedDescription = processDescriptionForReadability(originalDescription, rawTranslation);
             logger.info("Processed Description: {}", processedDescription);
 
             if ("SPAM_DETECTED".equals(processedDescription)) {
@@ -150,18 +153,22 @@ public class CrimeReportService {
         return CompletableFuture.supplyAsync(() -> submitCrimeReport(request));
     }
 
-    private String processDescriptionForReadability(String originalDescription) {
+    private String processDescriptionForReadability(String originalDescription, String rawTranslation) {
         try {
             boolean isEnglish = geminiService.isTextInEnglish(originalDescription);
 
+            String textToImprove;
             if (!isEnglish) {
                 logger.info("Text not in English, translating for readability...");
-                String translated = geminiService.translateToEnglish(originalDescription);
-                return geminiService.improveReadabilityOnly(translated);
+                if (rawTranslation == null) {
+                    rawTranslation = geminiService.translateToEnglish(originalDescription);
+                }
+                textToImprove = rawTranslation;
             } else {
                 logger.info("Text is in English, improving readability only...");
-                return geminiService.improveReadabilityOnly(originalDescription);
+                textToImprove = originalDescription;
             }
+            return geminiService.improveReadabilityOnly(textToImprove);
         } catch (Exception e) {
             logger.error("Error processing description with Gemini: {}", e.getMessage());
             return originalDescription;
@@ -209,6 +216,7 @@ public class CrimeReportService {
                 Map.entry("char_count", charCount),
                 Map.entry("needs_review", needsReview),
                 Map.entry("shap_explanation", shapExplanation),
+                Map.entry("translated_description", preResult.getOrDefault("translated_description", postResult.getOrDefault("translated_description", ""))),
                 Map.entry("pre_processing_flags", Map.of(
                         "spam", preResult.getOrDefault("is_spam", false),
                         "toxic", preResult.getOrDefault("is_toxic", false),
@@ -284,7 +292,8 @@ public class CrimeReportService {
         report.setCrimeCategoryId((long) request.getCategoryId());
         validateAndSetCrimeType(report, request);
         report.setOriginalDescription(original);
-        report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
+        String translatedDesc = mlResult.getOrDefault("translated_description", original).toString();
+        report.setTranslatedDescription(translatedDesc);
         report.setReadabilityEnhancedDescription(processed);
         report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
         report.setAddress(request.getPlace());
@@ -319,6 +328,9 @@ public class CrimeReportService {
             return createErrorResponse("Failed to save report: " + e.getMessage());
         }
 
+        request.setTranslatedDescription(translatedDesc);
+        request.setCrimeTypeId(report.getCrimeTypeId().intValue());
+
         Map<String, Object> blockchainResult = blockchainService.sendReportToBlockchain(request, reportId);
 
         if (blockchainResult.getOrDefault("success", false).equals(Boolean.TRUE)) {
@@ -339,6 +351,7 @@ public class CrimeReportService {
         response.put("status", status);
         response.put("originalDescription", original);
         response.put("processedDescription", processed);
+        response.put("translatedDescription", translatedDesc);
         response.put("mlClassification", mlResult);
         response.put("requiresUrgentAttention", "HIGH".equals(mlResult.get("urgency")));
         response.put("qualityScore", mlResult.get("report_quality"));
@@ -411,7 +424,8 @@ public class CrimeReportService {
         report.setCrimeCategoryId((long) request.getCategoryId());
         report.setCrimeTypeId(getCrimeTypeIdFromName(request.getCrimeType()));
         report.setOriginalDescription(original);
-        report.setTranslatedDescription(mlResult.getOrDefault("translated_description", "").toString());
+        String translatedDesc = mlResult.getOrDefault("translated_description", original).toString();
+        report.setTranslatedDescription(translatedDesc);
         report.setReadabilityEnhancedDescription(processed);
         report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
         report.setAddress(request.getPlace());
@@ -443,6 +457,8 @@ public class CrimeReportService {
             logger.error("Failed to save rejected report: {}", e.getMessage());
         }
 
+        request.setTranslatedDescription(translatedDesc);
+
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
         response.put("message", "Report rejected: " + rejectionReason);
@@ -451,6 +467,7 @@ public class CrimeReportService {
         response.put("status", "REJECTED");
         response.put("originalDescription", original);
         response.put("processedDescription", processed);
+        response.put("translatedDescription", translatedDesc);
         response.put("rejectionReason", rejectionReason);
         response.put("rejectionPhase", rejectionPhase);
         response.put("mlClassification", mlResult);

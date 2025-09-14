@@ -6,7 +6,9 @@ public class CrimeReportRequest {
     private int categoryId;
     private String categoryName;
     private String crimeType;
+    private Integer crimeTypeId;
     private String description;
+    private String translatedDescription;
     private String place;
     private String state;
     private String district;
@@ -16,12 +18,13 @@ public class CrimeReportRequest {
     public CrimeReportRequest() {}
 
     public CrimeReportRequest(int categoryId, String categoryName, String crimeType,
-                              String description, String place, String state,
+                              String description, String translatedDescription, String place, String state,
                               String district, String policeStation, List<String> files) {
         this.categoryId = categoryId;
         this.categoryName = categoryName;
         this.crimeType = crimeType;
         this.description = description;
+        this.translatedDescription = translatedDescription;
         this.place = place;
         this.state = state;
         this.district = district;
@@ -53,12 +56,24 @@ public class CrimeReportRequest {
         this.crimeType = crimeType;
     }
 
+    public Integer getCrimeTypeId() {
+        return crimeTypeId;
+    }
+    public void setCrimeTypeId(Integer crimeTypeId) {
+        this.crimeTypeId = crimeTypeId;
+    }
+
     public String getDescription() {
         return description;
     }
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getTranslatedDescription() { return translatedDescription; }
+    public void setTranslatedDescription(String translatedDescription) {
+        this.translatedDescription = translatedDescription;
     }
 
     public String getPlace() {
