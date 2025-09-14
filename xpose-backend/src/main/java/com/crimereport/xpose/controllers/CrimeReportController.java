@@ -27,7 +27,6 @@ public class CrimeReportController {
             logger.info("Received crime report submission request");
             logger.debug("Request details: {}", request.toString());
 
-            // Validate the request
             if (!crimeReportService.validateCrimeReport(request)) {
                 logger.warn("Crime report validation failed");
                 return ResponseEntity.badRequest().body(
@@ -39,7 +38,6 @@ public class CrimeReportController {
                 );
             }
 
-            // Process the crime report
             Map<String, Object> result = crimeReportService.submitCrimeReport(request);
             logger.info("Crime report submitted successfully with ID: {}", result.get("reportId"));
 

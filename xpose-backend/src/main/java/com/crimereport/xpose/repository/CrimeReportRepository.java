@@ -1,25 +1,28 @@
 package com.crimereport.xpose.repository;
 
+import com.crimereport.xpose.dto.CrimeReportList;
 import com.crimereport.xpose.models.CrimeReport;
-import com.crimereport.xpose.models.CrimeReport.ReportStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
 @Repository
-public interface CrimeReportRepository extends JpaRepository<CrimeReport, UUID> {
+public interface CrimeReportRepository extends JpaRepository<CrimeReport, String> {
 
-    List<CrimeReport> findByIsSpam(Boolean isSpam);
+    @Query("SELECT new com.crimereport.xpose.dto.CrimeReportList(" +
+            "cr.id, ct.name, cr.crimeTypeId, cr.crimeCategoryId, cc.name, " +
+            "cr.originalDescription, cr.translatedDescription, cr.address, " +
+            "cr.city, cr.state, cr.policeStation, cr.status, cr.urgencyLevel, " +
+            "cr.submittedAt) " +
+            "FROM CrimeReport cr " +
+            "LEFT JOIN CrimeType ct ON ct.id = cr.crimeTypeId " +
+            "LEFT JOIN CrimeCategory cc ON cc.id = cr.crimeCategoryId " +
+            "ORDER BY cr.submittedAt DESC")
+    Page<CrimeReportList> findAllReportsForList(Pageable pageable);
 
-    List<CrimeReport> findByNeedsReview(Boolean needsReview);
-
-    List<CrimeReport> findByStatus(ReportStatus status);
-
-    List<CrimeReport> findByCrimeCategoryId(Long crimeCategoryId);
-
-    List<CrimeReport> findByUrgencyLevel(CrimeReport.UrgencyLevel urgencyLevel);
-
-    List<CrimeReport> findBySpamScoreGreaterThan(Double threshold);
+    @Query("SELECT cr FROM CrimeReport cr WHERE cr.id = ?1")
+    Optional<CrimeReport> findDetailedReportById(String reportId);
 }
