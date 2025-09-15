@@ -1,6 +1,7 @@
 package com.crimereport.xpose.models;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,6 +24,11 @@ public class Authority {
 
     @Column(nullable = false)
     private String role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "station_id")
+    @JsonIgnoreProperties({"officers", "hibernateLazyInitializer", "handler"})
+    private PoliceStation station;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -84,6 +90,14 @@ public class Authority {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public PoliceStation getStation() {
+        return station;
+    }
+
+    public void setStation(PoliceStation station) {
+        this.station = station;
     }
 
     public LocalDateTime getCreatedAt() {

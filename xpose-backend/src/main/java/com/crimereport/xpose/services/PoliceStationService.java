@@ -1,14 +1,18 @@
 package com.crimereport.xpose.services;
 
+import com.crimereport.xpose.models.PoliceStation;
+import com.crimereport.xpose.repository.PoliceStationRepository;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -16,6 +20,9 @@ public class PoliceStationService {
 
     @Value("${placesapi.key}")
     private String placesApiKey;
+
+    @Autowired
+    private PoliceStationRepository policeStationRepository;
 
     private final String PLACES_BASE_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
     private final String GEOCODING_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
@@ -140,5 +147,14 @@ public class PoliceStationService {
         }
 
         return districts.stream().sorted().toList();
+    }
+
+    public PoliceStation createPoliceStation(PoliceStation policeStation) {
+        policeStation.setCreatedAt(LocalDateTime.now());
+        return policeStationRepository.save(policeStation);
+    }
+
+    public List<PoliceStation> getAllPoliceStations() {
+        return policeStationRepository.findAll();
     }
 }

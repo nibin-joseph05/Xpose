@@ -138,5 +138,69 @@ public class AuthorityController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Invalid token or unauthorized access"));
         }
     }
+
+    @PostMapping("/create-police")
+    public ResponseEntity<?> createPolice(@RequestBody Map<String, Object> request) {
+        try {
+            Long stationId = null;
+            if (request.containsKey("stationId") && request.get("stationId") != null) {
+                Object stationIdObj = request.get("stationId");
+                if (stationIdObj instanceof Number) {
+                    stationId = ((Number) stationIdObj).longValue();
+                } else if (stationIdObj instanceof String && !((String) stationIdObj).isEmpty()) {
+                    try {
+                        stationId = Long.valueOf((String) stationIdObj);
+                    } catch (NumberFormatException e) {
+                        return ResponseEntity.badRequest()
+                                .body(Map.of("message", "Invalid station ID format"));
+                    }
+                }
+            }
+
+            if (!request.containsKey("name") || request.get("name") == null ||
+                    request.get("name").toString().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Officer name is required"));
+            }
+
+            if (!request.containsKey("email") || request.get("email") == null ||
+                    request.get("email").toString().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Officer email is required"));
+            }
+
+            if (!request.containsKey("password") || request.get("password") == null ||
+                    request.get("password").toString().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("message", "Officer password is required"));
+            }
+
+            Authority officer = new Authority();
+            officer.setName(request.get("name").toString().trim());
+            officer.setEmail(request.get("email").toString().trim());
+            officer.setPassword(request.get("password").toString());
+
+            if (request.containsKey("phoneNumber") && request.get("phoneNumber") != null) {
+                officer.setPhoneNumber(request.get("phoneNumber").toString().trim());
+            }
+
+            Authority created = authorityService.createPoliceOfficer(officer, stationId);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to create police officer: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/police")
+    public ResponseEntity<?> getAllPolice() {
+        return ResponseEntity.ok(authorityService.getAllPoliceOfficers());
+    }
+
+    @GetMapping("/police/station/{stationId}")
+    public ResponseEntity<?> getPoliceByStation(@PathVariable Long stationId) {
+        return ResponseEntity.ok(authorityService.getPoliceByStation(stationId));
+    }
+
 }
 
