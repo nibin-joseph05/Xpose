@@ -1,12 +1,14 @@
+// lib/pages/profile/edit_profile_page.dart (updated)
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:Xpose/models/user_model.dart';
 import 'package:Xpose/services/auth_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:Xpose/pages/auth/auth_page.dart';
 
 class EditProfilePage extends StatefulWidget {
-  final User user;
+  final UserModel user;
 
   const EditProfilePage({super.key, required this.user});
 
@@ -29,19 +31,48 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   void initState() {
     super.initState();
+    if (widget.user.isGuest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showGuestUserMessage();
+      });
+    }
+
     _nameController = TextEditingController(text: widget.user.name ?? '');
     _emailController = TextEditingController(text: widget.user.email ?? '');
     _currentProfileImageUrl = widget.user.profileUrl;
   }
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    super.dispose();
+  void _showGuestUserMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Guest users cannot edit profile. Please login to access this feature.'),
+        backgroundColor: Colors.orange[800],
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'LOGIN',
+          textColor: Colors.white,
+          onPressed: () {
+            _navigateToLogin();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _navigateToLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const AuthPage()),
+          (route) => false,
+    );
   }
 
   Future<void> _pickImage() async {
+    if (widget.user.isGuest) {
+      _showGuestUserMessage();
+      return;
+    }
+
     if (_isPickingImage) {
       return;
     }
@@ -78,6 +109,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _updateProfile() async {
+    if (widget.user.isGuest) {
+      _showGuestUserMessage();
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -100,7 +136,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
 
       try {
-        final User updatedUser = await AuthService.updateProfile(
+        final UserModel updatedUser = await AuthService.updateProfile(
           widget.user.mobile,
           name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
           email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
@@ -145,6 +181,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isGuestUser = widget.user.isGuest;
+
     ImageProvider<Object> currentImageProvider;
     if (_pickedImage != null) {
       currentImageProvider = FileImage(File(_pickedImage!.path));
@@ -156,7 +194,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: Text(isGuestUser ? 'Profile (Guest Mode)' : 'Edit Profile'),
         backgroundColor: Colors.blueGrey[900],
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -171,6 +209,54 @@ class _EditProfilePageState extends State<EditProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (isGuestUser) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[100],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Colors.orange[800],
+                          size: 24,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'You are logged in as Guest',
+                          style: TextStyle(
+                            color: Colors.orange[800],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Profile editing is disabled for guest users. Please login to access all features.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.orange[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: _navigateToLogin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange[800],
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('LOGIN NOW'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Stack(
                   children: [
                     CircleAvatar(
@@ -185,27 +271,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         }
                       },
                     ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: GestureDetector(
-                        onTap: _pickImage,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                    if (!isGuestUser)
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 24),
                           ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 24),
                         ),
                       ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 30),
                 Text(
-                  'Update your profile information. All fields are optional and will keep current values if left empty.',
+                  isGuestUser
+                      ? 'Guest users have limited access to profile features.'
+                      : 'Update your profile information. All fields are optional and will keep current values if left empty.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -216,7 +305,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 const SizedBox(height: 30),
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.black87),
+                  style: TextStyle(color: isGuestUser ? Colors.grey : Colors.black87),
                   decoration: InputDecoration(
                     hintText: 'Name',
                     hintStyle: TextStyle(color: Colors.blueGrey[700]),
@@ -225,7 +314,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                     prefixIcon: Icon(Icons.person_outline, color: Colors.blueGrey[700]),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isGuestUser ? Colors.grey[200] : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -235,6 +324,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                     ),
+                    enabled: !isGuestUser,
                   ),
                   validator: (value) {
                     if (value != null && value.isNotEmpty && !RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
@@ -246,7 +336,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _emailController,
-                  style: const TextStyle(color: Colors.black87),
+                  style: TextStyle(color: isGuestUser ? Colors.grey : Colors.black87),
                   decoration: InputDecoration(
                     hintText: 'Email',
                     hintStyle: TextStyle(color: Colors.blueGrey[700]),
@@ -255,7 +345,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                     prefixIcon: Icon(Icons.email_outlined, color: Colors.blueGrey[700]),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isGuestUser ? Colors.grey[200] : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -266,6 +356,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                     ),
                     errorText: _emailErrorText,
+                    enabled: !isGuestUser,
                   ),
                   keyboardType: TextInputType.emailAddress,
                   onChanged: (_) {
@@ -283,29 +374,52 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   },
                 ),
                 const SizedBox(height: 40),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _updateProfile,
-                    icon: const Icon(Icons.save_outlined, size: 24),
-                    label: const Text(
-                      'Save Changes',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                if (isGuestUser)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _navigateToLogin,
+                      icon: const Icon(Icons.login, size: 24),
+                      label: const Text(
+                        'Login to Edit Profile',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      elevation: 5,
-                      shadowColor: Colors.black.withOpacity(0.3),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 5,
+                        shadowColor: Colors.black.withOpacity(0.3),
+                      ),
+                    ),
+                  )
+                else
+                  _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _updateProfile,
+                      icon: const Icon(Icons.save_outlined, size: 24),
+                      label: const Text(
+                        'Save Changes',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 5,
+                        shadowColor: Colors.black.withOpacity(0.3),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

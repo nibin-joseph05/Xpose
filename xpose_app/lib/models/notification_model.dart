@@ -7,7 +7,7 @@ enum NotificationType {
 
 class Notification {
   final int id;
-  final User recipient;
+  final UserModel recipient;
   final NotificationType type;
   final String title;
   final String message;
@@ -27,7 +27,7 @@ class Notification {
   factory Notification.fromJson(Map<String, dynamic> json) {
     return Notification(
       id: json['id'],
-      recipient: User.fromJson(json['recipient']),
+      recipient: UserModel.fromJson(json['recipient']),
       type: NotificationType.values.firstWhere(
             (e) => e.toString().split('.').last == json['type'],
         orElse: () => NotificationType.PROFILE_UPDATED,

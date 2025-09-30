@@ -10,7 +10,7 @@ import 'package:image_picker/image_picker.dart';
 class AuthService {
   static final String baseUrl = '${dotenv.env['API_BASE_URL']}/api/auth';
 
-  static Future<User> registerWithMobile(String mobile) async {
+  static Future<UserModel> registerWithMobile(String mobile) async {
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
       headers: {'Content-Type': 'application/json'},
@@ -18,13 +18,13 @@ class AuthService {
     );
 
     if (response.statusCode == 200) {
-      return User.fromJson(jsonDecode(response.body));
+      return  UserModel.fromJson(jsonDecode(response.body));
     } else {
       throw Exception('Failed to register: ${response.body}');
     }
   }
 
-  static Future<User> updateProfile(String mobile, {String? name, String? email, XFile? profileImageFile, String? currentProfileImageUrl}) async {
+  static Future< UserModel> updateProfile(String mobile, {String? name, String? email, XFile? profileImageFile, String? currentProfileImageUrl}) async {
     var request = http.MultipartRequest('PUT', Uri.parse('$baseUrl/update-profile/$mobile'));
 
     if (name != null && name.isNotEmpty) {
@@ -55,7 +55,7 @@ class AuthService {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200) {
-      User updatedUser = User.fromJson(jsonDecode(response.body));
+       UserModel updatedUser =  UserModel.fromJson(jsonDecode(response.body));
       await UserPreferences.saveUser(updatedUser);
       return updatedUser;
     } else {

@@ -1,3 +1,4 @@
+// lib/pages/profile/profile_page.dart (updated)
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:Xpose/helpers/user_preferences.dart';
@@ -14,8 +15,8 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  User? _currentUser;
-  late Future<User?> _userFuture;
+  UserModel? _currentUser;
+  late Future<UserModel?> _userFuture;
 
   @override
   void initState() {
@@ -23,8 +24,8 @@ class _ProfilePageState extends State<ProfilePage> {
     _userFuture = _loadUserData();
   }
 
-  Future<User?> _loadUserData() async {
-    final User? user = await UserPreferences.getUser();
+  Future<UserModel?> _loadUserData() async {
+    final UserModel? user = await UserPreferences.getUser();
     setState(() {
       _currentUser = user;
     });
@@ -74,7 +75,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (confirmLogout == true) {
       try {
-        await fb_auth.FirebaseAuth.instance.signOut();
+        if (_currentUser?.isGuest != true) {
+          await fb_auth.FirebaseAuth.instance.signOut();
+        }
         await UserPreferences.clearUser();
 
         if (mounted) {
@@ -96,6 +99,41 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  void _showGuestDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Guest Mode'),
+          content: const Text('Guest users cannot edit profile. Please login to access this feature.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _navigateToLogin();
+              },
+              child: const Text('Login'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _navigateToLogin() async {
+    await UserPreferences.clearUser();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthPage()),
+            (Route<dynamic> route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,7 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: FutureBuilder<User?>(
+      body: FutureBuilder<UserModel?>(
         future: _userFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -121,12 +159,15 @@ class _ProfilePageState extends State<ProfilePage> {
           } else if (_currentUser == null) {
             return Center(child: Text('No user data available. Please log in.', style: Theme.of(context).textTheme.bodyMedium));
           } else {
+            final bool isGuestUser = _currentUser?.isGuest ?? false;
+
             final String userName = _currentUser?.name != null && _currentUser!.name!.isNotEmpty
                 ? _currentUser!.name!
-                : 'Name not set';
+                : isGuestUser ? 'Guest User' : 'Name not set';
+
             final String userEmail = _currentUser?.email != null && _currentUser!.email!.isNotEmpty
                 ? _currentUser!.email!
-                : 'Email not added';
+                : isGuestUser ? 'Not available in guest mode' : 'Email not added';
 
             ImageProvider<Object> profileImageProvider;
             if (_currentUser?.profileUrl != null && _currentUser!.profileUrl!.isNotEmpty && _currentUser!.profileUrl!.startsWith('http')) {
@@ -136,12 +177,35 @@ class _ProfilePageState extends State<ProfilePage> {
             }
 
             final String userMobile = _currentUser?.mobile != null && _currentUser!.mobile.isNotEmpty
-                ? _currentUser!.mobile
+                ? (isGuestUser ? 'Guest Mode' : _currentUser!.mobile)
                 : 'Mobile not available';
 
             return SingleChildScrollView(
               child: Column(
                 children: [
+                  if (isGuestUser)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        border: Border.all(color: Colors.orange),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.orange[700], size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'You are logged in as Guest',
+                            style: TextStyle(
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
@@ -214,10 +278,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           context,
                           Icons.edit_note,
                           'Edit Details',
-                          'Update your profile information',
-                          onTap: () async {
+                          isGuestUser ? 'Login to edit profile' : 'Update your profile information',
+                          onTap: isGuestUser ? _showGuestDialog : () async {
                             if (_currentUser != null) {
-                              final User? updatedUser = await Navigator.push(
+                              final UserModel? updatedUser = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => EditProfilePage(user: _currentUser!),

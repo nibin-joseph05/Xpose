@@ -1,4 +1,4 @@
-// lib/pages/auth/auth_check.dart
+// lib/pages/auth/auth_check.dart (updated)
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:Xpose/pages/auth/auth_page.dart';
@@ -25,10 +25,10 @@ class _AuthCheckState extends State<AuthCheck> {
 
   Future<void> _checkAuthState() async {
     final fb_auth.User? firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
-    final User? appUser = await UserPreferences.getUser();
+    final UserModel ? appUser = await UserPreferences.getUser();
 
     setState(() {
-      _hasUser = firebaseUser != null && appUser != null;
+      _hasUser = appUser != null && (firebaseUser != null || appUser.isGuest);
       _isLoading = false;
     });
   }

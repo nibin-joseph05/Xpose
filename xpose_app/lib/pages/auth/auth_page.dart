@@ -1,9 +1,11 @@
+// lib/pages/auth/auth_page.dart (updated)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:Xpose/services/auth_service.dart';
 import 'package:Xpose/helpers/user_preferences.dart';
 import 'package:Xpose/pages/home/home.dart';
+import 'package:Xpose/models/user_model.dart';
 import 'dart:math' as math;
 
 class AuthPage extends StatefulWidget {
@@ -58,6 +60,39 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     final user = await UserPreferences.getUser();
     if (user != null && mounted) {
       _navigateToHome();
+    }
+  }
+
+  Future<void> _loginAsGuest() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final guestUser = UserModel (
+        id: -1,
+        mobile: 'guest',
+        name: 'Guest User',
+        email: null,
+        profileUrl: null,
+        isGuest: true,
+      );
+
+      await UserPreferences.saveUser(guestUser);
+
+      if (mounted) {
+        _navigateToHome();
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to login as guest: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -450,6 +485,48 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
                               : Text(
                             isOtpSent ? 'VERIFY OTP' : 'GET OTP',
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isLoading ? null : _loginAsGuest,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            side: BorderSide(
+                              color: Colors.white70.withOpacity(0.5),
+                              width: 1.5,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: isLoading
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white70),
+                            ),
+                          )
+                              : const Text('CONTINUE AS GUEST'),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Guest users can report crimes but have limited profile features',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white54,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     ],
