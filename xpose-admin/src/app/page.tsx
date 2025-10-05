@@ -77,7 +77,7 @@ export default function Home() {
             </Link>
             <Link
               href="/police/login"
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-opacity-70 motion-safe:animate-button-pop delay-150"
+              className="bg-[#C3B091] hover:bg-[#A89070] text-black font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-[#C3B091]/50 focus:ring-opacity-70 motion-safe:animate-button-pop delay-150"
             >
               Police Login
             </Link>
