@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.Map;
@@ -103,5 +104,29 @@ public class AuthController {
         userForResponse.setProfileUrl(responseProfileUrl);
 
         return ResponseEntity.ok(userForResponse);
+    }
+    @GetMapping("/users")
+    public ResponseEntity<?> getAllUsers() {
+        try {
+            List<User> users = authService.getAllUsers();
+            return ResponseEntity.ok(users);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to fetch users: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        try {
+            Optional<User> user = authService.findById(id);
+            if (user.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("message", "User not found"));
+            }
+
+            authService.deleteUser(id);
+            return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to delete user: " + e.getMessage()));
+        }
     }
 }

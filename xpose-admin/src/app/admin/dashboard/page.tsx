@@ -1,10 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Sidebar from '@/components/admin/Sidebar';
 import AdminHeader from '@/components/admin/AdminHeader';
+import { Bar } from 'react-chartjs-2';
+import 'chart.js/auto';
+
+interface CrimeReport {
+  reportId: string;
+  crimeTypeId: number;
+  crimeType: string;
+  categoryId: number;
+  categoryName?: string;
+  description: string;
+  translatedDescription: string;
+  address: string;
+  city: string;
+  state: string;
+  policeStation: string;
+  status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH';
+  submittedAt: string;
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.220.2:8080';
 
 interface StatCardProps {
   title: string;
@@ -15,13 +36,9 @@ interface StatCardProps {
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalReports: 0,
-    pending: 0,
-    resolved: 0,
-    urgent: 0,
-  });
-
+  const [error, setError] = useState('');
+  const [reports, setReports] = useState<CrimeReport[]>([]);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const router = useRouter();
 
   useEffect(() => {
@@ -32,34 +49,169 @@ export default function Dashboard() {
   }, [router]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setStats({
-        totalReports: 1423,
-        pending: 324,
-        resolved: 1099,
-        urgent: 87,
-      });
-      setLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      setTheme(savedTheme === 'light' ? 'light' : 'dark');
+    } else {
+      setTheme('dark');
+    }
+    fetchReports();
   }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const springResponse = await fetch(`${API_URL}/api/reports?page=0&size=1000`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!springResponse.ok) throw new Error('Failed to fetch reports from Spring Boot');
+      const springData = await springResponse.json();
+
+      const blockchainResponse = await fetch(`${API_URL}/api/reports/chain`, { signal: controller.signal });
+      if (!blockchainResponse.ok) throw new Error('Failed to fetch blockchain chain from Spring Boot');
+      const blockchainData = await blockchainResponse.json();
+
+      const mergedReports: CrimeReport[] = springData.reports.map((springReport: any) => {
+        const blockchainReport = blockchainData.find((block: any) => block.data?.reportId === springReport.reportId);
+        return {
+          reportId: springReport.reportId,
+          crimeTypeId: springReport.crimeTypeId,
+          crimeType: springReport.crimeType,
+          categoryId: springReport.categoryId,
+          categoryName: springReport.categoryName,
+          description: blockchainReport ? blockchainReport.data.description : springReport.originalDescription,
+          translatedDescription: blockchainReport ? blockchainReport.data.translatedText : springReport.translatedDescription,
+          address: blockchainReport ? blockchainReport.data.address : springReport.address,
+          city: blockchainReport ? blockchainReport.data.city : springReport.city,
+          state: blockchainReport ? blockchainReport.data.state : springReport.state,
+          policeStation: springReport.policeStation,
+          status: springReport.status,
+          urgency: springReport.urgency,
+          submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt,
+        };
+      });
+
+      setReports(mergedReports);
+    } catch (err: any) {
+      console.error('Error fetching reports:', err);
+      setError(err.name === 'AbortError' ? 'Request timed out. Please check your network or server status.' : err.message || 'Failed to fetch reports');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stats = useMemo(() => ({
+    totalReports: reports.length,
+    accepted: reports.filter(r => r.status === 'ACCEPTED').length,
+    pending: reports.filter(r => r.status.startsWith('RECEIVED_')).length,
+    urgent: reports.filter(r => r.urgency === 'HIGH').length,
+  }), [reports]);
+
+  const recentReports = useMemo(() =>
+    [...reports]
+      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+      .slice(0, 5),
+  [reports]);
+
+  const hotspots = useMemo(() => {
+    const countMap = new Map<string, number>();
+    reports.forEach(r => {
+      const loc = r.city || 'Unknown';
+      countMap.set(loc, (countMap.get(loc) || 0) + 1);
+    });
+    return Array.from(countMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [reports]);
+
+  const crimeTypes = useMemo(() => {
+    const countMap = new Map<string, number>();
+    reports.forEach(r => {
+      const type = r.crimeType || 'Unknown';
+      countMap.set(type, (countMap.get(type) || 0) + 1);
+    });
+    return Array.from(countMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [reports]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACCEPTED':
+      case 'RECEIVED_HIGH_PRIORITY':
+      case 'RECEIVED_MEDIUM_PRIORITY':
+      case 'RECEIVED_STANDARD':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Accepted
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            Rejected
+          </span>
+        );
+      case 'RECEIVED_PENDING_REVIEW':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Pending Review
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Unknown
+          </span>
+        );
+    }
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case 'HIGH':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            High
+          </span>
+        );
+      case 'MEDIUM':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Medium
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Low
+          </span>
+        );
+    }
+  };
 
   const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color }) => (
     <motion.div
       whileHover={{ y: -5 }}
-      className={`rounded-xl border ${color} bg-gray-800 bg-opacity-60 p-6 shadow-lg transition-all duration-300 ease-in-out dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-200 light:bg-white light:bg-opacity-80`}
+      className={`rounded-xl border ${color} bg-gray-800 bg-opacity-60 p-4 shadow-lg transition-all duration-300 ease-in-out dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-200 light:bg-white light:bg-opacity-80`}
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="mb-2 text-gray-400 light:text-gray-600">{title}</p>
+          <p className="mb-1 text-sm text-gray-400 light:text-gray-600">{title}</p>
           {loading ? (
-            <div className="h-8 w-24 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+            <div className="h-6 w-16 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
           ) : (
-            <h3 className="text-3xl font-bold text-gray-50 light:text-gray-800">{value}</h3>
+            <h3 className="text-xl font-bold text-gray-50 light:text-gray-800">{value}</h3>
           )}
         </div>
-        <div className="text-4xl text-blue-400 light:text-blue-600">{icon}</div>
+        <div className="text-2xl text-blue-400 light:text-blue-600">{icon}</div>
       </div>
     </motion.div>
   );
@@ -83,11 +235,21 @@ export default function Dashboard() {
             <AdminHeader />
           </div>
 
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 mb-6 font-medium light:bg-red-100 light:text-red-700 light:border-red-300"
+            >
+              {error}
+            </motion.div>
+          )}
+
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4"
+            className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
           >
             <StatCard
               title="Total Reports"
@@ -96,16 +258,16 @@ export default function Dashboard() {
               color="border-blue-500"
             />
             <StatCard
+              title="AI Accepted"
+              value={stats.accepted}
+              icon="🤖"
+              color="border-green-500"
+            />
+            <StatCard
               title="Pending"
               value={stats.pending}
               icon="⏳"
               color="border-yellow-500"
-            />
-            <StatCard
-              title="Resolved"
-              value={stats.resolved}
-              icon="✅"
-              color="border-green-500"
             />
             <StatCard
               title="Urgent"
@@ -122,9 +284,13 @@ export default function Dashboard() {
             className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl transition-colors duration-300 dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-300 light:bg-white light:bg-opacity-80 light:text-gray-900"
           >
             <div className="border-b border-gray-700 p-6 light:border-gray-200">
-              <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-100 light:text-gray-800">
-                <span>📰</span> Recent Reports
-              </h2>
+              {loading ? (
+                <div className="h-8 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+              ) : (
+                <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-100 light:text-gray-800">
+                  <span>📰</span> Recent Reports
+                </h2>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -139,34 +305,50 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <tr
-                      key={item}
-                      className="border-b border-gray-800 transition-colors hover:bg-gray-700 hover:bg-opacity-50 light:border-gray-100 light:hover:bg-gray-50"
-                    >
-                      <td className="p-4">#RPT-{item}00{item}</td>
-                      <td className="p-4">Theft</td>
-                      <td className="p-4">Downtown</td>
-                      <td className="p-4">
-                        <span className="rounded-full bg-yellow-900 bg-opacity-50 px-3 py-1 text-xs text-yellow-300 light:bg-yellow-200 light:text-yellow-800">
-                          Pending
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="rounded-full bg-red-900 bg-opacity-50 px-3 py-1 text-xs text-red-300 light:bg-red-200 light:text-red-800">
-                          High
-                        </span>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
+                        Loading reports...
                       </td>
                     </tr>
-                  ))}
+                  ) : recentReports.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
+                        No recent reports found.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentReports.map((report) => (
+                      <motion.tr
+                        key={report.reportId}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="border-b border-gray-800 hover:bg-gray-700 hover:bg-opacity-30 transition-colors duration-200 light:border-gray-200 light:hover:bg-gray-100"
+                      >
+                        <td className="p-4">{report.reportId}</td>
+                        <td className="p-4">{report.crimeType}</td>
+                        <td className="p-4">{report.city}</td>
+                        <td className="p-4">{getStatusBadge(report.status)}</td>
+                        <td className="p-4">{getPriorityBadge(report.urgency)}</td>
+                      </motion.tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="flex justify-end border-t border-gray-700 p-4 light:border-gray-200">
-              <button className="flex items-center gap-2 text-blue-400 transition-colors hover:text-blue-300 light:text-blue-600 light:hover:text-blue-500">
-                View All Reports <span>→</span>
-              </button>
+              {loading ? (
+                <div className="h-6 w-32 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+              ) : (
+                <button
+                  onClick={() => router.push('/admin/reports')}
+                  className="flex items-center gap-2 text-blue-400 transition-colors hover:text-blue-300 light:text-blue-600 light:hover:text-blue-500"
+                >
+                  View All Reports <span>→</span>
+                </button>
+              )}
             </div>
           </motion.div>
 
@@ -177,20 +359,106 @@ export default function Dashboard() {
             className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2"
           >
             <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
-              <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
-                <span>📈</span> Reports Overview
-              </h3>
-              <div className="flex h-64 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 bg-opacity-30 light:bg-gray-100 light:border-gray-200">
-                <span className="text-gray-500 light:text-gray-400">Chart visualization will appear here</span>
+              <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
+                {loading ? (
+                  <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+                ) : (
+                  <>
+                    <span>📈</span> Reports Overview
+                  </>
+                )}
+              </div>
+              <div className="h-64">
+                {loading ? (
+                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">Loading chart...</div>
+                ) : (
+                  <Bar
+                    data={{
+                      labels: ['Total', 'AI Accepted', 'Pending', 'Urgent'],
+                      datasets: [{
+                        label: 'Reports',
+                        data: [stats.totalReports, stats.accepted, stats.pending, stats.urgent],
+                        backgroundColor: ['#3b82f6', '#22c55e', '#eab308', '#ef4444'],
+                      }]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                    }}
+                  />
+                )}
               </div>
             </div>
 
             <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
-              <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
-                <span>📍</span> Crime Hotspots
-              </h3>
-              <div className="flex h-64 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 bg-opacity-30 light:bg-gray-100 light:border-gray-200">
-                <span className="text-gray-500 light:text-gray-400">Map visualization will appear here</span>
+              <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
+                {loading ? (
+                  <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+                ) : (
+                  <>
+                    <span>📍</span> Crime Hotspots
+                  </>
+                )}
+              </div>
+              <div className="h-64 overflow-y-auto">
+                {loading ? (
+                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">Loading hotspots...</div>
+                ) : hotspots.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">No hotspots data available</div>
+                ) : (
+                  <table className="w-full text-left text-gray-300 light:text-gray-700">
+                    <thead>
+                      <tr className="border-b border-gray-700 text-gray-400 light:border-gray-200 light:text-gray-600">
+                        <th className="p-2">Location</th>
+                        <th className="p-2">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hotspots.map(([loc, count]) => (
+                        <tr key={loc} className="border-b border-gray-800 light:border-gray-200">
+                          <td className="p-2">{loc}</td>
+                          <td className="p-2">{count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
+              <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
+                {loading ? (
+                  <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
+                ) : (
+                  <>
+                    <span>🔍</span> Top Crime Types
+                  </>
+                )}
+              </div>
+              <div className="h-64 overflow-y-auto">
+                {loading ? (
+                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">Loading crime types...</div>
+                ) : crimeTypes.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">No crime types data available</div>
+                ) : (
+                  <table className="w-full text-left text-gray-300 light:text-gray-700">
+                    <thead>
+                      <tr className="border-b border-gray-700 text-gray-400 light:border-gray-200 light:text-gray-600">
+                        <th className="p-2">Crime Type</th>
+                        <th className="p-2">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {crimeTypes.map(([type, count]) => (
+                        <tr key={type} className="border-b border-gray-800 light:border-gray-200">
+                          <td className="p-2">{type}</td>
+                          <td className="p-2">{count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </motion.div>

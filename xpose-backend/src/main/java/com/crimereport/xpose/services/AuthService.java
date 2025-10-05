@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -106,5 +107,18 @@ public class AuthService {
         }
         Optional<User> existingUser = userRepo.findByEmail(email);
         return existingUser.isPresent() && !existingUser.get().getId().equals(userId);
+    }
+    public List<User> getAllUsers() {
+        List<User> users = userRepo.findAll();
+        users.forEach(user -> {
+            if (user.getProfileUrl() != null && user.getProfileUrl().startsWith("/uploads")) {
+                user.setProfileUrl(buildFullUrl(user.getProfileUrl()));
+            }
+        });
+        return users;
+    }
+
+    public void deleteUser(Long id) {
+        userRepo.deleteById(id);
     }
 }
