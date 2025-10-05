@@ -202,5 +202,20 @@ public class AuthorityController {
         return ResponseEntity.ok(authorityService.getPoliceByStation(stationId));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteAuthority(@PathVariable Long id) {
+        try {
+            Optional<Authority> authority = authorityService.findById(id);
+            if (authority.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("message", "Authority not found"));
+            }
+
+            authorityService.deleteAuthority(id);
+            return ResponseEntity.ok(Map.of("message", "Authority deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to delete authority: " + e.getMessage()));
+        }
+    }
+
 }
 

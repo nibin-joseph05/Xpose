@@ -152,7 +152,7 @@ export default function StationsPage() {
         alert('Police station deleted successfully!');
       } catch (err: any) {
         console.error('Error deleting police station:', err);
-        setError(err.message || 'Error deleting police station.');
+        alert(err.message || 'Error deleting police station.');
       }
     }
   };
@@ -160,7 +160,7 @@ export default function StationsPage() {
   const handleDeleteOfficer = async (id: number) => {
     if (confirm('Are you sure you want to delete this police officer? This action cannot be undone.')) {
       try {
-        const response = await fetch(`${API_URL}/api/authorities/${id}`, {
+        const response = await fetch(`${API_URL}/api/authority/${id}`, {
           method: 'DELETE',
         });
         if (!response.ok) {
@@ -168,20 +168,13 @@ export default function StationsPage() {
           throw new Error(errorData.message || 'Failed to delete officer');
         }
         setOfficers(prev => prev.filter(officer => officer.id !== id));
+        fetchData();
         alert('Officer deleted successfully!');
       } catch (err: any) {
         console.error('Error deleting officer:', err);
-        setError(err.message || 'Error deleting officer.');
+        alert(err.message || 'Error deleting officer.');
       }
     }
-  };
-
-  const handleEditStation = (id: number) => {
-    router.push(`/admin/stations/edit-station/${id}`);
-  };
-
-  const handleEditOfficer = (id: number) => {
-    router.push(`/admin/stations/edit-officer/${id}`);
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -305,15 +298,8 @@ export default function StationsPage() {
                         <td className="p-4 text-gray-400 light:text-gray-700">{formatTimestamp(station.createdAt)}</td>
                         <td className="p-4 text-center">
                           <button
-                            onClick={() => handleEditStation(station.id)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800"
-                            title="Edit Police Station"
-                          >
-                            Edit
-                          </button>
-                          <button
                             onClick={() => handleDeleteStation(station.id)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-red-400 hover:bg-red-800/50 hover:text-red-300 transition-colors duration-200 ml-2 light:text-red-600 light:hover:bg-red-100 light:hover:text-red-800"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-red-400 hover:bg-red-800/50 hover:text-red-300 transition-colors duration-200 light:text-red-600 light:hover:bg-red-100 light:hover:text-red-800"
                             title="Delete Police Station"
                           >
                             Del
@@ -420,15 +406,8 @@ export default function StationsPage() {
                         <td className="p-4 text-gray-400 light:text-gray-700">{formatTimestamp(officer.createdAt)}</td>
                         <td className="p-4 text-center">
                           <button
-                            onClick={() => handleEditOfficer(officer.id)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800"
-                            title="Edit Officer"
-                          >
-                            Edit
-                          </button>
-                          <button
                             onClick={() => handleDeleteOfficer(officer.id)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-red-400 hover:bg-red-800/50 hover:text-red-300 transition-colors duration-200 ml-2 light:text-red-600 light:hover:bg-red-100 light:hover:text-red-800"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-red-400 hover:bg-red-800/50 hover:text-red-300 transition-colors duration-200 light:text-red-600 light:hover:bg-red-100 light:hover:text-red-800"
                             title="Delete Officer"
                           >
                             Del

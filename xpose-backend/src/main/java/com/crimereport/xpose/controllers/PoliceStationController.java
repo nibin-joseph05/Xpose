@@ -1,12 +1,17 @@
 package com.crimereport.xpose.controllers;
 
+import com.crimereport.xpose.models.Authority;
 import com.crimereport.xpose.models.PoliceStation;
+import com.crimereport.xpose.repository.AuthorityRepository;
+import com.crimereport.xpose.repository.PoliceStationRepository;
 import com.crimereport.xpose.services.PoliceStationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/police-stations")
@@ -15,6 +20,12 @@ public class PoliceStationController {
 
     @Autowired
     private PoliceStationService policeStationService;
+
+    @Autowired
+    private PoliceStationRepository policeStationRepository;
+
+    @Autowired
+    private AuthorityRepository authorityRepository;
 
     @GetMapping
     public ResponseEntity<?> getNearbyStations(
@@ -60,6 +71,26 @@ public class PoliceStationController {
             return ResponseEntity.ok(policeStationService.getAllPoliceStations());
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("message", "Failed to fetch police stations: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deletePoliceStation(@PathVariable Long id) {
+        try {
+            Optional<PoliceStation> station = policeStationRepository.findById(id);
+            if (station.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of("message", "Police station not found"));
+            }
+
+            List<Authority> assignedOfficers = authorityRepository.findByStationId(id);
+            if (!assignedOfficers.isEmpty()) {
+                return ResponseEntity.status(400).body(Map.of("message", "Cannot delete station with assigned officers. Please reassign or remove officers first."));
+            }
+
+            policeStationRepository.deleteById(id);
+            return ResponseEntity.ok(Map.of("message", "Police station deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to delete police station: " + e.getMessage()));
         }
     }
 

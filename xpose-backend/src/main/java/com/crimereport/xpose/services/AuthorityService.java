@@ -118,4 +118,11 @@ public class AuthorityService {
 
         return dto;
     }
+    public Optional<Authority> findById(Long id) {
+        return authorityRepository.findById(id);
+    }
+
+    public void deleteAuthority(Long id) {
+        authorityRepository.deleteById(id);
+    }
 }
