@@ -18,16 +18,29 @@ public class CrimeReportList {
     private String status;
     private String urgency;
     private LocalDateTime submittedAt;
+    private Long assignedOfficerId;
 
     public CrimeReportList() {
     }
 
-    public CrimeReportList(String reportId, String crimeType, Long crimeTypeId, Long categoryId,
-                           String categoryName, String originalDescription, String translatedDescription,
-                           String address, String city, String state, String policeStation,
-                           CrimeReport.ReportStatus status, CrimeReport.UrgencyLevel urgencyLevel,
-                           LocalDateTime submittedAt) {
-        this.reportId = reportId;
+    public CrimeReportList(
+            String id,
+            String crimeType,
+            Long crimeTypeId,
+            Long categoryId,
+            String categoryName,
+            String originalDescription,
+            String translatedDescription,
+            String address,
+            String city,
+            String state,
+            String policeStation,
+            Enum status,
+            Enum urgency,
+            LocalDateTime submittedAt,
+            Long assignedOfficerId
+    ) {
+        this.reportId = id;
         this.crimeType = crimeType;
         this.crimeTypeId = crimeTypeId;
         this.categoryId = categoryId;
@@ -38,9 +51,10 @@ public class CrimeReportList {
         this.city = city;
         this.state = state;
         this.policeStation = policeStation;
-        this.status = status != null ? status.name() : null;
-        this.urgency = urgencyLevel != null ? urgencyLevel.name() : null;
+        this.status = status != null ? status.toString() : null;
+        this.urgency = urgency != null ? urgency.toString() : null;
         this.submittedAt = submittedAt;
+        this.assignedOfficerId = assignedOfficerId;
     }
 
     public String getReportId() {
@@ -153,5 +167,13 @@ public class CrimeReportList {
 
     public void setSubmittedAt(LocalDateTime submittedAt) {
         this.submittedAt = submittedAt;
+    }
+
+    public Long getAssignedOfficerId() {
+        return assignedOfficerId;
+    }
+
+    public void setAssignedOfficerId(Long assignedOfficerId) {
+        this.assignedOfficerId = assignedOfficerId;
     }
 }

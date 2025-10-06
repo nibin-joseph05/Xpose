@@ -69,6 +69,10 @@ public class CrimeReport {
     @Column(name = "needs_review")
     private Boolean needsReview;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_officer_id")
+    private Authority assignedOfficerId;
+
     public ReportQuality getReportQuality() {
         return reportQuality;
     }
@@ -179,7 +183,7 @@ public class CrimeReport {
         this.submittedAt = submittedAt;
     }
 
-    public Boolean getSpam() {
+    public Boolean getSpam()   {
         return isSpam;
     }
 
@@ -345,6 +349,14 @@ public class CrimeReport {
 
     public void setBlockchainTimestamp(LocalDateTime blockchainTimestamp) {
         this.blockchainTimestamp = blockchainTimestamp;
+    }
+
+    public Authority getAssignedOfficer() {
+        return assignedOfficerId;
+    }
+
+    public void setAssignedOfficer(Authority assignedOfficer) {
+        this.assignedOfficerId = assignedOfficer;
     }
 
     @Enumerated(EnumType.STRING)

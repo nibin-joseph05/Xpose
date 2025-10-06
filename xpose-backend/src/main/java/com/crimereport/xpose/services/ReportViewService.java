@@ -2,12 +2,8 @@ package com.crimereport.xpose.services;
 
 import com.crimereport.xpose.dto.CrimeReportDetail;
 import com.crimereport.xpose.dto.CrimeReportList;
-import com.crimereport.xpose.models.CrimeCategory;
-import com.crimereport.xpose.models.CrimeReport;
-import com.crimereport.xpose.models.CrimeType;
-import com.crimereport.xpose.repository.CrimeCategoryRepository;
-import com.crimereport.xpose.repository.CrimeReportRepository;
-import com.crimereport.xpose.repository.CrimeTypeRepository;
+import com.crimereport.xpose.models.*;
+import com.crimereport.xpose.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -23,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 public class ReportViewService {
@@ -37,6 +34,15 @@ public class ReportViewService {
 
     @Autowired
     private CrimeCategoryRepository crimeCategoryRepository;
+
+    @Autowired
+    private AuthorityRepository authorityRepository;
+
+    @Autowired
+    private PoliceStationService policeStationService;
+
+    @Autowired
+    private PoliceStationRepository policeStationRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -78,7 +84,7 @@ public class ReportViewService {
             logger.warn("Report ID {} not found in database using simple query", reportId);
         }
 
-        Optional<CrimeReport> reportOpt = crimeReportRepository.findDetailedReportById(reportId);
+        Optional<CrimeReport> reportOpt = crimeReportRepository.findReportWithOfficer(reportId);
         CrimeReport report;
         String crimeTypeName = "Unknown";
         String categoryName = "Unknown";
@@ -128,6 +134,8 @@ public class ReportViewService {
                 report.setCity((String) blockData.get("city"));
                 report.setState((String) blockData.get("state"));
                 report.setCountry((String) blockData.get("country"));
+                report.setLatitude(blockData.get("latitude") != null ? ((Number) blockData.get("latitude")).doubleValue() : null);
+                report.setLongitude(blockData.get("longitude") != null ? ((Number) blockData.get("longitude")).doubleValue() : null);
                 report.setSubmittedAt(LocalDateTime.parse((String) blockData.get("submittedAt")));
                 report.setBlockchainHash((String) blockchainResponse.get("hash"));
                 report.setBlockchainTimestamp(LocalDateTime.parse((String) blockchainResponse.get("timestamp")));
@@ -182,6 +190,9 @@ public class ReportViewService {
         dto.setBlockchainHash(report.getBlockchainHash());
         dto.setBlockchainTimestamp(report.getBlockchainTimestamp());
         dto.setBlockchainTxId(report.getBlockchainTxId());
+        dto.setLatitude(report.getLatitude());
+        dto.setLongitude(report.getLongitude());
+        dto.setAssignedOfficerId(report.getAssignedOfficer() != null ? report.getAssignedOfficer().getId() : null);
         if (blockchainResponse != null) {
             try {
                 dto.setRawBlockchainData(objectMapper.writeValueAsString(blockchainResponse));
@@ -191,6 +202,69 @@ public class ReportViewService {
         }
 
         return dto;
+    }
+
+    public void assignReportToOfficer(String reportId, Long officerId) {
+        Optional<CrimeReport> reportOpt = crimeReportRepository.findDetailedReportById(reportId);
+        if (reportOpt.isEmpty()) {
+            throw new RuntimeException("Report not found: " + reportId);
+        }
+        Optional<Authority> officerOpt = authorityRepository.findById(officerId);
+        if (officerOpt.isEmpty()) {
+            throw new RuntimeException("Officer not found: " + officerId);
+        }
+
+        CrimeReport report = reportOpt.get();
+        report.setAssignedOfficer(officerOpt.get());
+        crimeReportRepository.save(report);
+        logger.info("Assigned report {} to officer ID {}", reportId, officerId);
+    }
+
+    public Long autoAssignReport(String reportId) {
+        Optional<CrimeReport> reportOpt = crimeReportRepository.findDetailedReportById(reportId);
+        if (reportOpt.isEmpty()) {
+            throw new RuntimeException("Report not found: " + reportId);
+        }
+        CrimeReport report = reportOpt.get();
+        if (report.getLatitude() == null || report.getLongitude() == null) {
+            throw new RuntimeException("Report location (latitude/longitude) not available for ID: " + reportId);
+        }
+
+        Map<String, Object> nearbyStationsResponse = policeStationService.getNearbyPoliceStations(report.getLatitude(), report.getLongitude(), 20000);
+        List<Map<String, Object>> stations = (List<Map<String, Object>>) nearbyStationsResponse.get("results");
+        if (stations == null || stations.isEmpty()) {
+            throw new RuntimeException("No police stations found near report location for ID: " + reportId);
+        }
+
+        Map<String, Object> closestStation = stations.get(0);
+        String stationName = (String) closestStation.get("name");
+        Long stationId = policeStationRepository.findByName(stationName)
+                .map(PoliceStation::getId)
+                .orElse(null);
+
+        if (stationId == null) {
+            PoliceStation newStation = new PoliceStation();
+            newStation.setName(stationName);
+            newStation.setAddress((String) closestStation.get("vicinity"));
+            Map<String, Object> location = (Map<String, Object>) ((Map<String, Object>) closestStation.get("geometry")).get("location");
+            newStation.setLatitude(((Number) location.get("lat")).doubleValue());
+            newStation.setLongitude(((Number) location.get("lng")).doubleValue());
+            newStation.setCreatedAt(LocalDateTime.now());
+            stationId = policeStationService.createPoliceStation(newStation).getId();
+        }
+
+        List<Authority> stationOfficers = authorityRepository.findByStationId(stationId);
+        if (stationOfficers.isEmpty()) {
+            throw new RuntimeException("No officers found at station: " + stationName);
+        }
+
+        Random random = new Random();
+        Authority selectedOfficer = stationOfficers.get(random.nextInt(stationOfficers.size()));
+        report.setAssignedOfficer(selectedOfficer);
+        report.setPoliceStation(stationName);
+        crimeReportRepository.save(report);
+        logger.info("Auto-assigned report {} to officer ID {} at station {}", reportId, selectedOfficer.getId(), stationName);
+        return selectedOfficer.getId();
     }
 
     private Map<String, Object> parseJsonToMap(String json) {

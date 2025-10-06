@@ -16,7 +16,7 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
             "cr.id, ct.name, cr.crimeTypeId, cr.crimeCategoryId, cc.name, " +
             "cr.originalDescription, cr.translatedDescription, cr.address, " +
             "cr.city, cr.state, cr.policeStation, cr.status, cr.urgencyLevel, " +
-            "cr.submittedAt) " +
+            "cr.submittedAt, cr.assignedOfficerId.id) " +
             "FROM CrimeReport cr " +
             "LEFT JOIN CrimeType ct ON ct.id = cr.crimeTypeId " +
             "LEFT JOIN CrimeCategory cc ON cc.id = cr.crimeCategoryId " +
@@ -28,4 +28,7 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
 
     @Query("SELECT cr.id FROM CrimeReport cr WHERE cr.id = ?1")
     Optional<String> findReportId(String reportId);
+
+    @Query("SELECT cr FROM CrimeReport cr LEFT JOIN FETCH cr.assignedOfficerId a WHERE cr.id = ?1")
+    Optional<CrimeReport> findReportWithOfficer(String reportId);
 }

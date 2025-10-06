@@ -13,16 +13,18 @@ interface CrimeReport {
   crimeType: string;
   categoryId: number;
   categoryName?: string;
-  description: string;
+  originalDescription: string; // Changed from description
   translatedDescription: string;
   address: string;
   city: string;
   state: string;
   policeStation: string;
-  status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD';
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';     
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';     
   submittedAt: string;
   assignedOfficerId?: number;
+  latitude?: number;     
+  longitude?: number;     
 }
 
 interface PoliceStation {
@@ -51,6 +53,7 @@ export default function AssignReportPage() {
   const [officers, setOfficers] = useState<Authority[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');     
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,6 +86,8 @@ export default function AssignReportPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError('');
+      setSuccessMessage('');
 
       const springResponse = await fetch(`${API_URL}/api/reports?page=${currentPage - 1}&size=${itemsPerPage}`);
       if (!springResponse.ok) throw new Error('Failed to fetch reports');
@@ -100,7 +105,7 @@ export default function AssignReportPage() {
           crimeType: springReport.crimeType,
           categoryId: springReport.categoryId,
           categoryName: springReport.categoryName,
-          description: blockchainReport ? blockchainReport.data.description : springReport.originalDescription,
+          originalDescription: blockchainReport ? blockchainReport.data.description : springReport.originalDescription,
           translatedDescription: blockchainReport ? blockchainReport.data.translatedText : springReport.translatedDescription,
           address: blockchainReport ? blockchainReport.data.address : springReport.address,
           city: blockchainReport ? blockchainReport.data.city : springReport.city,
@@ -110,6 +115,8 @@ export default function AssignReportPage() {
           urgency: springReport.urgency,
           submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt,
           assignedOfficerId: springReport.assignedOfficerId,
+          latitude: blockchainReport ? blockchainReport.data.latitude : springReport.latitude,     
+          longitude: blockchainReport ? blockchainReport.data.longitude : springReport.longitude,     
         };
       });
 
@@ -164,26 +171,54 @@ export default function AssignReportPage() {
         throw new Error(errorData.error || 'Failed to assign report');
       }
 
-      alert('Report assigned successfully!');
+      setSuccessMessage('Report assigned successfully!');
       setIsModalOpen(false);
       setSelectedReport(null);
       setSelectedOfficerId(null);
-      fetchData();
+      await fetchData();     
     } catch (err: any) {
       console.error('Error assigning report:', err);
-      alert(err.message || 'Failed to assign report');
+      setError(err.message || 'Failed to assign report');
+    }
+  };
+
+  const handleAutoAssignReport = async (report: CrimeReport) => {
+    if (!report.latitude || !report.longitude) {
+      setError('Cannot auto-assign: Report location (latitude/longitude) not available');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/reports/auto-assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportId: report.reportId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to auto-assign report');
+      }
+
+      const result = await response.json();
+      setSuccessMessage(`Report auto-assigned successfully to officer ID ${result.officerId}!`);
+      await fetchData();     
+    } catch (err: any) {
+      console.error('Error auto-assigning report:', err);
+      setError(err.message || 'Failed to auto-assign report');
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-      case 'RECEIVED_HIGH_PRIORITY':
-      case 'RECEIVED_MEDIUM_PRIORITY':
-      case 'RECEIVED_STANDARD':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            {status.replace('RECEIVED_', '')}
+            Accepted
           </span>
         );
       case 'REJECTED':
@@ -192,7 +227,7 @@ export default function AssignReportPage() {
             Rejected
           </span>
         );
-      case 'RECEIVED_PENDING_REVIEW':
+      case 'PENDING_REVIEW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
             Pending Review
@@ -210,9 +245,10 @@ export default function AssignReportPage() {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'HIGH':
+      case 'CRITICAL':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            High
+            {priority.charAt(0) + priority.slice(1).toLowerCase()}
           </span>
         );
       case 'MEDIUM':
@@ -221,10 +257,16 @@ export default function AssignReportPage() {
             Medium
           </span>
         );
-      default:
+      case 'LOW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
             Low
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Unknown
           </span>
         );
     }
@@ -240,7 +282,7 @@ export default function AssignReportPage() {
       (report) =>
         normalizeString(report.reportId).includes(normalizedQuery) ||
         normalizeString(report.crimeType).includes(normalizedQuery) ||
-        normalizeString(report.description).includes(normalizedQuery) ||
+        normalizeString(report.originalDescription).includes(normalizedQuery) ||
         normalizeString(report.translatedDescription).includes(normalizedQuery)
     );
   }, [reports, searchQuery]);
@@ -290,6 +332,16 @@ export default function AssignReportPage() {
               className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 mb-6 font-medium light:bg-red-100 light:text-red-700 light:border-red-300"
             >
               {error}
+            </motion.div>
+          )}
+
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-green-900 text-green-200 p-4 rounded-lg border border-green-700 mb-6 font-medium light:bg-green-100 light:text-green-700 light:border-green-300"
+            >
+              {successMessage}
             </motion.div>
           )}
 
@@ -358,13 +410,28 @@ export default function AssignReportPage() {
                             ? officers.find((o) => o.id === report.assignedOfficerId)?.name || 'Unknown'
                             : 'Unassigned'}
                         </td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 text-center space-x-2">
                           <button
                             onClick={() => handleOpenAssignModal(report)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800"
-                            title="Assign Report"
+                            disabled={report.assignedOfficerId != null && report.assignedOfficerId !== 0}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={report.assignedOfficerId != null && report.assignedOfficerId !== 0 ? 'Report already assigned' : 'Manually Assign Report'}
                           >
                             📋
+                          </button>
+                          <button
+                            onClick={() => handleAutoAssignReport(report)}
+                            disabled={report.assignedOfficerId != null && report.assignedOfficerId !== 0 || report.latitude == null || report.longitude == null}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-green-400 hover:bg-green-800/50 hover:text-green-300 transition-colors duration-200 light:text-green-600 light:hover:bg-green-100 light:hover:text-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={
+                              report.assignedOfficerId != null && report.assignedOfficerId !== 0
+                                ? 'Report already assigned'
+                                : report.latitude == null || report.longitude == null
+                                ? 'Location data missing for auto-assign'
+                                : 'Auto-Assign Report'
+                            }
+                          >
+                            🚓
                           </button>
                         </td>
                       </motion.tr>

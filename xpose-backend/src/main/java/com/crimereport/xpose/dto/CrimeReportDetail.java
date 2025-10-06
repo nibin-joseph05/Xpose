@@ -29,6 +29,10 @@ public class CrimeReportDetail {
     private String blockchainTxId;
     private String rawBlockchainData;
 
+    private Double latitude;
+    private Double longitude;
+    private Long assignedOfficerId;
+
     public String getReportId() {
         return reportId;
     }
@@ -211,5 +215,29 @@ public class CrimeReportDetail {
 
     public void setRawBlockchainData(String rawBlockchainData) {
         this.rawBlockchainData = rawBlockchainData;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Long getAssignedOfficerId() {
+        return assignedOfficerId;
+    }
+
+    public void setAssignedOfficerId(Long assignedOfficerId) {
+        this.assignedOfficerId = assignedOfficerId;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 }

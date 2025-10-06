@@ -106,4 +106,43 @@ public class ReportViewController {
             );
         }
     }
+
+    @PostMapping("/assign")
+    public ResponseEntity<?> assignReport(@RequestBody AssignReportRequest request) {
+        try {
+            reportViewService.assignReportToOfficer(request.getReportId(), request.getOfficerId());
+            return ResponseEntity.ok(Map.of("message", "Report assigned successfully"));
+        } catch (Exception e) {
+            logger.error("Error assigning report ID {}: {}", request.getReportId(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/auto-assign")
+    public ResponseEntity<?> autoAssignReport(@RequestBody AutoAssignReportRequest request) {
+        try {
+            Long officerId = reportViewService.autoAssignReport(request.getReportId());
+            return ResponseEntity.ok(Map.of("message", "Report auto-assigned successfully", "officerId", officerId));
+        } catch (Exception e) {
+            logger.error("Error auto-assigning report ID {}: {}", request.getReportId(), e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+}
+
+class AssignReportRequest {
+    private String reportId;
+    private Long officerId;
+
+    public String getReportId() { return reportId; }
+    public void setReportId(String reportId) { this.reportId = reportId; }
+    public Long getOfficerId() { return officerId; }
+    public void setOfficerId(Long officerId) { this.officerId = officerId; }
+}
+
+class AutoAssignReportRequest {
+    private String reportId;
+
+    public String getReportId() { return reportId; }
+    public void setReportId(String reportId) { this.reportId = reportId; }
 }
