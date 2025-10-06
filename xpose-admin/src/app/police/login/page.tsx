@@ -99,6 +99,29 @@ export default function PoliceLoginPage() {
           variants={containerVariants}
           className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-105 relative z-10 animate-fade-in-up"
         >
+          <motion.div variants={itemVariants} className="flex justify-start">
+            <button
+              onClick={() => router.push('/')}
+              className="group relative flex items-center justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-[#C3B091] to-[#8B7B5A] hover:from-[#B0A080] hover:to-[#7A6A49] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#C3B091] transition-all duration-300 ease-in-out transform hover:-translate-y-1 shadow-lg hover:shadow-xl animate-button-glow"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Back to Home
+            </button>
+          </motion.div>
+
           <motion.div variants={itemVariants} className="flex flex-col items-center">
             <div className="mb-6 relative w-32 h-32 flex items-center justify-center animate-pulse-light">
               <Image

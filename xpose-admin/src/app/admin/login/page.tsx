@@ -26,14 +26,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/authority/login`, {
+      const loginResponse = await fetch(`${API_URL}/api/authority/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -41,16 +40,42 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const loginData = await loginResponse.json();
 
-      if (response.ok) {
-        localStorage.setItem('authToken', data.token);
-        router.push('/admin/dashboard');
-      } else {
-        setError(data.message || 'Login failed');
+      if (!loginResponse.ok) {
+        setError(loginData.message || 'Login failed');
+        setLoading(false);
+        return;
       }
+
+      const token = loginData.token;
+      localStorage.setItem('authToken', token);
+
+      const userResponse = await fetch(`${API_URL}/api/authority/current`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const userData = await userResponse.json();
+
+      if (!userResponse.ok) {
+        setError(userData.message || 'Failed to fetch user details');
+        localStorage.removeItem('authToken');
+        setLoading(false);
+        return;
+      }
+
+      if (userData.role !== 'ADMIN') {
+        setError('Access denied: Only administrators can log in here');
+        localStorage.removeItem('authToken');
+        setLoading(false);
+        return;
+      }
+
+      router.push('/admin/dashboard');
     } catch (err) {
-      setError('An error occurred during login');
+      setError('An error occurred during login. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -73,6 +98,30 @@ export default function LoginPage() {
           variants={containerVariants}
           className="max-w-md w-full space-y-8 p-10 bg-gray-800 rounded-xl shadow-2xl border border-gray-700 transform transition-all duration-300 hover:scale-105 relative z-10 animate-fade-in-up"
         >
+          {/* Back Button */}
+          <motion.div variants={itemVariants} className="flex justify-start">
+            <button
+              onClick={() => router.push('/')}
+              className="group relative flex items-center justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 ease-in-out transform hover:-translate-y-1 shadow-lg hover:shadow-xl animate-button-glow"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Back to Home
+            </button>
+          </motion.div>
+
           <motion.div variants={itemVariants} className="flex flex-col items-center">
             <div className="mb-6 relative w-32 h-32 flex items-center justify-center animate-pulse-light">
               <Image
