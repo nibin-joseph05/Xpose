@@ -8,10 +8,10 @@ import Image from 'next/image';
 
 const menuItems = [
   { name: 'Dashboard', icon: '📊', path: '/admin/dashboard' },
-  { name: 'Add Crime', icon: '🚨', path: '/admin/crime' },
   { name: 'Reports', icon: '📝', path: '/admin/reports' },
+  { name: 'Assign Report', icon: '📋', path: '/admin/assign-report' },
+  { name: 'Add Crime', icon: '🚨', path: '/admin/crime' },
   { name: 'Police Stations', icon: '🏢', path: '/admin/stations' },
-  { name: 'Analytics', icon: '📈', path: '/admin/analytics' },
   { name: 'Users', icon: '👥', path: '/admin/users' },
   { name: 'Settings', icon: '⚙️', path: '/admin/settings' },
 ];
