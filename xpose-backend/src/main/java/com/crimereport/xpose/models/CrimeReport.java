@@ -73,6 +73,17 @@ public class CrimeReport {
     @JoinColumn(name = "assigned_officer_id")
     private Authority assignedOfficerId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "review_status")
+    private ReviewStatus reviewStatus;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by_id")
+    private Authority reviewedBy;
+
     public ReportQuality getReportQuality() {
         return reportQuality;
     }
@@ -85,6 +96,8 @@ public class CrimeReport {
     public enum ReportQuality { LOW, MEDIUM, HIGH }
     public enum ReportStatus { ACCEPTED, REJECTED, PENDING_REVIEW }
     public enum ProcessingPhase { PRE_PROCESSING, GEMINI_ENRICHED, FINALIZED }
+    public enum ReviewStatus { PENDING, APPROVED, REJECTED, ASSIGNED, IN_PROGRESS, RESOLVED }
+
 
 
     public String getId() {
@@ -357,6 +370,29 @@ public class CrimeReport {
 
     public void setAssignedOfficer(Authority assignedOfficer) {
         this.assignedOfficerId = assignedOfficer;
+    }
+    public ReviewStatus getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(ReviewStatus reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public LocalDateTime getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(LocalDateTime reviewedAt) {
+        this.reviewedAt = reviewedAt;
+    }
+
+    public Authority getReviewedBy() {
+        return reviewedBy;
+    }
+
+    public void setReviewedBy(Authority reviewedBy) {
+        this.reviewedBy = reviewedBy;
     }
 
     @Enumerated(EnumType.STRING)

@@ -16,7 +16,8 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
             "cr.id, ct.name, cr.crimeTypeId, cr.crimeCategoryId, cc.name, " +
             "cr.originalDescription, cr.translatedDescription, cr.address, " +
             "cr.city, cr.state, cr.policeStation, cr.status, cr.urgencyLevel, " +
-            "cr.submittedAt, cr.assignedOfficerId.id) " +
+            "cr.submittedAt, CASE WHEN cr.assignedOfficerId IS NOT NULL THEN cr.assignedOfficerId.id ELSE NULL END, " +
+            "cr.reviewStatus) " +
             "FROM CrimeReport cr " +
             "LEFT JOIN CrimeType ct ON ct.id = cr.crimeTypeId " +
             "LEFT JOIN CrimeCategory cc ON cc.id = cr.crimeCategoryId " +

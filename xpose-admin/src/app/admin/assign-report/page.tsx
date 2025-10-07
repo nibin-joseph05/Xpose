@@ -13,18 +13,22 @@ interface CrimeReport {
   crimeType: string;
   categoryId: number;
   categoryName?: string;
-  originalDescription: string; // Changed from description
+  originalDescription: string;
   translatedDescription: string;
   address: string;
   city: string;
   state: string;
   policeStation: string;
-  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';     
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';     
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
+  reviewStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   submittedAt: string;
   assignedOfficerId?: number;
-  latitude?: number;     
-  longitude?: number;     
+  latitude?: number;
+  longitude?: number;
+  reviewedAt?: string;
+  reviewedById?: number;
+  rejectionReason?: string;
 }
 
 interface PoliceStation {
@@ -53,7 +57,7 @@ export default function AssignReportPage() {
   const [officers, setOfficers] = useState<Authority[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');     
+  const [successMessage, setSuccessMessage] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,6 +66,8 @@ export default function AssignReportPage() {
   const [selectedReport, setSelectedReport] = useState<CrimeReport | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(null);
+  const [newReviewStatus, setNewReviewStatus] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED' | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -92,14 +98,16 @@ export default function AssignReportPage() {
       const springResponse = await fetch(`${API_URL}/api/reports?page=${currentPage - 1}&size=${itemsPerPage}`);
       if (!springResponse.ok) throw new Error('Failed to fetch reports');
       const springData = await springResponse.json();
+      console.log('Spring API Response:', springData);
 
       const blockchainResponse = await fetch(`${API_URL}/api/reports/chain`);
       if (!blockchainResponse.ok) throw new Error('Failed to fetch blockchain chain');
       const blockchainData = await blockchainResponse.json();
+      console.log('Blockchain API Response:', blockchainData);
 
       const mergedReports: CrimeReport[] = springData.reports.map((springReport: any) => {
         const blockchainReport = blockchainData.find((block: any) => block.data?.reportId === springReport.reportId);
-        return {
+        const report = {
           reportId: springReport.reportId,
           crimeTypeId: springReport.crimeTypeId,
           crimeType: springReport.crimeType,
@@ -112,12 +120,18 @@ export default function AssignReportPage() {
           state: blockchainReport ? blockchainReport.data.state : springReport.state,
           policeStation: springReport.policeStation,
           status: springReport.status,
+          reviewStatus: springReport.reviewStatus || 'PENDING',
           urgency: springReport.urgency,
           submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt,
           assignedOfficerId: springReport.assignedOfficerId,
-          latitude: blockchainReport ? blockchainReport.data.latitude : springReport.latitude,     
-          longitude: blockchainReport ? blockchainReport.data.longitude : springReport.longitude,     
+          latitude: blockchainReport ? blockchainReport.data.latitude : springReport.latitude,
+          longitude: blockchainReport ? blockchainReport.data.longitude : springReport.longitude,
+          reviewedAt: springReport.reviewedAt,
+          reviewedById: springReport.reviewedById,
+          rejectionReason: springReport.rejectionReason,
         };
+        console.log('Merged Report:', report);
+        return report;
       });
 
       setReports(mergedReports);
@@ -151,34 +165,61 @@ export default function AssignReportPage() {
     return officers.filter((o) => o.stationId === reportStation.id);
   };
 
-  const handleAssignReport = async () => {
-    if (!selectedReport || !selectedOfficerId) return;
+  const handleUpdateStatus = async () => {
+    if (!selectedReport || !newReviewStatus) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/reports/assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reportId: selectedReport.reportId,
-          officerId: selectedOfficerId,
-        }),
-      });
+      if (newReviewStatus === 'ASSIGNED') {
+        if (!selectedOfficerId) {
+          throw new Error('Officer must be selected for ASSIGNED status');
+        }
+        const response = await fetch(`${API_URL}/api/reports/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reportId: selectedReport.reportId,
+            officerId: selectedOfficerId,
+            reviewStatus: 'ASSIGNED',
+            reviewedById: 1,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to assign report');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to assign report');
+        }
+      } else {
+        const response = await fetch(`${API_URL}/api/reports/update-review-status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reportId: selectedReport.reportId,
+            reviewStatus: newReviewStatus,
+            reviewedById: 1,
+            rejectionReason: newReviewStatus === 'REJECTED' ? rejectionReason : null,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to update report status to ${newReviewStatus}`);
+        }
       }
 
-      setSuccessMessage('Report assigned successfully!');
+      setSuccessMessage(`Report status updated successfully to ${newReviewStatus}!`);
       setIsModalOpen(false);
       setSelectedReport(null);
       setSelectedOfficerId(null);
-      await fetchData();     
+      setNewReviewStatus(null);
+      setRejectionReason('');
+      await fetchData();
     } catch (err: any) {
-      console.error('Error assigning report:', err);
-      setError(err.message || 'Failed to assign report');
+      console.error('Error updating report status:', err);
+      setError(err.message || 'Failed to update report status');
     }
   };
 
@@ -196,6 +237,8 @@ export default function AssignReportPage() {
         },
         body: JSON.stringify({
           reportId: report.reportId,
+          reviewStatus: 'ASSIGNED',
+          reviewedById: 1,
         }),
       });
 
@@ -206,7 +249,7 @@ export default function AssignReportPage() {
 
       const result = await response.json();
       setSuccessMessage(`Report auto-assigned successfully to officer ID ${result.officerId}!`);
-      await fetchData();     
+      await fetchData();
     } catch (err: any) {
       console.error('Error auto-assigning report:', err);
       setError(err.message || 'Failed to auto-assign report');
@@ -218,25 +261,67 @@ export default function AssignReportPage() {
       case 'ACCEPTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Accepted
+            ML: Accepted
           </span>
         );
       case 'REJECTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Rejected
+            ML: Rejected
           </span>
         );
       case 'PENDING_REVIEW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Pending Review
+            ML: Pending Review
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
-            Unknown
+            ML: Unknown
+          </span>
+        );
+    }
+  };
+
+  const getReviewStatusBadge = (reviewStatus: string) => {
+    switch (reviewStatus) {
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Admin: Approved
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            Admin: Rejected
+          </span>
+        );
+      case 'ASSIGNED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Admin: Assigned
+          </span>
+        );
+      case 'IN_PROGRESS':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-600/20 text-purple-300 ring-1 ring-inset ring-purple-600/30 light:bg-purple-100 light:text-purple-800 light:ring-purple-300">
+            Admin: In Progress
+          </span>
+        );
+      case 'RESOLVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-teal-600/20 text-teal-300 ring-1 ring-inset ring-teal-600/30 light:bg-teal-100 light:text-teal-800 light:ring-teal-300">
+            Admin: Resolved
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Admin: Pending
           </span>
         );
     }
@@ -297,8 +382,11 @@ export default function AssignReportPage() {
     setCurrentPage(page);
   };
 
-  const handleOpenAssignModal = (report: CrimeReport) => {
+  const handleOpenManageModal = (report: CrimeReport) => {
     setSelectedReport(report);
+    setNewReviewStatus(report.reviewStatus as any);
+    setSelectedOfficerId(report.assignedOfficerId || null);
+    setRejectionReason(report.rejectionReason || '');
     setIsModalOpen(true);
   };
 
@@ -306,6 +394,8 @@ export default function AssignReportPage() {
     setIsModalOpen(false);
     setSelectedReport(null);
     setSelectedOfficerId(null);
+    setNewReviewStatus(null);
+    setRejectionReason('');
   };
 
   return (
@@ -372,7 +462,8 @@ export default function AssignReportPage() {
                     <th className="p-4">Report ID</th>
                     <th className="p-4">Crime Type</th>
                     <th className="p-4">Location</th>
-                    <th className="p-4">Status</th>
+                    <th className="p-4">ML Status</th>
+                    <th className="p-4">Admin Status</th>
                     <th className="p-4">Priority</th>
                     <th className="p-4">Assigned Officer</th>
                     <th className="p-4 text-center">Actions</th>
@@ -381,13 +472,13 @@ export default function AssignReportPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="p-4 text-center text-gray-400 light:text-gray-600">
+                      <td colSpan={8} className="p-4 text-center text-gray-400 light:text-gray-600">
                         Loading reports...
                       </td>
                     </tr>
                   ) : filteredReports.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-4 text-center text-gray-400 light:text-gray-600">
+                      <td colSpan={8} className="p-4 text-center text-gray-400 light:text-gray-600">
                         No reports found matching your search.
                       </td>
                     </tr>
@@ -404,6 +495,7 @@ export default function AssignReportPage() {
                         <td className="p-4 text-gray-400 light:text-gray-700">{report.crimeType} (ID: {report.crimeTypeId})</td>
                         <td className="p-4 text-gray-400 light:text-gray-700">{report.address}, {report.city}, {report.state}</td>
                         <td className="p-4">{getStatusBadge(report.status)}</td>
+                        <td className="p-4">{getReviewStatusBadge(report.reviewStatus)}</td>
                         <td className="p-4">{getPriorityBadge(report.urgency)}</td>
                         <td className="p-4 text-gray-400 light:text-gray-700">
                           {report.assignedOfficerId
@@ -412,24 +504,17 @@ export default function AssignReportPage() {
                         </td>
                         <td className="p-4 text-center space-x-2">
                           <button
-                            onClick={() => handleOpenAssignModal(report)}
-                            disabled={report.assignedOfficerId != null && report.assignedOfficerId !== 0}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={report.assignedOfficerId != null && report.assignedOfficerId !== 0 ? 'Report already assigned' : 'Manually Assign Report'}
+                            onClick={() => handleOpenManageModal(report)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800"
+                            title="Manage Status"
                           >
-                            📋
+                            ⚙️
                           </button>
                           <button
                             onClick={() => handleAutoAssignReport(report)}
-                            disabled={report.assignedOfficerId != null && report.assignedOfficerId !== 0 || report.latitude == null || report.longitude == null}
+                            disabled={report.reviewStatus === 'REJECTED' || report.assignedOfficerId !== undefined || !report.latitude || !report.longitude}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-full text-green-400 hover:bg-green-800/50 hover:text-green-300 transition-colors duration-200 light:text-green-600 light:hover:bg-green-100 light:hover:text-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title={
-                              report.assignedOfficerId != null && report.assignedOfficerId !== 0
-                                ? 'Report already assigned'
-                                : report.latitude == null || report.longitude == null
-                                ? 'Location data missing for auto-assign'
-                                : 'Auto-Assign Report'
-                            }
+                            title="Auto-Assign Report"
                           >
                             🚓
                           </button>
@@ -488,23 +573,55 @@ export default function AssignReportPage() {
                 className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700 light:bg-white light:border-gray-300"
               >
                 <h3 className="text-lg font-bold text-blue-300 light:text-blue-700 mb-4">
-                  Assign Report: {selectedReport.reportId}
+                  Manage Status for Report: {selectedReport.reportId}
                 </h3>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-400 light:text-gray-600">Select Officer</label>
+                  <label className="block text-sm font-medium text-gray-400 light:text-gray-600">Current Status: {selectedReport.reviewStatus}</label>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-400 light:text-gray-600">New Status</label>
                   <select
-                    value={selectedOfficerId || ''}
-                    onChange={(e) => setSelectedOfficerId(Number(e.target.value))}
+                    value={newReviewStatus || ''}
+                    onChange={(e) => setNewReviewStatus(e.target.value as any)}
                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 light:bg-gray-100 light:border-gray-300 light:text-gray-900"
                   >
-                    <option value="" disabled>Select an officer</option>
-                    {getNearbyOfficers(selectedReport).map((officer) => (
-                      <option key={officer.id} value={officer.id}>
-                        {officer.name} ({officer.stationName})
-                      </option>
-                    ))}
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="ASSIGNED">Assigned</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
                   </select>
                 </div>
+                {newReviewStatus === 'ASSIGNED' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-400 light:text-gray-600">Select Officer</label>
+                    <select
+                      value={selectedOfficerId || ''}
+                      onChange={(e) => setSelectedOfficerId(Number(e.target.value))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 light:bg-gray-100 light:border-gray-300 light:text-gray-900"
+                    >
+                      <option value="" disabled>Select an officer</option>
+                      {getNearbyOfficers(selectedReport).map((officer) => (
+                        <option key={officer.id} value={officer.id}>
+                          {officer.name} ({officer.stationName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {newReviewStatus === 'REJECTED' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-400 light:text-gray-600">Rejection Reason</label>
+                    <input
+                      type="text"
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 light:bg-gray-100 light:border-gray-300 light:text-gray-900 light:placeholder-gray-500"
+                      placeholder="Enter rejection reason"
+                    />
+                  </div>
+                )}
                 <div className="flex justify-end space-x-2">
                   <Button
                     onClick={handleCloseModal}
@@ -513,11 +630,11 @@ export default function AssignReportPage() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleAssignReport}
-                    disabled={!selectedOfficerId}
+                    onClick={handleUpdateStatus}
+                    disabled={(newReviewStatus === 'ASSIGNED' && !selectedOfficerId) || (newReviewStatus === 'REJECTED' && !rejectionReason)}
                     className="bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white disabled:opacity-50 light:from-green-400 light:to-teal-500 light:hover:from-green-500 light:hover:to-teal-600"
                   >
-                    Assign
+                    Update Status
                   </Button>
                 </div>
               </motion.div>

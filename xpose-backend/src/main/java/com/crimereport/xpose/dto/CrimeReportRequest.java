@@ -14,6 +14,8 @@ public class CrimeReportRequest {
     private String district;
     private String policeStation;
     private List<String> files;
+    private Double latitude;
+    private Double longitude;
 
     public CrimeReportRequest() {}
 
@@ -114,6 +116,22 @@ public class CrimeReportRequest {
 
     public void setFiles(List<String> files) {
         this.files = files;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     @Override

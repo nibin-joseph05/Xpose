@@ -2,6 +2,7 @@ package com.crimereport.xpose.controllers;
 
 import com.crimereport.xpose.dto.CrimeReportDetail;
 import com.crimereport.xpose.dto.CrimeReportList;
+import com.crimereport.xpose.services.CrimeReportService;
 import com.crimereport.xpose.services.ReportViewService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,9 @@ public class ReportViewController {
 
     @Autowired
     private ReportViewService reportViewService;
+
+    @Autowired
+    private CrimeReportService crimeReportService;
 
     @GetMapping
     public ResponseEntity<?> getAllReports(
@@ -128,6 +132,33 @@ public class ReportViewController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    @PostMapping("/update-review-status")
+    public ResponseEntity<?> updateReviewStatus(@RequestBody UpdateReviewStatusRequest request) {
+        try {
+            logger.info("Updating review status for report ID: {}", request.getReportId());
+            Map<String, Object> result = crimeReportService.updateReviewStatus(
+                    request.getReportId(),
+                    request.getReviewStatus(),
+                    request.getReviewedById(),
+                    request.getRejectionReason()
+            );
+            if (!(Boolean) result.get("success")) {
+                logger.warn("Failed to update review status for report ID: {}", request.getReportId());
+                return ResponseEntity.badRequest().body(result);
+            }
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Error updating review status for report ID {}: {}", request.getReportId(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    Map.of(
+                            "success", false,
+                            "message", "Failed to update review status",
+                            "error", "INTERNAL_ERROR"
+                    )
+            );
+        }
+    }
 }
 
 class AssignReportRequest {
@@ -145,4 +176,20 @@ class AutoAssignReportRequest {
 
     public String getReportId() { return reportId; }
     public void setReportId(String reportId) { this.reportId = reportId; }
+}
+
+class UpdateReviewStatusRequest {
+    private String reportId;
+    private String reviewStatus;
+    private Long reviewedById;
+    private String rejectionReason;
+
+    public String getReportId() { return reportId; }
+    public void setReportId(String reportId) { this.reportId = reportId; }
+    public String getReviewStatus() { return reviewStatus; }
+    public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+    public Long getReviewedById() { return reviewedById; }
+    public void setReviewedById(Long reviewedById) { this.reviewedById = reviewedById; }
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 }

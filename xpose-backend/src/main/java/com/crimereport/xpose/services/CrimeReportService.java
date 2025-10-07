@@ -1,7 +1,7 @@
-
 package com.crimereport.xpose.services;
 
 import com.crimereport.xpose.dto.CrimeReportRequest;
+import com.crimereport.xpose.models.Authority;
 import com.crimereport.xpose.models.CrimeReport;
 import com.crimereport.xpose.models.CrimeType;
 import com.crimereport.xpose.repository.CrimeReportRepository;
@@ -15,7 +15,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 public class CrimeReportService {
@@ -34,6 +33,9 @@ public class CrimeReportService {
 
     @Autowired
     private CrimeTypeRepository crimeTypeRepository;
+
+    @Autowired
+    private GeocodingService geocodingService;
 
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
 
@@ -82,7 +84,7 @@ public class CrimeReportService {
 
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
         try {
-            logger.info("===  CRIME REPORT PROCESSING STARTED ===");
+            logger.info("=== CRIME REPORT PROCESSING STARTED ===");
             String originalDescription = request.getDescription();
             logger.info("Original Description: {}", originalDescription);
 
@@ -127,7 +129,7 @@ public class CrimeReportService {
             Map<String, Object> finalResult = combineMlResults(preProcessingMLResult, postProcessingMLResult);
             Map<String, Object> validatedResult = applyValidationOverrides(finalResult, originalDescription, processedDescription);
 
-            logger.info("===  FINAL ML CLASSIFICATION RESULTS ===");
+            logger.info("=== FINAL ML CLASSIFICATION RESULTS ===");
             logMLResults(validatedResult);
 
             boolean isFinalSpamOrToxic = (Boolean) validatedResult.getOrDefault("is_spam", false) ||
@@ -149,8 +151,77 @@ public class CrimeReportService {
         }
     }
 
-    public CompletableFuture<Map<String, Object>> submitCrimeReportAsync(CrimeReportRequest request) {
-        return CompletableFuture.supplyAsync(() -> submitCrimeReport(request));
+    public Map<String, Object> updateReviewStatus(String reportId, String reviewStatus, Long reviewedById, String rejectionReason) {
+        try {
+            Optional<CrimeReport> optionalReport = crimeReportRepository.findById(reportId);
+            if (!optionalReport.isPresent()) {
+                logger.error("Report not found: {}", reportId);
+                return Map.of("success", false, "message", "Report not found");
+            }
+
+            CrimeReport report = optionalReport.get();
+
+            String normalizedStatus = normalizeReviewStatus(reviewStatus);
+            CrimeReport.ReviewStatus newStatus = CrimeReport.ReviewStatus.valueOf(normalizedStatus);
+
+            report.setReviewStatus(newStatus);
+            report.setReviewedAt(LocalDateTime.now());
+
+            if (reviewedById != null) {
+                Authority reviewedBy = new Authority();
+                reviewedBy.setId(reviewedById);
+                report.setReviewedBy(reviewedBy);
+            }
+
+            if (newStatus == CrimeReport.ReviewStatus.REJECTED && rejectionReason != null) {
+                report.setRejectionReason(rejectionReason);
+            }
+
+            if (newStatus == CrimeReport.ReviewStatus.ASSIGNED && report.getAssignedOfficer() != null) {
+                report.setReviewStatus(CrimeReport.ReviewStatus.ASSIGNED);
+            }
+
+            crimeReportRepository.save(report);
+            logger.info("Review status updated for report ID: {} to {}", reportId, newStatus);
+
+            return Map.of(
+                    "success", true,
+                    "message", "Review status updated successfully",
+                    "reportId", reportId,
+                    "reviewStatus", newStatus.toString(),
+                    "reviewedAt", report.getReviewedAt().toString(),
+                    "reviewedById", reviewedById != null ? reviewedById : null
+            );
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid review status for report ID {}: {}", reportId, reviewStatus, e);
+            return Map.of("success", false, "message", "Invalid review status: " + reviewStatus);
+        } catch (Exception e) {
+            logger.error("Error updating review status for report ID {}: {}", reportId, e.getMessage(), e);
+            return Map.of("success", false, "message", "Error updating review status: " + e.getMessage());
+        }
+    }
+
+    private String normalizeReviewStatus(String status) {
+        if (status == null) {
+            throw new IllegalArgumentException("Review status cannot be null");
+        }
+        String upperCaseStatus = status.toUpperCase().trim();
+        // Map incorrect or deprecated status values to correct ones
+        switch (upperCaseStatus) {
+            case "APPROVE":
+                return "APPROVED";
+            case "REJECT":
+                return "REJECTED";
+            case "PENDING":
+            case "APPROVED":
+            case "REJECTED":
+            case "ASSIGNED":
+            case "IN_PROGRESS":
+            case "RESOLVED":
+                return upperCaseStatus;
+            default:
+                throw new IllegalArgumentException("Invalid review status: " + status);
+        }
     }
 
     private String processDescriptionForReadability(String originalDescription, String rawTranslation) {
@@ -316,6 +387,7 @@ public class CrimeReportService {
         report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
         report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
         report.setStatus(CrimeReport.ReportStatus.ACCEPTED);
+        report.setReviewStatus(CrimeReport.ReviewStatus.PENDING);
         report.setBlockchainHash(null);
         report.setBlockchainTxId(null);
         report.setBlockchainTimestamp(null);
@@ -349,6 +421,7 @@ public class CrimeReportService {
         response.put("reportId", reportId);
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("status", status);
+        response.put("reviewStatus", report.getReviewStatus().toString());
         response.put("originalDescription", original);
         response.put("processedDescription", processed);
         response.put("translatedDescription", translatedDesc);
@@ -389,6 +462,7 @@ public class CrimeReportService {
         report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
         report.setProcessingPhase(CrimeReport.ProcessingPhase.GEMINI_ENRICHED);
         report.setStatus(CrimeReport.ReportStatus.REJECTED);
+        report.setReviewStatus(CrimeReport.ReviewStatus.REJECTED);
         report.setRejectionReason("SPAM_DETECTED_BY_GEMINI");
 
         try {
@@ -404,13 +478,13 @@ public class CrimeReportService {
                 "reportId", reportId,
                 "timestamp", LocalDateTime.now().toString(),
                 "status", "REJECTED",
+                "reviewStatus", "REJECTED",
                 "originalDescription", originalDescription,
                 "rejectionReason", "SPAM_DETECTED_BY_GEMINI",
                 "rejectionPhase", "GEMINI_PROCESSING",
                 "requiresResubmission", true
         );
     }
-
 
     private Map<String, Object> createRejectedResponse(String original, String processed,
                                                        Map<String, Object> mlResult,
@@ -448,6 +522,7 @@ public class CrimeReportService {
         report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
         report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
         report.setStatus(CrimeReport.ReportStatus.REJECTED);
+        report.setReviewStatus(CrimeReport.ReviewStatus.REJECTED);
         report.setRejectionReason(rejectionReason);
 
         try {
@@ -465,6 +540,7 @@ public class CrimeReportService {
         response.put("reportId", reportId);
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("status", "REJECTED");
+        response.put("reviewStatus", "REJECTED");
         response.put("originalDescription", original);
         response.put("processedDescription", processed);
         response.put("translatedDescription", translatedDesc);
@@ -477,7 +553,6 @@ public class CrimeReportService {
         return response;
     }
 
-
     private Map<String, Object> createErrorResponse(String errorMessage) {
         return Map.of(
                 "success", false,
@@ -485,6 +560,7 @@ public class CrimeReportService {
                 "reportId", "ERROR_" + System.currentTimeMillis(),
                 "timestamp", LocalDateTime.now().toString(),
                 "status", "ERROR",
+                "reviewStatus", "PENDING",
                 "error", errorMessage,
                 "requiresRetry", true
         );
@@ -492,13 +568,13 @@ public class CrimeReportService {
 
     private String determineReportStatus(Map<String, Object> mlResult) {
         if (Boolean.TRUE.equals(mlResult.get("needs_review"))) {
-            return "RECEIVED_PENDING_REVIEW";
+            return "PENDING_REVIEW";
         } else if ("HIGH".equals(mlResult.get("urgency"))) {
-            return "RECEIVED_HIGH_PRIORITY";
+            return "ACCEPTED";
         } else if ("MEDIUM".equals(mlResult.get("urgency"))) {
-            return "RECEIVED_MEDIUM_PRIORITY";
+            return "ACCEPTED";
         } else {
-            return "RECEIVED_STANDARD";
+            return "ACCEPTED";
         }
     }
 
@@ -605,7 +681,7 @@ public class CrimeReportService {
             return false;
         }
 
-        logger.info(" crime report validation passed");
+        logger.info("Crime report validation passed");
         return true;
     }
 
@@ -678,83 +754,65 @@ public class CrimeReportService {
     public Map<String, Object> getReportStatus(String reportId) {
         logger.info("Status requested for report ID: {}", reportId);
 
-        String status = determineStatusFromReportId(reportId);
+        Optional<CrimeReport> optionalReport = crimeReportRepository.findById(reportId);
+        if (!optionalReport.isPresent()) {
+            return Map.of(
+                    "reportId", reportId,
+                    "status", "NOT_FOUND",
+                    "reviewStatus", "PENDING",
+                    "message", "Report not found",
+                    "submittedAt", LocalDateTime.now().minusHours(1).toString(),
+                    "lastUpdated", LocalDateTime.now().toString()
+            );
+        }
+
+        CrimeReport report = optionalReport.get();
+        String status = report.getStatus().toString();
+        String reviewStatus = report.getReviewStatus() != null ? report.getReviewStatus().toString() : "PENDING";
 
         return Map.of(
                 "reportId", reportId,
                 "status", status,
-                "message", generateStatusMessage(status),
-                "submittedAt", LocalDateTime.now().minusHours(1).toString(),
-                "lastUpdated", LocalDateTime.now().toString(),
-                "estimatedProcessingTime", estimateProcessingTime(status)
+                "reviewStatus", reviewStatus,
+                "message", generateStatusMessage(status, reviewStatus),
+                "submittedAt", report.getSubmittedAt().toString(),
+                "lastUpdated", report.getReviewedAt() != null ? report.getReviewedAt().toString() : report.getSubmittedAt().toString(),
+                "estimatedProcessingTime", estimateProcessingTime(reviewStatus)
         );
     }
 
-    private String determineStatusFromReportId(String reportId) {
-        if (reportId.startsWith("REJECTED_")) {
-            return "REJECTED";
-        } else if (reportId.startsWith("ERROR_")) {
-            return "ERROR";
+    private String generateStatusMessage(String status, String reviewStatus) {
+        if ("REJECTED".equals(reviewStatus)) {
+            return "Report was rejected by admin";
+        } else if ("APPROVED".equals(reviewStatus)) {
+            return "Report was approved by admin";
+        } else if ("ASSIGNED".equals(reviewStatus)) {
+            return "Report has been assigned to an officer";
+        } else if ("IN_PROGRESS".equals(reviewStatus)) {
+            return "Report is being investigated";
+        } else if ("RESOLVED".equals(reviewStatus)) {
+            return "Report has been resolved";
+        } else if ("PENDING_REVIEW".equals(status)) {
+            return "Report is under manual review";
+        } else if ("REJECTED".equals(status)) {
+            return "Report was rejected due to policy violations";
         } else {
-            return "RECEIVED";
+            return "Report is awaiting admin review";
         }
     }
 
-    private String generateStatusMessage(String status) {
-        switch (status) {
-            case "RECEIVED_HIGH_PRIORITY":
-                return "Your report has been received and marked as high priority";
-            case "RECEIVED_PENDING_REVIEW":
-                return "Your report is under manual review";
-            case "REJECTED":
-                return "Your report was rejected due to policy violations";
-            case "ERROR":
-                return "There was an error processing your report";
-            default:
-                return "Your report is being processed";
-        }
-    }
-
-    private String estimateProcessingTime(String status) {
-        switch (status) {
-            case "RECEIVED_HIGH_PRIORITY":
+    private String estimateProcessingTime(String reviewStatus) {
+        switch (reviewStatus) {
+            case "APPROVED":
+            case "ASSIGNED":
                 return "1-2 hours";
-            case "RECEIVED_MEDIUM_PRIORITY":
+            case "IN_PROGRESS":
                 return "4-8 hours";
-            case "RECEIVED_PENDING_REVIEW":
+            case "PENDING":
                 return "12-24 hours";
             default:
                 return "24-48 hours";
         }
-    }
-
-    private Map<String, Object> applyValidationOverrides(Map<String, Object> mlResult, String description) {
-        if (isLikelyFalsePositive(mlResult, description)) {
-            Map<String, Object> correctedResult = new java.util.HashMap<>(mlResult);
-
-            Double spamScore = (Double) mlResult.getOrDefault("spam_score", 0.0);
-            if (spamScore < 0.3) {
-                correctedResult.put("is_spam", false);
-            }
-
-            Map<String, Object> toxicityAnalysis = (Map<String, Object>) mlResult.get("toxicity_analysis");
-            if (toxicityAnalysis != null) {
-                Double toxicity = (Double) toxicityAnalysis.getOrDefault("toxicity", 0.0);
-                if (toxicity < 0.2) {
-                    correctedResult.put("is_hate_speech", false);
-                }
-            }
-
-            String currentQuality = (String) mlResult.getOrDefault("report_quality", "LOW");
-            if ("LOW".equals(currentQuality) && description.split("\\s+").length >= 8) {
-                correctedResult.put("report_quality", "MEDIUM");
-            }
-
-            logger.info("Applied validation overrides to reduce false positives");
-            return correctedResult;
-        }
-
-        return mlResult;
     }
 
     private String convertFilesToJson(java.util.List<String> files) {
@@ -776,5 +834,4 @@ public class CrimeReportService {
             return "{}";
         }
     }
-
 }

@@ -1,6 +1,8 @@
 package com.crimereport.xpose.dto;
 
-import com.crimereport.xpose.models.CrimeReport;
+import com.crimereport.xpose.models.CrimeReport.ReportStatus;
+import com.crimereport.xpose.models.CrimeReport.UrgencyLevel;
+import com.crimereport.xpose.models.CrimeReport.ReviewStatus;
 import java.time.LocalDateTime;
 
 public class CrimeReportList {
@@ -19,6 +21,7 @@ public class CrimeReportList {
     private String urgency;
     private LocalDateTime submittedAt;
     private Long assignedOfficerId;
+    private String reviewStatus;
 
     public CrimeReportList() {
     }
@@ -35,10 +38,11 @@ public class CrimeReportList {
             String city,
             String state,
             String policeStation,
-            Enum status,
-            Enum urgency,
+            ReportStatus status,
+            UrgencyLevel urgency,
             LocalDateTime submittedAt,
-            Long assignedOfficerId
+            Long assignedOfficerId,
+            ReviewStatus reviewStatus
     ) {
         this.reportId = id;
         this.crimeType = crimeType;
@@ -55,6 +59,7 @@ public class CrimeReportList {
         this.urgency = urgency != null ? urgency.toString() : null;
         this.submittedAt = submittedAt;
         this.assignedOfficerId = assignedOfficerId;
+        this.reviewStatus = reviewStatus != null ? reviewStatus.toString() : null;
     }
 
     public String getReportId() {
@@ -175,5 +180,13 @@ public class CrimeReportList {
 
     public void setAssignedOfficerId(Long assignedOfficerId) {
         this.assignedOfficerId = assignedOfficerId;
+    }
+
+    public String getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(String reviewStatus) {
+        this.reviewStatus = reviewStatus;
     }
 }
