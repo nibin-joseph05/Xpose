@@ -55,8 +55,25 @@ public class ReportViewService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public Page<CrimeReportList> getAllReports(Pageable pageable) {
-        return crimeReportRepository.findAllReportsForList(pageable);
+    public Page<CrimeReportList> getAllReports(Pageable pageable, String stationName, Long officerId) {
+        logger.info("🔍 getAllReports called with stationName={}, officerId={}", stationName, officerId);
+
+        Long stationId = null;
+        if (stationName != null && !stationName.trim().isEmpty()) {
+            Optional<PoliceStation> stationOpt = policeStationRepository.findByName(stationName);
+            if (stationOpt.isPresent()) {
+                stationId = stationOpt.get().getId();
+                logger.info("🏢 Found station ID {} for station name: {}", stationId, stationName);
+            } else {
+                logger.warn("⚠️ Station not found with name: {}", stationName);
+            }
+        }
+
+        logger.info("🎯 Executing query with stationId={}, officerId={}", stationId, officerId);
+        Page<CrimeReportList> results = crimeReportRepository.findAllReportsForList(pageable, stationId, officerId);
+        logger.info("✅ Query returned {} reports", results.getTotalElements());
+
+        return results;
     }
 
     public List<Map<String, Object>> getBlockchainChain() {
@@ -272,7 +289,8 @@ public class ReportViewService {
             return Map.of();
         }
         try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {
+            });
         } catch (Exception e) {
             logger.warn("Failed to parse JSON: {}", json, e);
             return Map.of();

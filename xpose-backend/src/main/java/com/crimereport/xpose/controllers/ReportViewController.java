@@ -2,6 +2,8 @@ package com.crimereport.xpose.controllers;
 
 import com.crimereport.xpose.dto.CrimeReportDetail;
 import com.crimereport.xpose.dto.CrimeReportList;
+import com.crimereport.xpose.models.PoliceStation;
+import com.crimereport.xpose.repository.PoliceStationRepository;
 import com.crimereport.xpose.services.CrimeReportService;
 import com.crimereport.xpose.services.ReportViewService;
 import org.slf4j.Logger;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -30,14 +33,58 @@ public class ReportViewController {
     @Autowired
     private CrimeReportService crimeReportService;
 
+    @Autowired
+    private PoliceStationRepository policeStationRepository;
+
     @GetMapping
     public ResponseEntity<?> getAllReports(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String stationId,
+            @RequestParam(required = false) String officerId) {
         try {
-            logger.info("Fetching reports: page={}, size={}", page, size);
+            logger.info("📥 Fetching reports: page={}, size={}, stationId={}, officerId={}", page, size, stationId, officerId);
+
+            String stationName = null;
+            if (stationId != null && !stationId.trim().isEmpty()) {
+                try {
+                    Long stationIdLong = Long.parseLong(stationId);
+                    Optional<PoliceStation> stationOpt = policeStationRepository.findById(stationIdLong);
+                    if (stationOpt.isPresent()) {
+                        stationName = stationOpt.get().getName();
+                        logger.info("🏢 Converted station ID {} to station name: {}", stationId, stationName);
+                    } else {
+                        logger.warn("⚠️ Station ID {} not found", stationId);
+                    }
+                } catch (NumberFormatException e) {
+                    stationName = stationId;
+                    logger.info("📝 Using stationId as station name: {}", stationName);
+                }
+            }
+
+            Long officerIdLong = null;
+            if (officerId != null && !officerId.trim().isEmpty()) {
+                try {
+                    officerIdLong = Long.parseLong(officerId);
+                    logger.info("👮 Parsed officer ID: {} (Type: Long)", officerIdLong);
+                } catch (NumberFormatException e) {
+                    logger.error("❌ Invalid officer ID format: {}", officerId);
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "Invalid officer ID format",
+                            "error", "INVALID_OFFICER_ID"
+                    ));
+                }
+            }
+
+            logger.info("🎯 Final query parameters: stationName={}, officerIdLong={}", stationName, officerIdLong);
+
             Pageable pageable = PageRequest.of(page, size);
-            Page<CrimeReportList> reportPage = reportViewService.getAllReports(pageable);
+            Page<CrimeReportList> reportPage = reportViewService.getAllReports(pageable, stationName, officerIdLong);
+
+            logger.info("✅ Found {} reports for stationName={}, officerId={}",
+                    reportPage.getTotalElements(), stationName, officerIdLong);
+
             return ResponseEntity.ok(Map.of(
                     "reports", reportPage.getContent(),
                     "currentPage", reportPage.getNumber(),
@@ -45,7 +92,7 @@ public class ReportViewController {
                     "totalPages", reportPage.getTotalPages()
             ));
         } catch (Exception e) {
-            logger.error("Error fetching reports: {}", e.getMessage(), e);
+            logger.error("❌ Error fetching reports: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     Map.of(
                             "success", false,

@@ -50,7 +50,7 @@ public class AuthorityController {
             Optional<Authority> authority = authorityService.findByEmail(email);
             if (authority.isPresent()) {
                 Authority user = authority.get();
-                Map<String, String> userData = new HashMap<>();
+                Map<String, Object> userData = new HashMap<>();
                 userData.put("id", String.valueOf(user.getId()));
                 userData.put("name", user.getName());
                 userData.put("email", user.getEmail());
@@ -58,6 +58,24 @@ public class AuthorityController {
                 userData.put("role", user.getRole());
                 userData.put("createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : "");
                 userData.put("updatedAt", user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : "");
+
+                if (user.getStation() != null) {
+                    userData.put("stationId", user.getStation().getId());
+                    userData.put("stationName", user.getStation().getName());
+
+                    Map<String, Object> stationInfo = new HashMap<>();
+                    stationInfo.put("id", user.getStation().getId());
+                    stationInfo.put("name", user.getStation().getName());
+                    stationInfo.put("address", user.getStation().getAddress());
+                    stationInfo.put("latitude", user.getStation().getLatitude());
+                    stationInfo.put("longitude", user.getStation().getLongitude());
+                    userData.put("station", stationInfo);
+                } else {
+                    userData.put("stationId", null);
+                    userData.put("stationName", null);
+                    userData.put("station", null);
+                }
+
                 return ResponseEntity.ok(userData);
             }
             return ResponseEntity.status(404).body("User not found");

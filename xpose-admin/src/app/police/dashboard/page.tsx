@@ -23,6 +23,7 @@ interface CrimeReport {
   status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD';
   urgency: 'LOW' | 'MEDIUM' | 'HIGH';
   submittedAt: string;
+  assignedOfficerId?: number;
 }
 
 interface UserData {
@@ -43,7 +44,6 @@ interface StatCardProps {
 }
 
 export default function PoliceDashboard() {
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [user, setUser] = useState<UserData | null>(null);
@@ -53,8 +53,23 @@ export default function PoliceDashboard() {
   useEffect(() => {
     const token = localStorage.getItem('authToken');
     if (!token) {
+      setError('No authentication token found. Please log in.');
       router.push('/police/login');
       return;
+    }
+
+    const cachedUser = localStorage.getItem('userData');
+    if (cachedUser) {
+      const userData = JSON.parse(cachedUser);
+      if (userData.role === 'POLICE') {
+        setUser(userData);
+      } else {
+        setError('Access denied: Only police officers can access this dashboard');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+        router.push('/police/login');
+        return;
+      }
     }
 
     const fetchUserData = async () => {
@@ -62,18 +77,38 @@ export default function PoliceDashboard() {
         const response = await fetch(`${API_URL}/api/authority/current`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
-        if (!response.ok) throw new Error('Failed to fetch user data');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user data: ${response.statusText}`);
+        }
         const userData = await response.json();
+
+        console.log('👤 DEBUG: User data received:', userData);
+
         if (userData.role !== 'POLICE') {
           setError('Access denied: Only police officers can access this dashboard');
           localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
           router.push('/police/login');
           return;
         }
-        setUser(userData);
-      } catch (err) {
+
+        const formattedUserData = {
+          id: userData.id?.toString(),
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          stationId: userData.stationId?.toString() || userData.station?.id?.toString()
+        };
+
+        console.log('👤 DEBUG: Formatted user data:', formattedUserData);
+
+        setUser(formattedUserData);
+        localStorage.setItem('userData', JSON.stringify(formattedUserData));
+      } catch (err: any) {
+        console.error('User data fetch error:', err);
         setError('Failed to authenticate. Please log in again.');
         localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
         router.push('/police/login');
       }
     };
@@ -83,73 +118,124 @@ export default function PoliceDashboard() {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setTheme(savedTheme === 'light' ? 'light' : 'dark');
-    } else {
-      setTheme('dark');
-    }
+    setTheme(savedTheme === 'light' ? 'light' : 'dark');
   }, []);
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-    } else {
-      document.documentElement.classList.add('light');
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.classList.toggle('light', theme === 'light');
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   useEffect(() => {
-    if (!user?.stationId) return;
+    if (!user?.id) {
+      console.log('⚠️ User data incomplete - missing ID:', user);
+      return;
+    }
 
-    const fetchReports = async () => {
+    const fetchReports = async (retryCount = 0) => {
       try {
-        setLoading(true);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const springResponse = await fetch(`${API_URL}/api/reports?stationId=${user.stationId}&page=0&size=1000`, {
-          signal: controller.signal,
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+
+        console.log('🔍 DEBUG: Preparing to fetch reports for user:', {
+          userId: user.id,
+          stationId: user.stationId,
+          userIdType: typeof user.id
         });
+
+        const params = new URLSearchParams({
+          page: '0',
+          size: '1000',
+          officerId: user.id
+        });
+
+        if (user.stationId) {
+          params.append('stationId', user.stationId);
+        }
+
+        const reportsUrl = `${API_URL}/api/reports?${params.toString()}`;
+        console.log('📡 DEBUG: Fetching from URL:', reportsUrl);
+
+        const [springResponse, blockchainResponse] = await Promise.all([
+          fetch(reportsUrl, {
+            signal: controller.signal,
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          }),
+          fetch(`${API_URL}/api/reports/chain`, {
+            signal: controller.signal,
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          }),
+        ]);
+
         clearTimeout(timeoutId);
-        if (!springResponse.ok) throw new Error('Failed to fetch reports');
 
-        const springData = await springResponse.json();
+        if (!springResponse.ok) {
+          const errorText = await springResponse.text();
+          console.error('❌ Spring API error:', springResponse.status, errorText);
+          throw new Error(`Failed to fetch reports: ${springResponse.statusText}`);
+        }
+        if (!blockchainResponse.ok) {
+          const errorText = await blockchainResponse.text();
+          console.error('❌ Blockchain API error:', blockchainResponse.status, errorText);
+          throw new Error(`Failed to fetch blockchain data: ${blockchainResponse.statusText}`);
+        }
 
-        const blockchainResponse = await fetch(`${API_URL}/api/reports/chain`, {
-          signal: controller.signal,
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        });
-        if (!blockchainResponse.ok) throw new Error('Failed to fetch blockchain data');
+        const [springData, blockchainData] = await Promise.all([
+          springResponse.json(),
+          blockchainResponse.json(),
+        ]);
 
-        const blockchainData = await blockchainResponse.json();
+        console.log('📊 DEBUG: Spring API response:', springData);
+        console.log('🔗 DEBUG: Blockchain data count:', blockchainData?.length || 0);
 
-        const mergedReports: CrimeReport[] = springData.reports.map((springReport: any) => {
-          const blockchainReport = blockchainData.find((block: any) => block.data?.reportId === springReport.reportId);
+        if (springData.reports && springData.reports.length > 0) {
+          console.log('✅ DEBUG: Found reports:', springData.reports.length);
+          console.log('📝 DEBUG: Sample report:', springData.reports[0]);
+        } else {
+          console.log('❌ DEBUG: No reports found in response');
+        }
+
+        const mergedReports: CrimeReport[] = (springData.reports || []).map((springReport: any) => {
+          const blockchainReport = blockchainData?.find((block: any) => block.data?.reportId === springReport.reportId);
+
           return {
             reportId: springReport.reportId,
             crimeTypeId: springReport.crimeTypeId,
-            crimeType: springReport.crimeType,
+            crimeType: springReport.crimeType || 'Unknown',
             categoryId: springReport.categoryId,
             categoryName: springReport.categoryName,
-            description: blockchainReport ? blockchainReport.data.description : springReport.originalDescription,
-            translatedDescription: blockchainReport ? blockchainReport.data.translatedText : springReport.translatedDescription,
-            address: blockchainReport ? blockchainReport.data.address : springReport.address,
-            city: blockchainReport ? blockchainReport.data.city : springReport.city,
-            state: blockchainReport ? blockchainReport.data.state : springReport.state,
-            policeStation: springReport.policeStation,
-            status: springReport.status,
-            urgency: springReport.urgency,
-            submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt,
+            description: blockchainReport ? blockchainReport.data.description : springReport.originalDescription || 'No description',
+            translatedDescription: blockchainReport ? blockchainReport.data.translatedText : springReport.translatedDescription || '',
+            address: blockchainReport ? blockchainReport.data.address : springReport.address || 'Unknown',
+            city: blockchainReport ? blockchainReport.data.city : springReport.city || 'Unknown',
+            state: blockchainReport ? blockchainReport.data.state : springReport.state || 'Unknown',
+            policeStation: springReport.policeStation || 'Unknown',
+            status: springReport.status || 'RECEIVED_PENDING_REVIEW',
+            urgency: springReport.urgency || 'LOW',
+            submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt || new Date().toISOString(),
+            assignedOfficerId: springReport.assignedOfficerId,
           };
         });
 
+        console.log('🎯 DEBUG: Final merged reports count:', mergedReports.length);
+
         setReports(mergedReports);
+        localStorage.setItem(`reports_${user.id}`, JSON.stringify(mergedReports));
+
+        if (mergedReports.length === 0) {
+          setError(`No reports assigned to officer ID ${user.id}. Check if reports are properly assigned in the admin panel.`);
+        } else {
+          setError('');
+        }
       } catch (err: any) {
-        setError(err.name === 'AbortError' ? 'Request timed out.' : err.message || 'Failed to fetch reports');
-      } finally {
-        setLoading(false);
+        console.error('❌ Fetch error:', err);
+        if (err.name === 'AbortError' && retryCount < 2) {
+          console.log('🔄 DEBUG: Retrying fetch...');
+          return fetchReports(retryCount + 1);
+        }
+        setError(err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message || 'Failed to fetch reports');
+        setReports([]);
       }
     };
 
@@ -250,11 +336,7 @@ export default function PoliceDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <p className="mb-1 text-sm text-gray-400 light:text-gray-600">{title}</p>
-          {loading ? (
-            <div className="h-6 w-16 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
-          ) : (
-            <h3 className="text-xl font-bold text-gray-50 light:text-gray-800">{value}</h3>
-          )}
+          <h3 className="text-xl font-bold text-gray-50 light:text-gray-800">{value}</h3>
         </div>
         <div className="text-2xl text-[#C3B091] light:text-[#8B7B5A]">{icon}</div>
       </div>
@@ -329,13 +411,9 @@ export default function PoliceDashboard() {
             className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 shadow-xl transition-colors duration-300 dark:bg-gray-800 dark:bg-opacity-60 light:border-gray-300 light:bg-white light:bg-opacity-80 light:text-gray-900"
           >
             <div className="border-b border-gray-700 p-6 light:border-gray-200">
-              {loading ? (
-                <div className="h-8 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
-              ) : (
-                <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-100 light:text-gray-800">
-                  <span>📰</span> Recent Reports
-                </h2>
-              )}
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-100 light:text-gray-800">
+                <span>📰</span> Recent Reports
+              </h2>
             </div>
 
             <div className="overflow-x-auto">
@@ -350,16 +428,10 @@ export default function PoliceDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
+                  {recentReports.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
-                        Loading reports...
-                      </td>
-                    </tr>
-                  ) : recentReports.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
-                        No recent reports found for your station.
+                        {user ? `No reports assigned to officer ID ${user.id}` : 'Loading...'}
                       </td>
                     </tr>
                   ) : (
@@ -384,16 +456,12 @@ export default function PoliceDashboard() {
             </div>
 
             <div className="flex justify-end border-t border-gray-700 p-4 light:border-gray-200">
-              {loading ? (
-                <div className="h-6 w-32 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
-              ) : (
-                <button
-                  onClick={() => router.push('/police/reports')}
-                  className="flex items-center gap-2 text-[#C3B091] transition-colors hover:text-[#8B7B5A] light:text-[#8B7B5A] light:hover:text-[#7A6A49]"
-                >
-                  View All Reports <span>→</span>
-                </button>
-              )}
+              <button
+                onClick={() => router.push('/police/reports')}
+                className="flex items-center gap-2 text-[#C3B091] transition-colors hover:text-[#8B7B5A] light:text-[#8B7B5A] light:hover:text-[#7A6A49]"
+              >
+                View All Reports <span>→</span>
+              </button>
             </div>
           </motion.div>
 
@@ -405,50 +473,64 @@ export default function PoliceDashboard() {
           >
             <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
               <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
-                {loading ? (
-                  <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
-                ) : (
-                  <>
-                    <span>📈</span> Reports Overview
-                  </>
-                )}
+                <span>📈</span> Reports Overview
               </div>
               <div className="h-64">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">Loading chart...</div>
-                ) : (
-                  <Bar
-                    data={{
-                      labels: ['Total', 'Accepted', 'Pending', 'Urgent'],
-                      datasets: [{
-                        label: 'Reports',
-                        data: [stats.totalReports, stats.accepted, stats.pending, stats.urgent],
-                        backgroundColor: ['#C3B091', '#22c55e', '#eab308', '#ef4444'],
-                      }]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                )}
+                <Bar
+                  data={{
+                    labels: ['Total', 'Accepted', 'Pending', 'Urgent'],
+                    datasets: [{
+                      label: 'Reports',
+                      data: [stats.totalReports, stats.accepted, stats.pending, stats.urgent],
+                      backgroundColor: ['#C3B091', '#22c55e', '#eab308', '#ef4444'],
+                      borderColor: ['#A69875', '#16a34a', '#ca8a04', '#dc2626'],
+                      borderWidth: 1,
+                    }],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        title: {
+                          display: true,
+                          text: 'Number of Reports',
+                          color: theme === 'dark' ? '#E6D4A8' : '#333333',
+                        },
+                        ticks: {
+                          color: theme === 'dark' ? '#E6D4A8' : '#333333',
+                        },
+                      },
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Report Categories',
+                          color: theme === 'dark' ? '#E6D4A8' : '#333333',
+                        },
+                        ticks: {
+                          color: theme === 'dark' ? '#E6D4A8' : '#333333',
+                        },
+                      },
+                    },
+                    plugins: {
+                      legend: {
+                        labels: {
+                          color: theme === 'dark' ? '#E6D4A8' : '#333333',
+                        },
+                      },
+                    },
+                  }}
+                />
               </div>
             </div>
 
             <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
               <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
-                {loading ? (
-                  <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
-                ) : (
-                  <>
-                    <span>📍</span> Crime Hotspots
-                  </>
-                )}
+                <span>📍</span> Crime Hotspots
               </div>
               <div className="h-64 overflow-y-auto">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">Loading hotspots...</div>
-                ) : hotspots.length === 0 ? (
+                {hotspots.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">No hotspots data available</div>
                 ) : (
                   <table className="w-full text-left text-gray-300 light:text-gray-700">
@@ -473,18 +555,10 @@ export default function PoliceDashboard() {
 
             <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
               <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
-                {loading ? (
-                  <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
-                ) : (
-                  <>
-                    <span>🔍</span> Top Crime Types
-                  </>
-                )}
+                <span>🔍</span> Top Crime Types
               </div>
               <div className="h-64 overflow-y-auto">
-                {loading ? (
-                  <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">Loading crime types...</div>
-                ) : crimeTypes.length === 0 ? (
+                {crimeTypes.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-gray-500 light:text-gray-400">No crime types data available</div>
                 ) : (
                   <table className="w-full text-left text-gray-300 light:text-gray-700">

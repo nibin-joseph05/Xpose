@@ -25,7 +25,7 @@ export default function PoliceLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.220.2:8080';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,6 +33,8 @@ export default function PoliceLoginPage() {
     setError('');
 
     try {
+      console.log('🔐 DEBUG: Attempting login with:', { email, API_URL });
+
       const loginResponse = await fetch(`${API_URL}/api/authority/login`, {
         method: 'POST',
         headers: {
@@ -41,31 +43,42 @@ export default function PoliceLoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('🔐 DEBUG: Login response status:', loginResponse.status);
+
       const loginData = await loginResponse.json();
+      console.log('🔐 DEBUG: Login response data:', loginData);
 
       if (!loginResponse.ok) {
-        setError(loginData.message || 'Login failed');
+        setError(loginData.message || `Login failed with status: ${loginResponse.status}`);
         setLoading(false);
         return;
       }
 
       const token = loginData.token;
+      console.log('🔐 DEBUG: Token received:', token ? 'Yes' : 'No');
       localStorage.setItem('authToken', token);
 
+       
+      console.log('🔐 DEBUG: Fetching user data...');
       const userResponse = await fetch(`${API_URL}/api/authority/current`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      const userData = await userResponse.json();
+      console.log('🔐 DEBUG: User response status:', userResponse.status);
 
       if (!userResponse.ok) {
-        setError(userData.message || 'Failed to fetch user details');
+        const errorText = await userResponse.text();
+        console.error('🔐 DEBUG: User data fetch failed:', errorText);
+        setError('Failed to fetch user details');
         localStorage.removeItem('authToken');
         setLoading(false);
         return;
       }
+
+      const userData = await userResponse.json();
+      console.log('🔐 DEBUG: User data received:', userData);
 
       if (userData.role !== 'POLICE') {
         setError('Access denied: Only police officers can log in here');
@@ -74,8 +87,23 @@ export default function PoliceLoginPage() {
         return;
       }
 
+       
+      const formattedUserData = {
+        id: userData.id?.toString(),
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        stationId: userData.stationId || userData.station?.id
+      };
+
+      console.log('🔐 DEBUG: Formatted user data:', formattedUserData);
+      localStorage.setItem('userData', JSON.stringify(formattedUserData));
+
+      console.log('🔐 DEBUG: Login successful, redirecting to dashboard...');
       router.push('/police/dashboard');
+
     } catch (err) {
+      console.error('🔐 DEBUG: Login error:', err);
       setError('An error occurred during login. Please try again.');
     } finally {
       setLoading(false);
