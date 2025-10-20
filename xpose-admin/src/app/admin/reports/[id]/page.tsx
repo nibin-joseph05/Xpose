@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,8 +20,10 @@ interface CrimeReportDetail {
   city: string;
   state: string;
   policeStation: string;
-  status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD' | 'UNKNOWN';
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
+  adminStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED';
+  policeStatus: 'NOT_VIEWED' | 'VIEWED' | 'IN_PROGRESS' | 'ACTION_TAKEN' | 'RESOLVED' | 'CLOSED';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   submittedAt: string;
   confidenceScore: number | null;
   spamScore: number | null;
@@ -33,6 +34,12 @@ interface CrimeReportDetail {
   blockchainTimestamp: string | null;
   blockchainTxId: string | null;
   rawBlockchainData: string | null;
+  assignedOfficerId?: number;
+  policeFeedback?: string;
+  policeActionProof?: string[];
+  actionTakenAt?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.220.2:8080';
@@ -90,30 +97,99 @@ export default function ReportDetailPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-      case 'RECEIVED_HIGH_PRIORITY':
-      case 'RECEIVED_MEDIUM_PRIORITY':
-      case 'RECEIVED_STANDARD':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            {status.replace('RECEIVED_', '')}
+            ML: Accepted
           </span>
         );
       case 'REJECTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Rejected
+            ML: Rejected
           </span>
         );
-      case 'RECEIVED_PENDING_REVIEW':
+      case 'PENDING_REVIEW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Pending Review
+            ML: Pending Review
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
-            Unknown
+            ML: Unknown
+          </span>
+        );
+    }
+  };
+
+  const getAdminStatusBadge = (adminStatus: string) => {
+    switch (adminStatus) {
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Admin: Approved
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            Admin: Rejected
+          </span>
+        );
+      case 'ASSIGNED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Admin: Assigned
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Admin: Pending
+          </span>
+        );
+    }
+  };
+
+  const getPoliceStatusBadge = (policeStatus: string) => {
+    switch (policeStatus) {
+      case 'VIEWED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Police: Viewed
+          </span>
+        );
+      case 'IN_PROGRESS':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Police: In Progress
+          </span>
+        );
+      case 'ACTION_TAKEN':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Action Taken
+          </span>
+        );
+      case 'RESOLVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Resolved
+          </span>
+        );
+      case 'CLOSED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Closed
+          </span>
+        );
+      case 'NOT_VIEWED':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Not Viewed
           </span>
         );
     }
@@ -122,9 +198,10 @@ export default function ReportDetailPage() {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'HIGH':
+      case 'CRITICAL':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            High
+            {priority.charAt(0) + priority.slice(1).toLowerCase()}
           </span>
         );
       case 'MEDIUM':
@@ -133,10 +210,16 @@ export default function ReportDetailPage() {
             Medium
           </span>
         );
-      default:
+      case 'LOW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
             Low
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Unknown
           </span>
         );
     }
@@ -209,8 +292,16 @@ export default function ReportDetailPage() {
                         <dd className="mt-1 text-gray-200 light:text-gray-800">{report.categoryName || 'N/A'} (ID: {report.categoryId || 'N/A'})</dd>
                       </div>
                       <div>
-                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Status</dt>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">ML Status</dt>
                         <dd className="mt-1">{getStatusBadge(report.status)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Admin Status</dt>
+                        <dd className="mt-1">{getAdminStatusBadge(report.adminStatus)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Status</dt>
+                        <dd className="mt-1">{getPoliceStatusBadge(report.policeStatus)}</dd>
                       </div>
                       <div>
                         <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Priority</dt>
@@ -254,6 +345,33 @@ export default function ReportDetailPage() {
                         <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Processed Description</dt>
                         <dd className="mt-1 text-gray-200 light:text-gray-800">{report.processedDescription || 'N/A'}</dd>
                       </div>
+                    </dl>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Police Action Details</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Assigned Officer ID</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.assignedOfficerId || 'Not Assigned'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Feedback</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.policeFeedback || 'No feedback provided'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Action Taken At</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.actionTakenAt ? new Date(report.actionTakenAt).toLocaleString() : 'N/A'}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Reviewed At</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : 'N/A'}</dd>
+                      </div>
+                      {report.rejectionReason && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Rejection Reason</dt>
+                          <dd className="mt-1 text-gray-200 light:text-gray-800">{report.rejectionReason}</dd>
+                        </div>
+                      )}
                     </dl>
                   </div>
                   <div className="md:col-span-2">

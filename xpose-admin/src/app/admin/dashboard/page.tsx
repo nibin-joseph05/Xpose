@@ -14,15 +14,18 @@ interface CrimeReport {
   crimeType: string;
   categoryId: number;
   categoryName?: string;
-  description: string;
+  originalDescription: string;
   translatedDescription: string;
   address: string;
   city: string;
   state: string;
   policeStation: string;
-  status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD';
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
+  adminStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED';
+  policeStatus: 'NOT_VIEWED' | 'VIEWED' | 'IN_PROGRESS' | 'ACTION_TAKEN' | 'RESOLVED' | 'CLOSED';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   submittedAt: string;
+  assignedOfficerId?: number;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.220.2:8080';
@@ -73,33 +76,33 @@ export default function Dashboard() {
       setLoading(true);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const springResponse = await fetch(`${API_URL}/api/reports?page=0&size=1000`, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (!springResponse.ok) throw new Error('Failed to fetch reports from Spring Boot');
       const springData = await springResponse.json();
 
-      const blockchainResponse = await fetch(`${API_URL}/api/reports/chain`, { signal: controller.signal });
-      if (!blockchainResponse.ok) throw new Error('Failed to fetch blockchain chain from Spring Boot');
-      const blockchainData = await blockchainResponse.json();
-
       const mergedReports: CrimeReport[] = springData.reports.map((springReport: any) => {
-        const blockchainReport = blockchainData.find((block: any) => block.data?.reportId === springReport.reportId);
-        return {
+        const report = {
           reportId: springReport.reportId,
           crimeTypeId: springReport.crimeTypeId,
           crimeType: springReport.crimeType,
           categoryId: springReport.categoryId,
           categoryName: springReport.categoryName,
-          description: blockchainReport ? blockchainReport.data.description : springReport.originalDescription,
-          translatedDescription: blockchainReport ? blockchainReport.data.translatedText : springReport.translatedDescription,
-          address: blockchainReport ? blockchainReport.data.address : springReport.address,
-          city: blockchainReport ? blockchainReport.data.city : springReport.city,
-          state: blockchainReport ? blockchainReport.data.state : springReport.state,
+          originalDescription: springReport.originalDescription,
+          translatedDescription: springReport.translatedDescription,
+          address: springReport.address,
+          city: springReport.city,
+          state: springReport.state,
           policeStation: springReport.policeStation,
           status: springReport.status,
+          adminStatus: springReport.adminStatus || 'PENDING',
+          policeStatus: springReport.policeStatus || 'NOT_VIEWED',
           urgency: springReport.urgency,
-          submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt,
+          submittedAt: springReport.submittedAt,
+          assignedOfficerId: springReport.assignedOfficerId,
         };
+        return report;
       });
 
       setReports(mergedReports);
@@ -113,9 +116,18 @@ export default function Dashboard() {
 
   const stats = useMemo(() => ({
     totalReports: reports.length,
-    accepted: reports.filter(r => r.status === 'ACCEPTED').length,
-    pending: reports.filter(r => r.status.startsWith('RECEIVED_')).length,
-    urgent: reports.filter(r => r.urgency === 'HIGH').length,
+    mlAccepted: reports.filter(r => r.status === 'ACCEPTED').length,
+    mlRejected: reports.filter(r => r.status === 'REJECTED').length,
+    mlPending: reports.filter(r => r.status === 'PENDING_REVIEW').length,
+    adminPending: reports.filter(r => r.adminStatus === 'PENDING').length,
+    adminApproved: reports.filter(r => r.adminStatus === 'APPROVED').length,
+    adminRejected: reports.filter(r => r.adminStatus === 'REJECTED').length,
+    adminAssigned: reports.filter(r => r.adminStatus === 'ASSIGNED').length,
+    policeNotViewed: reports.filter(r => r.policeStatus === 'NOT_VIEWED').length,
+    policeInProgress: reports.filter(r => r.policeStatus === 'IN_PROGRESS').length,
+    policeActionTaken: reports.filter(r => r.policeStatus === 'ACTION_TAKEN').length,
+    policeResolved: reports.filter(r => r.policeStatus === 'RESOLVED').length,
+    urgent: reports.filter(r => r.urgency === 'HIGH' || r.urgency === 'CRITICAL').length,
   }), [reports]);
 
   const recentReports = useMemo(() =>
@@ -145,30 +157,99 @@ export default function Dashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-      case 'RECEIVED_HIGH_PRIORITY':
-      case 'RECEIVED_MEDIUM_PRIORITY':
-      case 'RECEIVED_STANDARD':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Accepted
+            ML: Accepted
           </span>
         );
       case 'REJECTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Rejected
+            ML: Rejected
           </span>
         );
-      case 'RECEIVED_PENDING_REVIEW':
+      case 'PENDING_REVIEW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Pending Review
+            ML: Pending Review
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
-            Unknown
+            ML: Unknown
+          </span>
+        );
+    }
+  };
+
+  const getAdminStatusBadge = (adminStatus: string) => {
+    switch (adminStatus) {
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Admin: Approved
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            Admin: Rejected
+          </span>
+        );
+      case 'ASSIGNED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Admin: Assigned
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Admin: Pending
+          </span>
+        );
+    }
+  };
+
+  const getPoliceStatusBadge = (policeStatus: string) => {
+    switch (policeStatus) {
+      case 'VIEWED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Police: Viewed
+          </span>
+        );
+      case 'IN_PROGRESS':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Police: In Progress
+          </span>
+        );
+      case 'ACTION_TAKEN':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Action Taken
+          </span>
+        );
+      case 'RESOLVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Resolved
+          </span>
+        );
+      case 'CLOSED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Closed
+          </span>
+        );
+      case 'NOT_VIEWED':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Not Viewed
           </span>
         );
     }
@@ -177,9 +258,10 @@ export default function Dashboard() {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'HIGH':
+      case 'CRITICAL':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            High
+            {priority.charAt(0) + priority.slice(1).toLowerCase()}
           </span>
         );
       case 'MEDIUM':
@@ -188,10 +270,16 @@ export default function Dashboard() {
             Medium
           </span>
         );
-      default:
+      case 'LOW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
             Low
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Unknown
           </span>
         );
     }
@@ -258,14 +346,14 @@ export default function Dashboard() {
               color="border-blue-500"
             />
             <StatCard
-              title="AI Accepted"
-              value={stats.accepted}
+              title="ML Accepted"
+              value={stats.mlAccepted}
               icon="🤖"
               color="border-green-500"
             />
             <StatCard
-              title="Pending"
-              value={stats.pending}
+              title="Admin Pending"
+              value={stats.adminPending}
               icon="⏳"
               color="border-yellow-500"
             />
@@ -274,6 +362,33 @@ export default function Dashboard() {
               value={stats.urgent}
               icon="🚨"
               color="border-red-500"
+            />
+          </motion.div>
+
+          {/* Additional Status Cards */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <StatCard
+              title="Admin Approved"
+              value={stats.adminApproved}
+              icon="✅"
+              color="border-green-500"
+            />
+            <StatCard
+              title="Admin Assigned"
+              value={stats.adminAssigned}
+              icon="👮"
+              color="border-blue-500"
+            />
+            <StatCard
+              title="Police In Progress"
+              value={stats.policeInProgress}
+              icon="🔄"
+              color="border-yellow-500"
             />
           </motion.div>
 
@@ -300,20 +415,22 @@ export default function Dashboard() {
                     <th className="p-4">ID</th>
                     <th className="p-4">Type</th>
                     <th className="p-4">Location</th>
-                    <th className="p-4">Status</th>
+                    <th className="p-4">ML Status</th>
+                    <th className="p-4">Admin Status</th>
+                    <th className="p-4">Police Status</th>
                     <th className="p-4">Priority</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
+                      <td colSpan={7} className="p-4 text-center text-gray-400 light:text-gray-600">
                         Loading reports...
                       </td>
                     </tr>
                   ) : recentReports.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
+                      <td colSpan={7} className="p-4 text-center text-gray-400 light:text-gray-600">
                         No recent reports found.
                       </td>
                     </tr>
@@ -330,6 +447,8 @@ export default function Dashboard() {
                         <td className="p-4">{report.crimeType}</td>
                         <td className="p-4">{report.city}</td>
                         <td className="p-4">{getStatusBadge(report.status)}</td>
+                        <td className="p-4">{getAdminStatusBadge(report.adminStatus)}</td>
+                        <td className="p-4">{getPoliceStatusBadge(report.policeStatus)}</td>
                         <td className="p-4">{getPriorityBadge(report.urgency)}</td>
                       </motion.tr>
                     ))
@@ -364,7 +483,7 @@ export default function Dashboard() {
                   <div className="h-6 w-48 animate-pulse rounded bg-gray-700 light:bg-gray-200"></div>
                 ) : (
                   <>
-                    <span>📈</span> Reports Overview
+                    <span>📈</span> Status Overview
                   </>
                 )}
               </div>
@@ -374,11 +493,11 @@ export default function Dashboard() {
                 ) : (
                   <Bar
                     data={{
-                      labels: ['Total', 'AI Accepted', 'Pending', 'Urgent'],
+                      labels: ['ML Accepted', 'ML Pending', 'Admin Pending', 'Admin Approved', 'Police In Progress'],
                       datasets: [{
                         label: 'Reports',
-                        data: [stats.totalReports, stats.accepted, stats.pending, stats.urgent],
-                        backgroundColor: ['#3b82f6', '#22c55e', '#eab308', '#ef4444'],
+                        data: [stats.mlAccepted, stats.mlPending, stats.adminPending, stats.adminApproved, stats.policeInProgress],
+                        backgroundColor: ['#22c55e', '#eab308', '#f59e0b', '#10b981', '#3b82f6'],
                       }]
                     }}
                     options={{
