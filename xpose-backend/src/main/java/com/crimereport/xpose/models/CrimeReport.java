@@ -73,9 +73,28 @@ public class CrimeReport {
     @JoinColumn(name = "assigned_officer_id")
     private Authority assignedOfficerId;
 
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "review_status")
-    private ReviewStatus reviewStatus;
+    @Column(name = "admin_status")
+    private AdminStatus adminStatus = AdminStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "police_status")
+    private PoliceStatus policeStatus = PoliceStatus.NOT_VIEWED;
+
+    @Column(name = "police_feedback", columnDefinition = "TEXT")
+    private String policeFeedback;
+
+    @Type(JsonType.class)
+    @Column(name = "police_action_proof", columnDefinition = "jsonb")
+    private String policeActionProof;
+
+    @Column(name = "action_taken_at")
+    private LocalDateTime actionTakenAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "action_taken_by")
+    private Authority actionTakenBy;
 
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
@@ -96,8 +115,13 @@ public class CrimeReport {
     public enum ReportQuality { LOW, MEDIUM, HIGH }
     public enum ReportStatus { ACCEPTED, REJECTED, PENDING_REVIEW }
     public enum ProcessingPhase { PRE_PROCESSING, GEMINI_ENRICHED, FINALIZED }
-    public enum ReviewStatus { PENDING, APPROVED, REJECTED, ASSIGNED, IN_PROGRESS, RESOLVED }
+    public enum AdminStatus {
+        PENDING, APPROVED, ASSIGNED, REJECTED
+    }
 
+    public enum PoliceStatus {
+        NOT_VIEWED, VIEWED, IN_PROGRESS, ACTION_TAKEN, RESOLVED, CLOSED
+    }
 
 
     public String getId() {
@@ -371,13 +395,6 @@ public class CrimeReport {
     public void setAssignedOfficer(Authority assignedOfficer) {
         this.assignedOfficerId = assignedOfficer;
     }
-    public ReviewStatus getReviewStatus() {
-        return reviewStatus;
-    }
-
-    public void setReviewStatus(ReviewStatus reviewStatus) {
-        this.reviewStatus = reviewStatus;
-    }
 
     public LocalDateTime getReviewedAt() {
         return reviewedAt;
@@ -393,6 +410,62 @@ public class CrimeReport {
 
     public void setReviewedBy(Authority reviewedBy) {
         this.reviewedBy = reviewedBy;
+    }
+
+    public AdminStatus getAdminStatus() {
+        return adminStatus;
+    }
+
+    public void setAdminStatus(AdminStatus adminStatus) {
+        this.adminStatus = adminStatus;
+    }
+
+    public PoliceStatus getPoliceStatus() {
+        return policeStatus;
+    }
+
+    public void setPoliceStatus(PoliceStatus policeStatus) {
+        this.policeStatus = policeStatus;
+    }
+
+    public Authority getAssignedOfficerId() {
+        return assignedOfficerId;
+    }
+
+    public void setAssignedOfficerId(Authority assignedOfficerId) {
+        this.assignedOfficerId = assignedOfficerId;
+    }
+
+    public String getPoliceFeedback() {
+        return policeFeedback;
+    }
+
+    public void setPoliceFeedback(String policeFeedback) {
+        this.policeFeedback = policeFeedback;
+    }
+
+    public String getPoliceActionProof() {
+        return policeActionProof;
+    }
+
+    public void setPoliceActionProof(String policeActionProof) {
+        this.policeActionProof = policeActionProof;
+    }
+
+    public LocalDateTime getActionTakenAt() {
+        return actionTakenAt;
+    }
+
+    public void setActionTakenAt(LocalDateTime actionTakenAt) {
+        this.actionTakenAt = actionTakenAt;
+    }
+
+    public Authority getActionTakenBy() {
+        return actionTakenBy;
+    }
+
+    public void setActionTakenBy(Authority actionTakenBy) {
+        this.actionTakenBy = actionTakenBy;
     }
 
     @Enumerated(EnumType.STRING)

@@ -2,23 +2,34 @@ package com.crimereport.xpose.controllers;
 
 import com.crimereport.xpose.dto.CrimeReportDetail;
 import com.crimereport.xpose.dto.CrimeReportList;
+import com.crimereport.xpose.dto.UpdateAdminStatusRequest;
+import com.crimereport.xpose.dto.UpdatePoliceStatusRequest;
+import com.crimereport.xpose.models.CrimeReport;
 import com.crimereport.xpose.models.PoliceStation;
+import com.crimereport.xpose.repository.CrimeReportRepository;
 import com.crimereport.xpose.repository.PoliceStationRepository;
 import com.crimereport.xpose.services.CrimeReportService;
 import com.crimereport.xpose.services.ReportViewService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -35,6 +46,15 @@ public class ReportViewController {
 
     @Autowired
     private PoliceStationRepository policeStationRepository;
+
+    @Autowired
+    private CrimeReportRepository crimeReportRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Value("${app.upload.dir}")
+    private String uploadDir;
 
     @GetMapping
     public ResponseEntity<?> getAllReports(
@@ -180,30 +200,109 @@ public class ReportViewController {
         }
     }
 
-    @PostMapping("/update-review-status")
-    public ResponseEntity<?> updateReviewStatus(@RequestBody UpdateReviewStatusRequest request) {
+    @PostMapping("/update-admin-status")
+    public ResponseEntity<?> updateAdminStatus(@RequestBody UpdateAdminStatusRequest request) {
         try {
-            logger.info("Updating review status for report ID: {}", request.getReportId());
-            Map<String, Object> result = crimeReportService.updateReviewStatus(
+            logger.info("Updating admin status for report ID: {}", request.getReportId());
+            Map<String, Object> result = crimeReportService.updateAdminStatus(
                     request.getReportId(),
-                    request.getReviewStatus(),
+                    request.getAdminStatus(),
                     request.getReviewedById(),
                     request.getRejectionReason()
             );
             if (!(Boolean) result.get("success")) {
-                logger.warn("Failed to update review status for report ID: {}", request.getReportId());
+                logger.warn("Failed to update admin status for report ID: {}", request.getReportId());
                 return ResponseEntity.badRequest().body(result);
             }
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            logger.error("Error updating review status for report ID {}: {}", request.getReportId(), e.getMessage(), e);
+            logger.error("Error updating admin status for report ID {}: {}", request.getReportId(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     Map.of(
                             "success", false,
-                            "message", "Failed to update review status",
+                            "message", "Failed to update admin status",
                             "error", "INTERNAL_ERROR"
                     )
             );
+        }
+    }
+
+    @PostMapping("/update-police-status")
+    public ResponseEntity<?> updatePoliceStatus(@RequestBody UpdatePoliceStatusRequest request) {
+        try {
+            logger.info("Updating police status for report ID: {}", request.getReportId());
+            Map<String, Object> result = crimeReportService.updatePoliceStatus(
+                    request.getReportId(),
+                    request.getPoliceStatus(),
+                    request.getOfficerId(),
+                    request.getFeedback(),
+                    request.getActionProof()
+            );
+            if (!(Boolean) result.get("success")) {
+                logger.warn("Failed to update police status for report ID: {}", request.getReportId());
+                return ResponseEntity.badRequest().body(result);
+            }
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Error updating police status for report ID {}: {}", request.getReportId(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    Map.of(
+                            "success", false,
+                            "message", "Failed to update police status",
+                            "error", "INTERNAL_ERROR"
+                    )
+            );
+        }
+    }
+
+    @PostMapping("/upload-police-proof")
+    public ResponseEntity<?> uploadPoliceProof(@RequestParam("file") MultipartFile file,
+                                               @RequestParam("reportId") String reportId) {
+        try {
+            Path uploadPath = Paths.get(uploadDir, "police-proofs");
+            Files.createDirectories(uploadPath);
+
+            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            Path filePath = uploadPath.resolve(fileName);
+
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            String relativePath = "/uploads/police-proofs/" + fileName;
+
+            Optional<CrimeReport> reportOpt = crimeReportRepository.findById(reportId);
+            if (reportOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "Report not found"));
+            }
+
+            CrimeReport report = reportOpt.get();
+
+            List<String> proofFiles = new ArrayList<>();
+            String currentProofJson = report.getPoliceActionProof();
+
+            if (currentProofJson != null && !currentProofJson.isEmpty()) {
+                proofFiles = objectMapper.readValue(currentProofJson, new TypeReference<List<String>>() {});
+            }
+
+            proofFiles.add(relativePath);
+
+            report.setPoliceActionProof(objectMapper.writeValueAsString(proofFiles));
+            crimeReportRepository.save(report);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Police proof uploaded successfully",
+                    "filePath", relativePath
+            ));
+
+        } catch (IOException e) {
+            logger.error("Error uploading police proof for report {}: {}", reportId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "File upload failed"));
+        } catch (Exception e) {
+            logger.error("Unexpected error uploading police proof: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Unexpected error occurred"));
         }
     }
 }

@@ -151,7 +151,7 @@ public class CrimeReportService {
         }
     }
 
-    public Map<String, Object> updateReviewStatus(String reportId, String reviewStatus, Long reviewedById, String rejectionReason) {
+    public Map<String, Object> updateAdminStatus(String reportId, String adminStatus, Long reviewedById, String rejectionReason) {
         try {
             Optional<CrimeReport> optionalReport = crimeReportRepository.findById(reportId);
             if (!optionalReport.isPresent()) {
@@ -161,10 +161,14 @@ public class CrimeReportService {
 
             CrimeReport report = optionalReport.get();
 
-            String normalizedStatus = normalizeReviewStatus(reviewStatus);
-            CrimeReport.ReviewStatus newStatus = CrimeReport.ReviewStatus.valueOf(normalizedStatus);
+            try {
+                CrimeReport.AdminStatus newStatus = CrimeReport.AdminStatus.valueOf(adminStatus.toUpperCase());
+                report.setAdminStatus(newStatus);
+            } catch (IllegalArgumentException e) {
+                logger.error("Invalid admin status: {}", adminStatus);
+                return Map.of("success", false, "message", "Invalid admin status: " + adminStatus);
+            }
 
-            report.setReviewStatus(newStatus);
             report.setReviewedAt(LocalDateTime.now());
 
             if (reviewedById != null) {
@@ -173,31 +177,82 @@ public class CrimeReportService {
                 report.setReviewedBy(reviewedBy);
             }
 
-            if (newStatus == CrimeReport.ReviewStatus.REJECTED && rejectionReason != null) {
+            if (CrimeReport.AdminStatus.REJECTED.equals(report.getAdminStatus()) && rejectionReason != null) {
                 report.setRejectionReason(rejectionReason);
             }
 
-            if (newStatus == CrimeReport.ReviewStatus.ASSIGNED && report.getAssignedOfficer() != null) {
-                report.setReviewStatus(CrimeReport.ReviewStatus.ASSIGNED);
+            if (CrimeReport.AdminStatus.ASSIGNED.equals(report.getAdminStatus())) {
+                report.setPoliceStatus(CrimeReport.PoliceStatus.VIEWED);
             }
 
             crimeReportRepository.save(report);
-            logger.info("Review status updated for report ID: {} to {}", reportId, newStatus);
+            logger.info("Admin status updated for report ID: {} to {}", reportId, report.getAdminStatus());
 
             return Map.of(
                     "success", true,
-                    "message", "Review status updated successfully",
+                    "message", "Admin status updated successfully",
                     "reportId", reportId,
-                    "reviewStatus", newStatus.toString(),
-                    "reviewedAt", report.getReviewedAt().toString(),
-                    "reviewedById", reviewedById != null ? reviewedById : null
+                    "adminStatus", report.getAdminStatus().toString(),
+                    "policeStatus", report.getPoliceStatus().toString(),
+                    "reviewedAt", report.getReviewedAt().toString()
+            );
+        } catch (Exception e) {
+            logger.error("Error updating admin status for report ID {}: {}", reportId, e.getMessage(), e);
+            return Map.of("success", false, "message", "Error updating admin status: " + e.getMessage());
+        }
+    }
+
+    public Map<String, Object> updatePoliceStatus(String reportId, String policeStatus, Long officerId,
+                                                  String feedback, String actionProof) {
+        try {
+            Optional<CrimeReport> optionalReport = crimeReportRepository.findById(reportId);
+            if (!optionalReport.isPresent()) {
+                logger.error("Report not found: {}", reportId);
+                return Map.of("success", false, "message", "Report not found");
+            }
+
+            CrimeReport report = optionalReport.get();
+            CrimeReport.PoliceStatus newStatus = CrimeReport.PoliceStatus.valueOf(policeStatus.toUpperCase());
+
+            report.setPoliceStatus(newStatus);
+
+            if (newStatus == CrimeReport.PoliceStatus.ACTION_TAKEN ||
+                    newStatus == CrimeReport.PoliceStatus.RESOLVED ||
+                    newStatus == CrimeReport.PoliceStatus.CLOSED) {
+
+                if (feedback != null && !feedback.trim().isEmpty()) {
+                    report.setPoliceFeedback(feedback);
+                }
+
+                if (actionProof != null && !actionProof.trim().isEmpty()) {
+                    report.setPoliceActionProof(actionProof);
+                }
+
+                report.setActionTakenAt(LocalDateTime.now());
+
+                if (officerId != null) {
+                    Authority actionBy = new Authority();
+                    actionBy.setId(officerId);
+                    report.setActionTakenBy(actionBy);
+                }
+            }
+
+            crimeReportRepository.save(report);
+            logger.info("Police status updated for report ID: {} to {}", reportId, newStatus);
+
+            return Map.of(
+                    "success", true,
+                    "message", "Police status updated successfully",
+                    "reportId", reportId,
+                    "policeStatus", newStatus.toString(),
+                    "actionTakenAt", report.getActionTakenAt() != null ? report.getActionTakenAt().toString() : null
             );
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid review status for report ID {}: {}", reportId, reviewStatus, e);
-            return Map.of("success", false, "message", "Invalid review status: " + reviewStatus);
+            logger.error("Invalid police status for report ID {}: {}", reportId, policeStatus, e);
+            return Map.of("success", false, "message", "Invalid police status: " + policeStatus);
         } catch (Exception e) {
-            logger.error("Error updating review status for report ID {}: {}", reportId, e.getMessage(), e);
-            return Map.of("success", false, "message", "Error updating review status: " + e.getMessage());
+            logger.error("Error updating police status for report ID {}: {}", reportId, e.getMessage(), e);
+            return Map.of("success", false, "message", "Error updating police status: " + e.getMessage());
         }
     }
 
@@ -206,7 +261,6 @@ public class CrimeReportService {
             throw new IllegalArgumentException("Review status cannot be null");
         }
         String upperCaseStatus = status.toUpperCase().trim();
-        // Map incorrect or deprecated status values to correct ones
         switch (upperCaseStatus) {
             case "APPROVE":
                 return "APPROVED";
@@ -387,10 +441,11 @@ public class CrimeReportService {
         report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
         report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
         report.setStatus(CrimeReport.ReportStatus.ACCEPTED);
-        report.setReviewStatus(CrimeReport.ReviewStatus.PENDING);
         report.setBlockchainHash(null);
         report.setBlockchainTxId(null);
         report.setBlockchainTimestamp(null);
+        report.setAdminStatus(CrimeReport.AdminStatus.PENDING);
+        report.setPoliceStatus(CrimeReport.PoliceStatus.NOT_VIEWED);
 
         try {
             crimeReportRepository.save(report);
@@ -421,7 +476,6 @@ public class CrimeReportService {
         response.put("reportId", reportId);
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("status", status);
-        response.put("reviewStatus", report.getReviewStatus().toString());
         response.put("originalDescription", original);
         response.put("processedDescription", processed);
         response.put("translatedDescription", translatedDesc);
@@ -462,8 +516,9 @@ public class CrimeReportService {
         report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
         report.setProcessingPhase(CrimeReport.ProcessingPhase.GEMINI_ENRICHED);
         report.setStatus(CrimeReport.ReportStatus.REJECTED);
-        report.setReviewStatus(CrimeReport.ReviewStatus.REJECTED);
         report.setRejectionReason("SPAM_DETECTED_BY_GEMINI");
+        report.setAdminStatus(CrimeReport.AdminStatus.REJECTED);
+        report.setPoliceStatus(CrimeReport.PoliceStatus.NOT_VIEWED);
 
         try {
             crimeReportRepository.save(report);
@@ -522,8 +577,9 @@ public class CrimeReportService {
         report.setCharCount((Integer) mlResult.getOrDefault("char_count", 0));
         report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
         report.setStatus(CrimeReport.ReportStatus.REJECTED);
-        report.setReviewStatus(CrimeReport.ReviewStatus.REJECTED);
         report.setRejectionReason(rejectionReason);
+        report.setAdminStatus(CrimeReport.AdminStatus.REJECTED);
+        report.setPoliceStatus(CrimeReport.PoliceStatus.NOT_VIEWED);
 
         try {
             crimeReportRepository.save(report);
@@ -768,16 +824,12 @@ public class CrimeReportService {
 
         CrimeReport report = optionalReport.get();
         String status = report.getStatus().toString();
-        String reviewStatus = report.getReviewStatus() != null ? report.getReviewStatus().toString() : "PENDING";
 
         return Map.of(
                 "reportId", reportId,
                 "status", status,
-                "reviewStatus", reviewStatus,
-                "message", generateStatusMessage(status, reviewStatus),
                 "submittedAt", report.getSubmittedAt().toString(),
-                "lastUpdated", report.getReviewedAt() != null ? report.getReviewedAt().toString() : report.getSubmittedAt().toString(),
-                "estimatedProcessingTime", estimateProcessingTime(reviewStatus)
+                "lastUpdated", report.getReviewedAt() != null ? report.getReviewedAt().toString() : report.getSubmittedAt().toString()
         );
     }
 

@@ -1,6 +1,7 @@
 package com.crimereport.xpose.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 public class CrimeReportDetail {
@@ -32,6 +33,13 @@ public class CrimeReportDetail {
     private Double latitude;
     private Double longitude;
     private Long assignedOfficerId;
+
+    private String adminStatus;
+    private String policeStatus;
+    private String policeFeedback;
+    private List<String> policeActionProof;
+    private LocalDateTime actionTakenAt;
+    private Long actionTakenBy;
 
     public String getReportId() {
         return reportId;
@@ -239,5 +247,53 @@ public class CrimeReportDetail {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+
+    public String getAdminStatus() {
+        return adminStatus;
+    }
+
+    public void setAdminStatus(String adminStatus) {
+        this.adminStatus = adminStatus;
+    }
+
+    public String getPoliceStatus() {
+        return policeStatus;
+    }
+
+    public void setPoliceStatus(String policeStatus) {
+        this.policeStatus = policeStatus;
+    }
+
+    public String getPoliceFeedback() {
+        return policeFeedback;
+    }
+
+    public void setPoliceFeedback(String policeFeedback) {
+        this.policeFeedback = policeFeedback;
+    }
+
+    public List<String> getPoliceActionProof() {
+        return policeActionProof;
+    }
+
+    public void setPoliceActionProof(List<String> policeActionProof) {
+        this.policeActionProof = policeActionProof;
+    }
+
+    public LocalDateTime getActionTakenAt() {
+        return actionTakenAt;
+    }
+
+    public void setActionTakenAt(LocalDateTime actionTakenAt) {
+        this.actionTakenAt = actionTakenAt;
+    }
+
+    public Long getActionTakenBy() {
+        return actionTakenBy;
+    }
+
+    public void setActionTakenBy(Long actionTakenBy) {
+        this.actionTakenBy = actionTakenBy;
     }
 }

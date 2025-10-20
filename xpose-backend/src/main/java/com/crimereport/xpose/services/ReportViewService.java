@@ -217,6 +217,12 @@ public class ReportViewService {
                 logger.warn("Failed to serialize blockchain data for report ID: {}", reportId, e);
             }
         }
+        dto.setAdminStatus(report.getAdminStatus() != null ? report.getAdminStatus().name() : "PENDING");
+        dto.setPoliceStatus(report.getPoliceStatus() != null ? report.getPoliceStatus().name() : "NOT_VIEWED");
+        dto.setPoliceFeedback(report.getPoliceFeedback());
+        dto.setPoliceActionProof(parseJsonToList(report.getPoliceActionProof()));
+        dto.setActionTakenAt(report.getActionTakenAt());
+        dto.setActionTakenBy(report.getActionTakenBy() != null ? report.getActionTakenBy().getId() : null);
 
         return dto;
     }
@@ -296,4 +302,17 @@ public class ReportViewService {
             return Map.of();
         }
     }
+
+    private List<String> parseJsonToList(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            logger.warn("Failed to parse JSON list: {}", json, e);
+            return List.of();
+        }
+    }
+
 }

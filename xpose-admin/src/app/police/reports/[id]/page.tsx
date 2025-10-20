@@ -19,8 +19,9 @@ interface CrimeReportDetail {
   city: string;
   state: string;
   policeStation: string;
-  status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD' | 'UNKNOWN';
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+  adminStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED';
+  policeStatus: 'NOT_VIEWED' | 'VIEWED' | 'IN_PROGRESS' | 'ACTION_TAKEN' | 'RESOLVED' | 'CLOSED';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   submittedAt: string;
   confidenceScore: number | null;
   spamScore: number | null;
@@ -32,6 +33,10 @@ interface CrimeReportDetail {
   blockchainTxId: string | null;
   rawBlockchainData: string | null;
   assignedOfficerId?: number;
+  policeFeedback?: string;
+  policeActionProof?: string[];
+  actionTakenAt?: string;
+  actionTakenBy?: number;
 }
 
 interface UserData {
@@ -75,7 +80,9 @@ export default function PoliceReportDetailPage() {
       setUser(JSON.parse(cachedUser));
     }
 
-    fetchReportDetails();
+    if (reportId) {
+        fetchReportDetails();
+    }
   }, [reportId]);
 
   const fetchReportDetails = async () => {
@@ -100,29 +107,32 @@ export default function PoliceReportDetailPage() {
     }
   };
 
-  const updateStatus = async (newStatus: string) => {
+  const updatePoliceStatus = async (newPoliceStatus: string, feedback?: string) => {
     if (!user?.id || !report) return;
 
     try {
       setUpdatingStatus(true);
-      const response = await fetch(`${API_URL}/api/reports/${reportId}/status`, {
-        method: 'PATCH',
+      const response = await fetch(`${API_URL}/api/reports/update-police-status`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          status: newStatus,
-          updatedByOfficerId: parseInt(user.id),
+          reportId: reportId,
+          policeStatus: newPoliceStatus,
+          officerId: parseInt(user.id),
+          feedback: feedback || '',
+          actionProof: '',
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to update status');
+      if (!response.ok) throw new Error('Failed to update police status');
 
-      setReport(prev => prev ? { ...prev, status: newStatus as any } : null);
-      alert(`Status updated to ${newStatus.replace('RECEIVED_', '')}`);
+      setReport(prev => prev ? { ...prev, policeStatus: newPoliceStatus as any } : null);
+      alert(`Police status updated to ${newPoliceStatus}`);
     } catch (err: any) {
-      alert('Failed to update status. Please try again.');
+      alert('Failed to update police status. Please try again.');
     } finally {
       setUpdatingStatus(false);
     }
@@ -130,13 +140,11 @@ export default function PoliceReportDetailPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'ACCEPTED':
-      case 'RECEIVED_HIGH_PRIORITY':
-      case 'RECEIVED_MEDIUM_PRIORITY':
-      case 'RECEIVED_STANDARD':
+      case 'APPROVED':
+      case 'ASSIGNED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Accepted
+            Approved
           </span>
         );
       case 'REJECTED':
@@ -145,7 +153,7 @@ export default function PoliceReportDetailPage() {
             Rejected
           </span>
         );
-      case 'RECEIVED_PENDING_REVIEW':
+      case 'PENDING':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
             Pending Review
@@ -163,6 +171,7 @@ export default function PoliceReportDetailPage() {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'HIGH':
+      case 'CRITICAL':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
             High
@@ -253,22 +262,26 @@ export default function PoliceReportDetailPage() {
                       <dd className="mt-1 text-gray-200 light:text-gray-800">{report.crimeType} (ID: {report.crimeTypeId || 'N/A'})</dd>
                     </div>
                     <div>
-                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Status</dt>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Status</dt>
                       <dd className="mt-1">
                         <select
-                          value={report.status}
-                          onChange={(e) => updateStatus(e.target.value)}
+                          value={report.policeStatus}
+                          onChange={(e) => updatePoliceStatus(e.target.value)}
                           disabled={updatingStatus}
                           className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-[#C3B091] light:border-gray-300 light:bg-white light:text-gray-900"
                         >
-                          <option value="RECEIVED_PENDING_REVIEW">Pending Review</option>
-                          <option value="RECEIVED_HIGH_PRIORITY">High Priority</option>
-                          <option value="RECEIVED_MEDIUM_PRIORITY">Medium Priority</option>
-                          <option value="RECEIVED_STANDARD">Standard</option>
-                          <option value="ACCEPTED">Accepted</option>
-                          <option value="REJECTED">Rejected</option>
+                          <option value="NOT_VIEWED">Not Viewed</option>
+                          <option value="VIEWED">Viewed</option>
+                          <option value="IN_PROGRESS">In Progress</option>
+                          <option value="ACTION_TAKEN">Action Taken</option>
+                          <option value="RESOLVED">Resolved</option>
+                          <option value="CLOSED">Closed</option>
                         </select>
                       </dd>
+                    </div>
+                    <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Admin Status</dt>
+                        <dd className="mt-1">{getStatusBadge(report.adminStatus)}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Priority</dt>
@@ -314,6 +327,24 @@ export default function PoliceReportDetailPage() {
                     </div>
                   </dl>
                 </div>
+                {/* MOVED THIS SECTION INSIDE THE CONDITIONAL BLOCK */}
+                {report.policeFeedback && (
+                  <div className="md:col-span-2">
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Police Feedback</h4>
+                    <dl className="mt-4 space-y-4">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Action Taken</dt>
+                        <dd className="mt-1 text-gray-200 light:text-gray-800">{report.policeFeedback}</dd>
+                      </div>
+                      {report.actionTakenAt && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Action Taken At</dt>
+                          <dd className="mt-1 text-gray-200 light:text-gray-800">{new Date(report.actionTakenAt).toLocaleString()}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -321,6 +352,7 @@ export default function PoliceReportDetailPage() {
       </main>
 
       <style jsx>{`
+        /* Styles remain the same */
         .particle-layer,
         .shimmer-layer {
           position: absolute;

@@ -20,7 +20,8 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
         cr.address, cr.city, cr.state, cr.policeStation,
         cr.status, cr.urgencyLevel, cr.submittedAt,
         ao.id,
-        cr.reviewStatus
+        cr.adminStatus,
+        cr.policeStatus  
     )
     FROM CrimeReport cr
     LEFT JOIN CrimeType ct ON ct.id = cr.crimeTypeId
@@ -33,7 +34,7 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
         :officerId IS NULL AND (:stationId IS NULL OR ps.id = :stationId)
     )
     ORDER BY cr.submittedAt DESC
-""")
+    """)
     Page<CrimeReportList> findAllReportsForList(
             Pageable pageable,
             @Param("stationId") Long stationId,

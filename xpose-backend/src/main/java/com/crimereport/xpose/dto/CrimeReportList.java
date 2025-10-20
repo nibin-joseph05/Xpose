@@ -2,8 +2,8 @@ package com.crimereport.xpose.dto;
 
 import com.crimereport.xpose.models.CrimeReport.ReportStatus;
 import com.crimereport.xpose.models.CrimeReport.UrgencyLevel;
-import com.crimereport.xpose.models.CrimeReport.ReviewStatus;
 import java.time.LocalDateTime;
+import com.crimereport.xpose.models.CrimeReport.*;
 
 public class CrimeReportList {
     private String reportId;
@@ -21,7 +21,8 @@ public class CrimeReportList {
     private String urgency;
     private LocalDateTime submittedAt;
     private Long assignedOfficerId;
-    private String reviewStatus;
+    private String adminStatus;
+    private String policeStatus;
 
     public CrimeReportList() {
     }
@@ -42,7 +43,8 @@ public class CrimeReportList {
             UrgencyLevel urgency,
             LocalDateTime submittedAt,
             Long assignedOfficerId,
-            ReviewStatus reviewStatus
+            AdminStatus adminStatus,
+            PoliceStatus policeStatus
     ) {
         this.reportId = id;
         this.crimeType = crimeType;
@@ -59,7 +61,8 @@ public class CrimeReportList {
         this.urgency = urgency != null ? urgency.toString() : null;
         this.submittedAt = submittedAt;
         this.assignedOfficerId = assignedOfficerId;
-        this.reviewStatus = reviewStatus != null ? reviewStatus.toString() : null;
+        this.adminStatus = adminStatus != null ? adminStatus.toString() : null;
+        this.policeStatus = policeStatus != null ? policeStatus.toString() : null;
     }
 
     public String getReportId() {
@@ -182,11 +185,20 @@ public class CrimeReportList {
         this.assignedOfficerId = assignedOfficerId;
     }
 
-    public String getReviewStatus() {
-        return reviewStatus;
+    public String getAdminStatus() {
+        return adminStatus;
     }
 
-    public void setReviewStatus(String reviewStatus) {
-        this.reviewStatus = reviewStatus;
+    public void setAdminStatus(String adminStatus) {
+        this.adminStatus = adminStatus;
     }
+
+    public String getPoliceStatus() {
+        return policeStatus;
+    }
+
+    public void setPoliceStatus(String policeStatus) {
+        this.policeStatus = policeStatus;
+    }
+
 }
