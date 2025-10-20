@@ -13,12 +13,13 @@ interface CrimeReport {
   crimeType: string;
   categoryId: number;
   categoryName?: string;
-  description: string;
+  originalDescription: string;
   translatedDescription: string;
   address: string;
   city: string;
   state: string;
   policeStation: string;
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
   adminStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED';
   policeStatus: 'NOT_VIEWED' | 'VIEWED' | 'IN_PROGRESS' | 'ACTION_TAKEN' | 'RESOLVED' | 'CLOSED';
   urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -52,6 +53,10 @@ export default function PoliceReportsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [user, setUser] = useState<UserData | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<CrimeReport | null>(null);
+  const [actionFeedback, setActionFeedback] = useState('');
+  const [actionFiles, setActionFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -140,43 +145,35 @@ export default function PoliceReportsPage() {
           params.append('stationId', user.stationId);
         }
 
-        const [springResponse, blockchainResponse] = await Promise.all([
-          fetch(`${API_URL}/api/reports?${params.toString()}`, {
-            signal: controller.signal,
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-          }),
-          fetch(`${API_URL}/api/reports/chain`, {
-            signal: controller.signal,
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-          }),
-        ]);
+        const springResponse = await fetch(`${API_URL}/api/reports?${params.toString()}`, {
+          signal: controller.signal,
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        });
 
         clearTimeout(timeoutId);
 
-        if (!springResponse.ok || !blockchainResponse.ok) throw new Error('Failed to fetch reports');
+        if (!springResponse.ok) throw new Error('Failed to fetch reports');
 
-        const [springData, blockchainData] = await Promise.all([
-          springResponse.json(),
-          blockchainResponse.json(),
-        ]);
+        const springData = await springResponse.json();
 
         const mergedReports: CrimeReport[] = (springData.reports || []).map((springReport: any) => {
           return {
             reportId: springReport.reportId,
             crimeTypeId: springReport.crimeTypeId,
-            crimeType: springReport.crimeType || 'Unknown',
+            crimeType: springReport.crimeType,
             categoryId: springReport.categoryId,
             categoryName: springReport.categoryName,
-            description: springReport.originalDescription || 'No description',
-            translatedDescription: springReport.translatedDescription || '',
-            address: springReport.address || 'Unknown',
-            city: springReport.city || 'Unknown',
-            state: springReport.state || 'Unknown',
-            policeStation: springReport.policeStation || 'Unknown',
+            originalDescription: springReport.originalDescription,
+            translatedDescription: springReport.translatedDescription,
+            address: springReport.address,
+            city: springReport.city,
+            state: springReport.state,
+            policeStation: springReport.policeStation,
+            status: springReport.status,
             adminStatus: springReport.adminStatus || 'PENDING',
             policeStatus: springReport.policeStatus || 'NOT_VIEWED',
-            urgency: springReport.urgency || 'LOW',
-            submittedAt: springReport.submittedAt || new Date().toISOString(),
+            urgency: springReport.urgency,
+            submittedAt: springReport.submittedAt,
             assignedOfficerId: springReport.assignedOfficerId,
             policeFeedback: springReport.policeFeedback,
             policeActionProof: springReport.policeActionProof,
@@ -185,8 +182,12 @@ export default function PoliceReportsPage() {
           };
         });
 
-        setReports(mergedReports);
-        setTotalPages(springData.totalPages || 1);
+        const approvedReports = mergedReports.filter(report =>
+          report.adminStatus === 'APPROVED' || report.adminStatus === 'ASSIGNED'
+        );
+
+        setReports(approvedReports);
+        setTotalPages(Math.ceil(approvedReports.length / itemsPerPage) || 1);
         setError('');
       } catch (err: any) {
         if (err.name === 'AbortError' && retryCount < 2) {
@@ -203,201 +204,238 @@ export default function PoliceReportsPage() {
     fetchReports();
   }, [user, currentPage]);
 
+  const canChangePoliceStatus = (report: CrimeReport, newStatus: string) => {
+    if (report.adminStatus !== 'APPROVED' && report.adminStatus !== 'ASSIGNED') {
+      return false;
+    }
+
+    const statusFlow = {
+      'NOT_VIEWED': ['VIEWED'],
+      'VIEWED': ['IN_PROGRESS', 'NOT_VIEWED'],
+      'IN_PROGRESS': ['ACTION_TAKEN', 'VIEWED'],
+      'ACTION_TAKEN': ['RESOLVED', 'IN_PROGRESS'],
+      'RESOLVED': ['CLOSED', 'ACTION_TAKEN'],
+      'CLOSED': []
+    };
+
+    return statusFlow[report.policeStatus]?.includes(newStatus) || false;
+  };
+
   const updatePoliceStatus = async (reportId: string, newPoliceStatus: string, feedback?: string) => {
     if (!user?.id) return;
 
     try {
       setUpdatingStatus(reportId);
+
+      const requestBody = {
+        reportId: reportId,
+        policeStatus: newPoliceStatus,
+        officerId: parseInt(user.id),
+        feedback: feedback || ''
+      };
+
       const response = await fetch(`${API_URL}/api/reports/update-police-status`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
-        body: JSON.stringify({
-          reportId: reportId,
-          policeStatus: newPoliceStatus,
-          officerId: parseInt(user.id),
-          feedback: feedback || '',
-          actionProof: '',
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) throw new Error('Failed to update police status');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update police status: ${errorText}`);
+      }
 
-      setReports(prev =>
-        prev.map(report =>
-          report.reportId === reportId
-            ? { ...report, policeStatus: newPoliceStatus as any }
-            : report
-        )
-      );
+      const result = await response.json();
 
-      alert(`Police status updated to ${newPoliceStatus}`);
+      if (result.success) {
+        setReports(prev =>
+          prev.map(report =>
+            report.reportId === reportId
+              ? {
+                  ...report,
+                  policeStatus: newPoliceStatus as any,
+                  policeFeedback: feedback,
+                  actionTakenAt: new Date().toISOString()
+                }
+              : report
+          )
+        );
+
+        setShowActionModal(false);
+        setSelectedReport(null);
+        setActionFeedback('');
+        setActionFiles([]);
+
+        alert(`Status updated to ${newPoliceStatus}`);
+      } else {
+        throw new Error(result.message || 'Failed to update police status');
+      }
     } catch (err: any) {
-      alert('Failed to update police status. Please try again.');
+      alert('Failed to update police status: ' + err.message);
     } finally {
       setUpdatingStatus(null);
     }
   };
 
-  const getPoliceStatusBadge = (policeStatus: string) => {
-    switch (policeStatus) {
-      case 'VIEWED':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
-            Viewed
-          </span>
-        );
-      case 'IN_PROGRESS':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            In Progress
-          </span>
-        );
-      case 'ACTION_TAKEN':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-600/20 text-purple-300 ring-1 ring-inset ring-purple-600/30 light:bg-purple-100 light:text-purple-800 light:ring-purple-300">
-            Action Taken
-          </span>
-        );
-      case 'RESOLVED':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Resolved
-          </span>
-        );
-      case 'CLOSED':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
-            Closed
-          </span>
-        );
-      case 'NOT_VIEWED':
+  const uploadPoliceProof = async (reportId: string, files: File[]) => {
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('reportId', reportId);
+
+        const response = await fetch(`${API_URL}/api/reports/upload-police-proof`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload file: ${file.name}`);
+        }
+      }
+      return true;
+    } catch (err: any) {
+      console.error('Error uploading police proof:', err);
+      return false;
+    }
+  };
+
+  const handleStatusChange = (report: CrimeReport, newStatus: string) => {
+    if (!canChangePoliceStatus(report, newStatus)) {
+      alert('Invalid status transition or report not approved by admin.');
+      return;
+    }
+
+    if (newStatus === 'ACTION_TAKEN' || newStatus === 'RESOLVED') {
+      setSelectedReport({...report, policeStatus: newStatus as any});
+      setShowActionModal(true);
+    } else {
+      updatePoliceStatus(report.reportId, newStatus);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setActionFiles(Array.from(e.target.files));
+    }
+  };
+
+  const submitActionWithFiles = async () => {
+    if (!selectedReport) return;
+
+    if (selectedReport.policeStatus === 'RESOLVED' && actionFiles.length === 0) {
+      alert('Please upload evidence files when resolving a report.');
+      return;
+    }
+
+    if (!actionFeedback.trim()) {
+      alert('Please provide feedback about the action taken.');
+      return;
+    }
+
+    try {
+      setUpdatingStatus(selectedReport.reportId);
+
+      // First update the status
+      await updatePoliceStatus(selectedReport.reportId, selectedReport.policeStatus, actionFeedback);
+
+      // Then upload files if any
+      if (actionFiles.length > 0) {
+        const uploadSuccess = await uploadPoliceProof(selectedReport.reportId, actionFiles);
+        if (!uploadSuccess) {
+          alert('Status updated but some files failed to upload.');
+        }
+      }
+
+    } catch (err: any) {
+      alert('Failed to complete action: ' + err.message);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACCEPTED':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">ML: Accepted</span>;
+      case 'REJECTED':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">ML: Rejected</span>;
+      case 'PENDING_REVIEW':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">ML: Pending Review</span>;
       default:
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Not Viewed
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">ML: Unknown</span>;
     }
   };
 
   const getAdminStatusBadge = (adminStatus: string) => {
     switch (adminStatus) {
       case 'APPROVED':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Approved
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">Admin: Approved</span>;
       case 'REJECTED':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Rejected
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">Admin: Rejected</span>;
       case 'ASSIGNED':
-         return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
-            Assigned
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">Admin: Assigned</span>;
       case 'PENDING':
       default:
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Pending
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">Admin: Pending</span>;
+    }
+  };
+
+  const getPoliceStatusBadge = (policeStatus: string) => {
+    switch (policeStatus) {
+      case 'VIEWED':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">Police: Viewed</span>;
+      case 'IN_PROGRESS':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">Police: In Progress</span>;
+      case 'ACTION_TAKEN':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">Police: Action Taken</span>;
+      case 'RESOLVED':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">Police: Resolved</span>;
+      case 'CLOSED':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">Police: Closed</span>;
+      case 'NOT_VIEWED':
+      default:
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">Police: Not Viewed</span>;
     }
   };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'HIGH':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            High
-          </span>
-        );
+      case 'CRITICAL':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">{priority.charAt(0) + priority.slice(1).toLowerCase()}</span>;
       case 'MEDIUM':
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Medium
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">Medium</span>;
+      case 'LOW':
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">Low</span>;
       default:
-        return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Low
-          </span>
-        );
+        return <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">Unknown</span>;
     }
   };
 
   const StatusDropdown = ({ report }: { report: CrimeReport }) => {
-    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-    const [feedback, setFeedback] = useState('');
-
-    const handleStatusChange = async (newStatus: string) => {
-      if (newStatus === 'ACTION_TAKEN' || newStatus === 'RESOLVED' || newStatus === 'CLOSED') {
-        setShowFeedbackModal(true);
-      } else {
-        await updatePoliceStatus(report.reportId, newStatus);
-      }
-    };
-
-    const submitStatusWithFeedback = async () => {
-      await updatePoliceStatus(report.reportId, report.policeStatus, feedback);
-      setShowFeedbackModal(false);
-      setFeedback('');
-    };
+    const isDisabled = report.adminStatus !== 'APPROVED' && report.adminStatus !== 'ASSIGNED';
 
     return (
-      <>
-        <select
-          value={report.policeStatus}
-          onChange={(e) => handleStatusChange(e.target.value)}
-          disabled={updatingStatus === report.reportId}
-          className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-[#C3B091] light:border-gray-300 light:bg-white light:text-gray-900"
-        >
-          <option value="NOT_VIEWED">Not Viewed</option>
-          <option value="VIEWED">Viewed</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="ACTION_TAKEN">Action Taken</option>
-          <option value="RESOLVED">Resolved</option>
-          <option value="CLOSED">Closed</option>
-        </select>
-
-        {showFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-gray-800 p-6 rounded-lg w-96">
-              <h3 className="text-lg font-bold mb-4">Add Feedback for {report.policeStatus}</h3>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Describe the action taken or resolution..."
-                className="w-full h-32 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white mb-4"
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setShowFeedbackModal(false)}
-                  className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitStatusWithFeedback}
-                  className="px-4 py-2 bg-[#C3B091] rounded-lg hover:bg-[#8B7B5A] text-white"
-                >
-                  Submit
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </>
+      <select
+        value={report.policeStatus}
+        onChange={(e) => handleStatusChange(report, e.target.value)}
+        disabled={updatingStatus === report.reportId || isDisabled}
+        className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-[#C3B091] light:border-gray-300 light:bg-white light:text-gray-900 disabled:opacity-50"
+      >
+        <option value="NOT_VIEWED">Not Viewed</option>
+        <option value="VIEWED">Viewed</option>
+        <option value="IN_PROGRESS">In Progress</option>
+        <option value="ACTION_TAKEN">Action Taken</option>
+        <option value="RESOLVED">Resolved</option>
+        <option value="CLOSED">Closed</option>
+      </select>
     );
   };
 
@@ -411,7 +449,7 @@ export default function PoliceReportsPage() {
       (report) =>
         normalizeString(report.reportId).includes(normalizedQuery) ||
         normalizeString(report.crimeType).includes(normalizedQuery) ||
-        normalizeString(report.description).includes(normalizedQuery) ||
+        normalizeString(report.originalDescription).includes(normalizedQuery) ||
         normalizeString(report.translatedDescription).includes(normalizedQuery)
     );
   }, [reports, searchQuery]);
@@ -482,8 +520,9 @@ export default function PoliceReportsPage() {
                     <th className="p-4">Report ID</th>
                     <th className="p-4">Crime Type</th>
                     <th className="p-4">Location</th>
-                    <th className="p-4">Police Status</th>
+                    <th className="p-4">ML Status</th>
                     <th className="p-4">Admin Status</th>
+                    <th className="p-4">Police Status</th>
                     <th className="p-4">Priority</th>
                     <th className="p-4">Submitted At</th>
                     <th className="p-4 text-center">Actions</th>
@@ -492,15 +531,11 @@ export default function PoliceReportsPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} className="p-4 text-center text-gray-400 light:text-gray-600">
-                        Loading reports...
-                      </td>
+                      <td colSpan={9} className="p-4 text-center text-gray-400 light:text-gray-600">Loading reports...</td>
                     </tr>
                   ) : filteredReports.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="p-4 text-center text-gray-400 light:text-gray-600">
-                        {user ? `No reports assigned to officer ID ${user.id}` : 'No reports found'}
-                      </td>
+                      <td colSpan={9} className="p-4 text-center text-gray-400 light:text-gray-600">{user ? `No approved reports assigned to officer ID ${user.id}` : 'No reports found'}</td>
                     </tr>
                   ) : (
                     paginatedReports.map((report) => (
@@ -514,12 +549,11 @@ export default function PoliceReportsPage() {
                         <td className="p-4 font-medium text-[#C3B091] light:text-[#8B7B5A]">{report.reportId}</td>
                         <td className="p-4 text-gray-400 light:text-gray-700">{report.crimeType} (ID: {report.crimeTypeId})</td>
                         <td className="p-4 text-gray-400 light:text-gray-700">{report.address}, {report.city}, {report.state}</td>
+                        <td className="p-4">{getStatusBadge(report.status)}</td>
+                        <td className="p-4">{getAdminStatusBadge(report.adminStatus)}</td>
                         <td className="p-4">
-                            <StatusDropdown report={report} />
-                          </td>
-                          <td className="p-4">
-                            {getAdminStatusBadge(report.adminStatus)}
-                          </td>
+                          <StatusDropdown report={report} />
+                        </td>
                         <td className="p-4">{getPriorityBadge(report.urgency)}</td>
                         <td className="p-4 text-gray-400 light:text-gray-700">{new Date(report.submittedAt).toLocaleString()}</td>
                         <td className="p-4 text-center">
@@ -551,11 +585,7 @@ export default function PoliceReportsPage() {
                   <Button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1 rounded ${
-                      currentPage === page
-                        ? 'bg-[#C3B091] text-white shadow-md'
-                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700'
-                    }`}
+                    className={`px-3 py-1 rounded ${currentPage === page ? 'bg-[#C3B091] text-white shadow-md' : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700'}`}
                   >
                     {page}
                   </Button>
@@ -572,6 +602,65 @@ export default function PoliceReportsPage() {
           </motion.div>
         </motion.div>
       </main>
+
+      {showActionModal && selectedReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg w-96 max-w-full mx-4 light:bg-white light:text-gray-900">
+            <h3 className="text-lg font-bold mb-4">
+              {selectedReport.policeStatus === 'ACTION_TAKEN' ? 'Action Taken Details' : 'Resolve Report'}
+            </h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Feedback *</label>
+              <textarea
+                value={actionFeedback}
+                onChange={(e) => setActionFeedback(e.target.value)}
+                placeholder={selectedReport.policeStatus === 'ACTION_TAKEN' ? "Describe the action taken..." : "Describe how the issue was resolved..."}
+                className="w-full h-32 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white mb-4 light:bg-gray-100 light:border-gray-300 light:text-gray-900"
+                required
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Upload Evidence {selectedReport.policeStatus === 'RESOLVED' && '*'}
+              </label>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white light:bg-gray-100 light:border-gray-300 light:text-gray-900"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              />
+              <p className="text-xs text-gray-400 mt-1 light:text-gray-600">
+                Supported formats: PDF, JPG, PNG, DOC (Max 10MB per file)
+                {selectedReport.policeStatus === 'RESOLVED' && ' - Required for resolution'}
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowActionModal(false);
+                  setSelectedReport(null);
+                  setActionFeedback('');
+                  setActionFiles([]);
+                }}
+                className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-500 text-white light:bg-gray-300 light:hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitActionWithFiles}
+                disabled={updatingStatus === selectedReport.reportId || !actionFeedback.trim() || (selectedReport.policeStatus === 'RESOLVED' && actionFiles.length === 0)}
+                className="px-4 py-2 bg-[#C3B091] rounded-lg hover:bg-[#8B7B5A] text-white disabled:opacity-50 light:bg-[#8B7B5A] light:hover:bg-[#7A6A49]"
+              >
+                {updatingStatus === selectedReport.reportId ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .particle-layer,

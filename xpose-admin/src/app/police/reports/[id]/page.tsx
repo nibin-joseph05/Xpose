@@ -19,6 +19,7 @@ interface CrimeReportDetail {
   city: string;
   state: string;
   policeStation: string;
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
   adminStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED';
   policeStatus: 'NOT_VIEWED' | 'VIEWED' | 'IN_PROGRESS' | 'ACTION_TAKEN' | 'RESOLVED' | 'CLOSED';
   urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -37,6 +38,8 @@ interface CrimeReportDetail {
   policeActionProof?: string[];
   actionTakenAt?: string;
   actionTakenBy?: number;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
 
 interface UserData {
@@ -59,6 +62,9 @@ export default function PoliceReportDetailPage() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState('');
+  const [actionFiles, setActionFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -107,29 +113,45 @@ export default function PoliceReportDetailPage() {
     }
   };
 
-  const updatePoliceStatus = async (newPoliceStatus: string, feedback?: string) => {
+  const updatePoliceStatus = async (newPoliceStatus: string, feedback?: string, files?: File[]) => {
     if (!user?.id || !report) return;
 
     try {
       setUpdatingStatus(true);
+
+      const formData = new FormData();
+      formData.append('reportId', reportId);
+      formData.append('policeStatus', newPoliceStatus);
+      formData.append('officerId', user.id);
+      formData.append('feedback', feedback || '');
+
+      if (files && files.length > 0) {
+        files.forEach(file => {
+          formData.append('actionProof', file);
+        });
+      }
+
       const response = await fetch(`${API_URL}/api/reports/update-police-status`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          reportId: reportId,
-          policeStatus: newPoliceStatus,
-          officerId: parseInt(user.id),
-          feedback: feedback || '',
-          actionProof: '',
-        }),
+        body: formData,
       });
 
       if (!response.ok) throw new Error('Failed to update police status');
 
-      setReport(prev => prev ? { ...prev, policeStatus: newPoliceStatus as any } : null);
+      setReport(prev => prev ? {
+        ...prev,
+        policeStatus: newPoliceStatus as any,
+        policeFeedback: feedback,
+        actionTakenAt: new Date().toISOString()
+      } : null);
+
+      setShowActionModal(false);
+      setActionFeedback('');
+      setActionFiles([]);
+
       alert(`Police status updated to ${newPoliceStatus}`);
     } catch (err: any) {
       alert('Failed to update police status. Please try again.');
@@ -138,31 +160,134 @@ export default function PoliceReportDetailPage() {
     }
   };
 
+  const handleStatusChange = (newStatus: string) => {
+    if (newStatus === 'ACTION_TAKEN' || newStatus === 'RESOLVED') {
+      setShowActionModal(true);
+    } else {
+      updatePoliceStatus(newStatus);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setActionFiles(Array.from(e.target.files));
+    }
+  };
+
+  const submitActionWithFiles = () => {
+    if (!report) return;
+
+    const newStatus = report.policeStatus;
+
+    if (newStatus === 'RESOLVED' && actionFiles.length === 0) {
+      alert('Please upload evidence files when resolving a report.');
+      return;
+    }
+
+    if (!actionFeedback.trim()) {
+      alert('Please provide feedback about the action taken.');
+      return;
+    }
+
+    updatePoliceStatus(newStatus, actionFeedback, actionFiles);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'APPROVED':
-      case 'ASSIGNED':
+      case 'ACCEPTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Approved
+            ML: Accepted
           </span>
         );
       case 'REJECTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Rejected
+            ML: Rejected
           </span>
         );
-      case 'PENDING':
+      case 'PENDING_REVIEW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Pending Review
+            ML: Pending Review
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
-            Unknown
+            ML: Unknown
+          </span>
+        );
+    }
+  };
+
+  const getAdminStatusBadge = (adminStatus: string) => {
+    switch (adminStatus) {
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Admin: Approved
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            Admin: Rejected
+          </span>
+        );
+      case 'ASSIGNED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Admin: Assigned
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Admin: Pending
+          </span>
+        );
+    }
+  };
+
+  const getPoliceStatusBadge = (policeStatus: string) => {
+    switch (policeStatus) {
+      case 'VIEWED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Police: Viewed
+          </span>
+        );
+      case 'IN_PROGRESS':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Police: In Progress
+          </span>
+        );
+      case 'ACTION_TAKEN':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Action Taken
+          </span>
+        );
+      case 'RESOLVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Resolved
+          </span>
+        );
+      case 'CLOSED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Closed
+          </span>
+        );
+      case 'NOT_VIEWED':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Not Viewed
           </span>
         );
     }
@@ -174,7 +299,7 @@ export default function PoliceReportDetailPage() {
       case 'CRITICAL':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            High
+            {priority.charAt(0) + priority.slice(1).toLowerCase()}
           </span>
         );
       case 'MEDIUM':
@@ -183,10 +308,16 @@ export default function PoliceReportDetailPage() {
             Medium
           </span>
         );
-      default:
+      case 'LOW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
             Low
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Unknown
           </span>
         );
     }
@@ -220,7 +351,7 @@ export default function PoliceReportDetailPage() {
           </div>
 
           <div className="pt-8 flex justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-[#C3B091] light:text-[#8B7B5A]">Report Details</h2>
+            <h2 className="text-2xl font-bold text-[#C3B091] dark:text-[#8B7B5A]">Report Details</h2>
             <Button
               onClick={handleBack}
               className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700"
@@ -262,11 +393,15 @@ export default function PoliceReportDetailPage() {
                       <dd className="mt-1 text-gray-200 light:text-gray-800">{report.crimeType} (ID: {report.crimeTypeId || 'N/A'})</dd>
                     </div>
                     <div>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Category</dt>
+                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.categoryName || 'N/A'} (ID: {report.categoryId || 'N/A'})</dd>
+                    </div>
+                    <div>
                       <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Status</dt>
                       <dd className="mt-1">
                         <select
                           value={report.policeStatus}
-                          onChange={(e) => updatePoliceStatus(e.target.value)}
+                          onChange={(e) => handleStatusChange(e.target.value)}
                           disabled={updatingStatus}
                           className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-[#C3B091] light:border-gray-300 light:bg-white light:text-gray-900"
                         >
@@ -280,8 +415,12 @@ export default function PoliceReportDetailPage() {
                       </dd>
                     </div>
                     <div>
-                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Admin Status</dt>
-                        <dd className="mt-1">{getStatusBadge(report.adminStatus)}</dd>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">ML Status</dt>
+                      <dd className="mt-1">{getStatusBadge(report.status)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Admin Status</dt>
+                      <dd className="mt-1">{getAdminStatusBadge(report.adminStatus)}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Priority</dt>
@@ -327,10 +466,9 @@ export default function PoliceReportDetailPage() {
                     </div>
                   </dl>
                 </div>
-                {/* MOVED THIS SECTION INSIDE THE CONDITIONAL BLOCK */}
                 {report.policeFeedback && (
                   <div className="md:col-span-2">
-                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Police Feedback</h4>
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Police Action Details</h4>
                     <dl className="mt-4 space-y-4">
                       <div>
                         <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Action Taken</dt>
@@ -342,17 +480,112 @@ export default function PoliceReportDetailPage() {
                           <dd className="mt-1 text-gray-200 light:text-gray-800">{new Date(report.actionTakenAt).toLocaleString()}</dd>
                         </div>
                       )}
+                      {report.policeActionProof && report.policeActionProof.length > 0 && (
+                        <div>
+                          <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Evidence Files</dt>
+                          <dd className="mt-1">
+                            <ul className="list-disc list-inside">
+                              {report.policeActionProof.map((proof, index) => (
+                                <li key={index} className="text-gray-200 light:text-gray-800">
+                                  <a href={proof} target="_blank" rel="noopener noreferrer" className="text-[#C3B091] hover:underline">
+                                    Evidence {index + 1}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </dd>
+                        </div>
+                      )}
                     </dl>
                   </div>
                 )}
+                <div className="md:col-span-2">
+                  <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Analysis Scores</h4>
+                  <dl className="mt-4 space-y-4">
+                    <div>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Confidence Score</dt>
+                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.confidenceScore !== null ? report.confidenceScore.toFixed(2) : 'N/A'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Spam Score</dt>
+                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.spamScore !== null ? report.spamScore.toFixed(2) : 'N/A'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Report Quality</dt>
+                      <dd className="mt-1 text-gray-200 light:text-gray-800">{report.reportQuality || 'N/A'}</dd>
+                    </div>
+                  </dl>
+                </div>
               </div>
             </motion.div>
           )}
         </motion.div>
       </main>
 
+      {/* Action Taken Modal */}
+      {showActionModal && report && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg w-96 max-w-full mx-4 light:bg-white light:text-gray-900">
+            <h3 className="text-lg font-bold mb-4">
+              {report.policeStatus === 'ACTION_TAKEN' ? 'Action Taken Details' : 'Resolve Report'}
+            </h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Feedback *</label>
+              <textarea
+                value={actionFeedback}
+                onChange={(e) => setActionFeedback(e.target.value)}
+                placeholder={
+                  report.policeStatus === 'ACTION_TAKEN'
+                    ? "Describe the action taken..."
+                    : "Describe how the issue was resolved..."
+                }
+                className="w-full h-32 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white mb-4 light:bg-gray-100 light:border-gray-300 light:text-gray-900"
+                required
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                Upload Evidence {report.policeStatus === 'RESOLVED' && '*'}
+              </label>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white light:bg-gray-100 light:border-gray-300 light:text-gray-900"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              />
+              <p className="text-xs text-gray-400 mt-1 light:text-gray-600">
+                Supported formats: PDF, JPG, PNG, DOC (Max 10MB per file)
+                {report.policeStatus === 'RESOLVED' && ' - Required for resolution'}
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowActionModal(false);
+                  setActionFeedback('');
+                  setActionFiles([]);
+                }}
+                className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-500 text-white light:bg-gray-300 light:hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitActionWithFiles}
+                disabled={updatingStatus || !actionFeedback.trim() || (report.policeStatus === 'RESOLVED' && actionFiles.length === 0)}
+                className="px-4 py-2 bg-[#C3B091] rounded-lg hover:bg-[#8B7B5A] text-white disabled:opacity-50 light:bg-[#8B7B5A] light:hover:bg-[#7A6A49]"
+              >
+                {updatingStatus ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
-        /* Styles remain the same */
         .particle-layer,
         .shimmer-layer {
           position: absolute;

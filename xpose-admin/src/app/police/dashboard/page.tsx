@@ -14,14 +14,16 @@ interface CrimeReport {
   crimeType: string;
   categoryId: number;
   categoryName?: string;
-  description: string;
+  originalDescription: string;
   translatedDescription: string;
   address: string;
   city: string;
   state: string;
   policeStation: string;
-  status: 'ACCEPTED' | 'REJECTED' | 'RECEIVED_PENDING_REVIEW' | 'RECEIVED_HIGH_PRIORITY' | 'RECEIVED_MEDIUM_PRIORITY' | 'RECEIVED_STANDARD';
-  urgency: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'ACCEPTED' | 'REJECTED' | 'PENDING_REVIEW';
+  adminStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ASSIGNED';
+  policeStatus: 'NOT_VIEWED' | 'VIEWED' | 'IN_PROGRESS' | 'ACTION_TAKEN' | 'RESOLVED' | 'CLOSED';
+  urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   submittedAt: string;
   assignedOfficerId?: number;
 }
@@ -140,18 +142,10 @@ export default function PoliceDashboard() {
           params.append('stationId', user.stationId);
         }
 
-        const reportsUrl = `${API_URL}/api/reports?${params.toString()}`;
-
-        const [springResponse, blockchainResponse] = await Promise.all([
-          fetch(reportsUrl, {
-            signal: controller.signal,
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-          }),
-          fetch(`${API_URL}/api/reports/chain`, {
-            signal: controller.signal,
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-          }),
-        ]);
+        const springResponse = await fetch(`${API_URL}/api/reports?${params.toString()}`, {
+          signal: controller.signal,
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        });
 
         clearTimeout(timeoutId);
 
@@ -159,34 +153,27 @@ export default function PoliceDashboard() {
           const errorText = await springResponse.text();
           throw new Error(`Failed to fetch reports: ${springResponse.statusText}`);
         }
-        if (!blockchainResponse.ok) {
-          const errorText = await blockchainResponse.text();
-          throw new Error(`Failed to fetch blockchain data: ${blockchainResponse.statusText}`);
-        }
 
-        const [springData, blockchainData] = await Promise.all([
-          springResponse.json(),
-          blockchainResponse.json(),
-        ]);
+        const springData = await springResponse.json();
 
         const mergedReports: CrimeReport[] = (springData.reports || []).map((springReport: any) => {
-          const blockchainReport = blockchainData?.find((block: any) => block.data?.reportId === springReport.reportId);
-
           return {
             reportId: springReport.reportId,
             crimeTypeId: springReport.crimeTypeId,
-            crimeType: springReport.crimeType || 'Unknown',
+            crimeType: springReport.crimeType,
             categoryId: springReport.categoryId,
             categoryName: springReport.categoryName,
-            description: blockchainReport ? blockchainReport.data.description : springReport.originalDescription || 'No description',
-            translatedDescription: blockchainReport ? blockchainReport.data.translatedText : springReport.translatedDescription || '',
-            address: blockchainReport ? blockchainReport.data.address : springReport.address || 'Unknown',
-            city: blockchainReport ? blockchainReport.data.city : springReport.city || 'Unknown',
-            state: blockchainReport ? blockchainReport.data.state : springReport.state || 'Unknown',
-            policeStation: springReport.policeStation || 'Unknown',
-            status: springReport.status || 'RECEIVED_PENDING_REVIEW',
-            urgency: springReport.urgency || 'LOW',
-            submittedAt: blockchainReport ? blockchainReport.data.submittedAt : springReport.submittedAt || new Date().toISOString(),
+            originalDescription: springReport.originalDescription,
+            translatedDescription: springReport.translatedDescription,
+            address: springReport.address,
+            city: springReport.city,
+            state: springReport.state,
+            policeStation: springReport.policeStation,
+            status: springReport.status,
+            adminStatus: springReport.adminStatus || 'PENDING',
+            policeStatus: springReport.policeStatus || 'NOT_VIEWED',
+            urgency: springReport.urgency,
+            submittedAt: springReport.submittedAt,
             assignedOfficerId: springReport.assignedOfficerId,
           };
         });
@@ -213,9 +200,11 @@ export default function PoliceDashboard() {
 
   const stats = useMemo(() => ({
     totalReports: reports.length,
-    accepted: reports.filter(r => r.status === 'ACCEPTED').length,
-    pending: reports.filter(r => r.status.startsWith('RECEIVED_')).length,
-    urgent: reports.filter(r => r.urgency === 'HIGH').length,
+    assigned: reports.filter(r => r.adminStatus === 'ASSIGNED').length,
+    inProgress: reports.filter(r => r.policeStatus === 'IN_PROGRESS').length,
+    actionTaken: reports.filter(r => r.policeStatus === 'ACTION_TAKEN').length,
+    resolved: reports.filter(r => r.policeStatus === 'RESOLVED').length,
+    urgent: reports.filter(r => r.urgency === 'HIGH' || r.urgency === 'CRITICAL').length,
   }), [reports]);
 
   const recentReports = useMemo(() =>
@@ -245,30 +234,99 @@ export default function PoliceDashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ACCEPTED':
-      case 'RECEIVED_HIGH_PRIORITY':
-      case 'RECEIVED_MEDIUM_PRIORITY':
-      case 'RECEIVED_STANDARD':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
-            Accepted
+            ML: Accepted
           </span>
         );
       case 'REJECTED':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            Rejected
+            ML: Rejected
           </span>
         );
-      case 'RECEIVED_PENDING_REVIEW':
+      case 'PENDING_REVIEW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
-            Pending Review
+            ML: Pending Review
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
-            Unknown
+            ML: Unknown
+          </span>
+        );
+    }
+  };
+
+  const getAdminStatusBadge = (adminStatus: string) => {
+    switch (adminStatus) {
+      case 'APPROVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Admin: Approved
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
+            Admin: Rejected
+          </span>
+        );
+      case 'ASSIGNED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Admin: Assigned
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Admin: Pending
+          </span>
+        );
+    }
+  };
+
+  const getPoliceStatusBadge = (policeStatus: string) => {
+    switch (policeStatus) {
+      case 'VIEWED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-300 ring-1 ring-inset ring-blue-600/30 light:bg-blue-100 light:text-blue-800 light:ring-blue-300">
+            Police: Viewed
+          </span>
+        );
+      case 'IN_PROGRESS':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-300 ring-1 ring-inset ring-yellow-600/30 light:bg-yellow-100 light:text-yellow-800 light:ring-yellow-300">
+            Police: In Progress
+          </span>
+        );
+      case 'ACTION_TAKEN':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Action Taken
+          </span>
+        );
+      case 'RESOLVED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
+            Police: Resolved
+          </span>
+        );
+      case 'CLOSED':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Closed
+          </span>
+        );
+      case 'NOT_VIEWED':
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Police: Not Viewed
           </span>
         );
     }
@@ -277,9 +335,10 @@ export default function PoliceDashboard() {
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case 'HIGH':
+      case 'CRITICAL':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600/20 text-red-300 ring-1 ring-inset ring-red-600/30 light:bg-red-100 light:text-red-800 light:ring-red-300">
-            High
+            {priority.charAt(0) + priority.slice(1).toLowerCase()}
           </span>
         );
       case 'MEDIUM':
@@ -288,10 +347,16 @@ export default function PoliceDashboard() {
             Medium
           </span>
         );
-      default:
+      case 'LOW':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300">
             Low
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300">
+            Unknown
           </span>
         );
     }
@@ -354,16 +419,16 @@ export default function PoliceDashboard() {
               color="border-[#C3B091]"
             />
             <StatCard
-              title="Accepted"
-              value={stats.accepted}
-              icon="✅"
-              color="border-green-500"
+              title="In Progress"
+              value={stats.inProgress}
+              icon="🔄"
+              color="border-yellow-500"
             />
             <StatCard
-              title="Pending"
-              value={stats.pending}
-              icon="⏳"
-              color="border-yellow-500"
+              title="Action Taken"
+              value={stats.actionTaken}
+              icon="✅"
+              color="border-green-500"
             />
             <StatCard
               title="Urgent"
@@ -392,14 +457,16 @@ export default function PoliceDashboard() {
                     <th className="p-4">ID</th>
                     <th className="p-4">Type</th>
                     <th className="p-4">Location</th>
-                    <th className="p-4">Status</th>
+                    <th className="p-4">ML Status</th>
+                    <th className="p-4">Admin Status</th>
+                    <th className="p-4">Police Status</th>
                     <th className="p-4">Priority</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentReports.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-gray-400 light:text-gray-600">
+                      <td colSpan={7} className="p-4 text-center text-gray-400 light:text-gray-600">
                         {user ? `No reports assigned to officer ID ${user.id}` : 'Loading...'}
                       </td>
                     </tr>
@@ -416,6 +483,8 @@ export default function PoliceDashboard() {
                         <td className="p-4">{report.crimeType}</td>
                         <td className="p-4">{report.city}</td>
                         <td className="p-4">{getStatusBadge(report.status)}</td>
+                        <td className="p-4">{getAdminStatusBadge(report.adminStatus)}</td>
+                        <td className="p-4">{getPoliceStatusBadge(report.policeStatus)}</td>
                         <td className="p-4">{getPriorityBadge(report.urgency)}</td>
                       </motion.tr>
                     ))
@@ -442,17 +511,23 @@ export default function PoliceDashboard() {
           >
             <div className="rounded-xl border border-gray-700 bg-gray-800 bg-opacity-60 p-6 light:bg-white light:bg-opacity-80 light:border-gray-300">
               <div className="mb-4 flex items-center gap-2 text-xl font-bold text-gray-100 light:text-gray-800">
-                <span>📈</span> Reports Overview
+                <span>📈</span> Police Status Overview
               </div>
               <div className="h-64">
                 <Bar
                   data={{
-                    labels: ['Total', 'Accepted', 'Pending', 'Urgent'],
+                    labels: ['Not Viewed', 'Viewed', 'In Progress', 'Action Taken', 'Resolved'],
                     datasets: [{
                       label: 'Reports',
-                      data: [stats.totalReports, stats.accepted, stats.pending, stats.urgent],
-                      backgroundColor: ['#C3B091', '#22c55e', '#eab308', '#ef4444'],
-                      borderColor: ['#A69875', '#16a34a', '#ca8a04', '#dc2626'],
+                      data: [
+                        reports.filter(r => r.policeStatus === 'NOT_VIEWED').length,
+                        reports.filter(r => r.policeStatus === 'VIEWED').length,
+                        reports.filter(r => r.policeStatus === 'IN_PROGRESS').length,
+                        reports.filter(r => r.policeStatus === 'ACTION_TAKEN').length,
+                        reports.filter(r => r.policeStatus === 'RESOLVED').length
+                      ],
+                      backgroundColor: ['#6B7280', '#3B82F6', '#EAB308', '#10B981', '#059669'],
+                      borderColor: ['#4B5563', '#2563EB', '#CA8A04', '#059669', '#047857'],
                       borderWidth: 1,
                     }],
                   }}
@@ -474,7 +549,7 @@ export default function PoliceDashboard() {
                       x: {
                         title: {
                           display: true,
-                          text: 'Report Categories',
+                          text: 'Police Status',
                           color: theme === 'dark' ? '#E6D4A8' : '#333333',
                         },
                         ticks: {

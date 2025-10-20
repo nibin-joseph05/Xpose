@@ -25,6 +25,7 @@ interface CrimeReport {
   urgency: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   submittedAt: string;
   assignedOfficerId?: number;
+  rejectionReason?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.220.2:8080';
@@ -34,11 +35,15 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedReport, setSelectedReport] = useState<CrimeReport | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -86,6 +91,7 @@ export default function ReportsPage() {
           urgency: springReport.urgency,
           submittedAt: springReport.submittedAt,
           assignedOfficerId: springReport.assignedOfficerId,
+          rejectionReason: springReport.rejectionReason,
         };
         return report;
       });
@@ -98,6 +104,73 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApproveReport = async () => {
+    if (!selectedReport) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/reports/update-admin-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportId: selectedReport.reportId,
+          adminStatus: 'APPROVED',
+          reviewedById: 1, // You might want to get this from user session
+          rejectionReason: null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to approve report: ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccessMessage('Report approved successfully!');
+        setIsModalOpen(false);
+        setSelectedReport(null);
+        setStatusMessage('');
+        await fetchReports();
+      } else {
+        throw new Error(result.message || 'Failed to approve report');
+      }
+    } catch (err: any) {
+      console.error('Error approving report:', err);
+      setError(err.message || 'Failed to approve report');
+    }
+  };
+
+  const handleOpenStatusModal = (report: CrimeReport) => {
+    setSelectedReport(report);
+
+    // Check if report can be approved
+    if (report.adminStatus === 'ASSIGNED' && report.assignedOfficerId) {
+      setStatusMessage('');
+      setIsModalOpen(true);
+    } else if (!report.assignedOfficerId) {
+      setStatusMessage('Please assign an officer first to approve this report.');
+      setIsModalOpen(true);
+    } else if (report.adminStatus === 'APPROVED') {
+      setStatusMessage('This report is already approved.');
+      setIsModalOpen(true);
+    } else if (report.adminStatus === 'REJECTED') {
+      setStatusMessage('This report has been rejected and cannot be approved.');
+      setIsModalOpen(true);
+    } else {
+      setStatusMessage('This report needs to be assigned before it can be approved.');
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedReport(null);
+    setStatusMessage('');
   };
 
   const getStatusBadge = (status: string) => {
@@ -260,6 +333,10 @@ export default function ReportsPage() {
     router.push(`/admin/reports/${reportId}`);
   };
 
+  const canApproveReport = (report: CrimeReport) => {
+    return report.adminStatus === 'ASSIGNED' && report.assignedOfficerId;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 to-indigo-950 text-white transition-colors duration-500 dark:from-gray-950 dark:to-indigo-950 light:from-blue-50 light:to-purple-50 light:text-gray-900">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-20">
@@ -284,6 +361,16 @@ export default function ReportsPage() {
               className="bg-red-900 text-red-200 p-4 rounded-lg border border-red-700 mb-6 font-medium light:bg-red-100 light:text-red-700 light:border-red-300"
             >
               {error}
+            </motion.div>
+          )}
+
+          {successMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-green-900 text-green-200 p-4 rounded-lg border border-green-700 mb-6 font-medium light:bg-green-100 light:text-green-700 light:border-green-300"
+            >
+              {successMessage}
             </motion.div>
           )}
 
@@ -352,13 +439,33 @@ export default function ReportsPage() {
                         <td className="p-4">{getPoliceStatusBadge(report.policeStatus)}</td>
                         <td className="p-4">{getPriorityBadge(report.urgency)}</td>
                         <td className="p-4 text-gray-400 light:text-gray-700">{new Date(report.submittedAt).toLocaleString()}</td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 text-center space-x-2">
+                          <button
+                            onClick={() => handleOpenStatusModal(report)}
+                            disabled={!canApproveReport(report) && report.adminStatus !== 'APPROVED'}
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
+                              canApproveReport(report)
+                                ? 'text-green-400 hover:bg-green-800/50 hover:text-green-300 light:text-green-600 light:hover:bg-green-100 light:hover:text-green-800'
+                                : report.adminStatus === 'APPROVED'
+                                ? 'text-gray-400 cursor-not-allowed light:text-gray-500'
+                                : 'text-yellow-400 hover:bg-yellow-800/50 hover:text-yellow-300 light:text-yellow-600 light:hover:bg-yellow-100 light:hover:text-yellow-800'
+                            }`}
+                            title={
+                              canApproveReport(report)
+                                ? "Approve Report"
+                                : report.adminStatus === 'APPROVED'
+                                ? "Already Approved"
+                                : "Assign an officer first to approve"
+                            }
+                          >
+                            {canApproveReport(report) ? '✅' : report.adminStatus === 'APPROVED' ? '✅' : '⏳'}
+                          </button>
                           <button
                             onClick={() => handleViewReport(report.reportId)}
-                            className="inline-flex items-center justify-center px-3 py-1 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 transition-colors duration-200 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800"
                             title="View Report Details"
                           >
-                            View
+                            👁️
                           </button>
                         </td>
                       </motion.tr>
@@ -400,6 +507,91 @@ export default function ReportsPage() {
               </div>
             )}
           </motion.div>
+
+          {/* Status Update Modal */}
+          {isModalOpen && selectedReport && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700 light:bg-white light:border-gray-300"
+              >
+                <h3 className="text-lg font-bold text-blue-300 light:text-blue-700 mb-4">
+                  Manage Report: {selectedReport.reportId}
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="bg-gray-700 rounded-lg p-4 light:bg-gray-100">
+                    <h4 className="text-md font-semibold text-blue-300 light:text-blue-700 mb-2">Current Status</h4>
+                    <p className="text-gray-300 light:text-gray-700">
+                      <strong>Admin Status:</strong> {selectedReport.adminStatus}
+                    </p>
+                    <p className="text-gray-300 light:text-gray-700">
+                      <strong>Assigned Officer:</strong> {selectedReport.assignedOfficerId ? `ID: ${selectedReport.assignedOfficerId}` : 'Not assigned'}
+                    </p>
+                  </div>
+
+                  {statusMessage && (
+                    <div className={`p-3 rounded-lg ${
+                      statusMessage.includes('approved')
+                        ? 'bg-green-900/30 text-green-300 border border-green-700 light:bg-green-100 light:text-green-700'
+                        : statusMessage.includes('rejected')
+                        ? 'bg-red-900/30 text-red-300 border border-red-700 light:bg-red-100 light:text-red-700'
+                        : 'bg-yellow-900/30 text-yellow-300 border border-yellow-700 light:bg-yellow-100 light:text-yellow-700'
+                    }`}>
+                      {statusMessage}
+                    </div>
+                  )}
+
+                  {canApproveReport(selectedReport) && (
+                    <div className="space-y-3">
+                      <p className="text-green-300 light:text-green-600 font-medium">
+                        This report is assigned and ready for approval.
+                      </p>
+                      <Button
+                        onClick={handleApproveReport}
+                        className="w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white light:from-green-400 light:to-teal-500 light:hover:from-green-500 light:hover:to-teal-600"
+                      >
+                        Approve Report
+                      </Button>
+                    </div>
+                  )}
+
+                  {!selectedReport.assignedOfficerId && (
+                    <div className="text-center">
+                      <p className="text-yellow-300 light:text-yellow-600 mb-3">
+                        This report needs to be assigned to an officer before it can be approved.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          handleCloseModal();
+                          router.push('/admin/assign-report');
+                        }}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white light:from-blue-400 light:to-purple-500 light:hover:from-blue-500 light:hover:to-purple-600"
+                      >
+                        Go to Assign Reports
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-2 mt-4">
+                  <Button
+                    onClick={handleCloseModal}
+                    className="bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
         </motion.div>
       </main>
 
