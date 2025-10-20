@@ -82,8 +82,6 @@ export default function PoliceDashboard() {
         }
         const userData = await response.json();
 
-        console.log('👤 DEBUG: User data received:', userData);
-
         if (userData.role !== 'POLICE') {
           setError('Access denied: Only police officers can access this dashboard');
           localStorage.removeItem('authToken');
@@ -99,8 +97,6 @@ export default function PoliceDashboard() {
           role: userData.role,
           stationId: userData.stationId?.toString() || userData.station?.id?.toString()
         };
-
-        console.log('👤 DEBUG: Formatted user data:', formattedUserData);
 
         setUser(formattedUserData);
         localStorage.setItem('userData', JSON.stringify(formattedUserData));
@@ -118,18 +114,14 @@ export default function PoliceDashboard() {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    setTheme(savedTheme === 'light' ? 'light' : 'dark');
+    const theme = savedTheme === 'light' ? 'light' : 'dark';
+    setTheme(theme);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.classList.toggle('light', theme === 'light');
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    document.documentElement.classList.toggle('light', theme === 'light');
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
     if (!user?.id) {
-      console.log('⚠️ User data incomplete - missing ID:', user);
       return;
     }
 
@@ -137,12 +129,6 @@ export default function PoliceDashboard() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-        console.log('🔍 DEBUG: Preparing to fetch reports for user:', {
-          userId: user.id,
-          stationId: user.stationId,
-          userIdType: typeof user.id
-        });
 
         const params = new URLSearchParams({
           page: '0',
@@ -155,7 +141,6 @@ export default function PoliceDashboard() {
         }
 
         const reportsUrl = `${API_URL}/api/reports?${params.toString()}`;
-        console.log('📡 DEBUG: Fetching from URL:', reportsUrl);
 
         const [springResponse, blockchainResponse] = await Promise.all([
           fetch(reportsUrl, {
@@ -172,12 +157,10 @@ export default function PoliceDashboard() {
 
         if (!springResponse.ok) {
           const errorText = await springResponse.text();
-          console.error('❌ Spring API error:', springResponse.status, errorText);
           throw new Error(`Failed to fetch reports: ${springResponse.statusText}`);
         }
         if (!blockchainResponse.ok) {
           const errorText = await blockchainResponse.text();
-          console.error('❌ Blockchain API error:', blockchainResponse.status, errorText);
           throw new Error(`Failed to fetch blockchain data: ${blockchainResponse.statusText}`);
         }
 
@@ -185,16 +168,6 @@ export default function PoliceDashboard() {
           springResponse.json(),
           blockchainResponse.json(),
         ]);
-
-        console.log('📊 DEBUG: Spring API response:', springData);
-        console.log('🔗 DEBUG: Blockchain data count:', blockchainData?.length || 0);
-
-        if (springData.reports && springData.reports.length > 0) {
-          console.log('✅ DEBUG: Found reports:', springData.reports.length);
-          console.log('📝 DEBUG: Sample report:', springData.reports[0]);
-        } else {
-          console.log('❌ DEBUG: No reports found in response');
-        }
 
         const mergedReports: CrimeReport[] = (springData.reports || []).map((springReport: any) => {
           const blockchainReport = blockchainData?.find((block: any) => block.data?.reportId === springReport.reportId);
@@ -218,8 +191,6 @@ export default function PoliceDashboard() {
           };
         });
 
-        console.log('🎯 DEBUG: Final merged reports count:', mergedReports.length);
-
         setReports(mergedReports);
         localStorage.setItem(`reports_${user.id}`, JSON.stringify(mergedReports));
 
@@ -229,9 +200,7 @@ export default function PoliceDashboard() {
           setError('');
         }
       } catch (err: any) {
-        console.error('❌ Fetch error:', err);
         if (err.name === 'AbortError' && retryCount < 2) {
-          console.log('🔄 DEBUG: Retrying fetch...');
           return fetchReports(retryCount + 1);
         }
         setError(err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message || 'Failed to fetch reports');
