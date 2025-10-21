@@ -7,7 +7,7 @@ import '../pages/auth/auth_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../pages/home/home.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:Xpose/providers/notification_provider.dart';
 
 void main() async {
@@ -31,18 +31,17 @@ void main() async {
   ));
 
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => NotificationProvider(),
-      child: const XposeApp(),
+    const ProviderScope(
+      child: XposeApp(),
     ),
   );
 }
 
-class XposeApp extends StatelessWidget {
+class XposeApp extends ConsumerWidget {
   const XposeApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'Xpose',
       debugShowCheckedModeBanner: false,
@@ -98,11 +97,11 @@ class XposeApp extends StatelessWidget {
   }
 }
 
-class AuthCheck extends StatelessWidget {
+class AuthCheck extends ConsumerWidget {
   const AuthCheck({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

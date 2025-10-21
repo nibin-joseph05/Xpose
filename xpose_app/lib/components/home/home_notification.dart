@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:Xpose/services/notification_service.dart';
-import 'package:Xpose/models/notification_model.dart' as notif_model;
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:Xpose/providers/notification_provider.dart';
 
-class HomeNotification extends StatefulWidget {
+class HomeNotification extends ConsumerStatefulWidget {
   final VoidCallback? onTap;
   final int unreadCount;
 
@@ -15,10 +13,10 @@ class HomeNotification extends StatefulWidget {
   });
 
   @override
-  State<HomeNotification> createState() => _HomeNotificationState();
+  ConsumerState<HomeNotification> createState() => _HomeNotificationState();
 }
 
-class _HomeNotificationState extends State<HomeNotification> {
+class _HomeNotificationState extends ConsumerState<HomeNotification> {
   @override
   void initState() {
     super.initState();
@@ -37,9 +35,10 @@ class _HomeNotificationState extends State<HomeNotification> {
           backgroundColor: Theme.of(context).colorScheme.surface,
           foregroundColor: Colors.white,
         ),
-        body: Consumer<NotificationProvider>(
-          builder: (context, notificationProvider, child) {
-            final notifications = notificationProvider.notifications;
+        body: Consumer(
+          builder: (context, ref, child) {
+            final notificationState = ref.watch(notificationProvider);
+            final notifications = notificationState.notifications;
 
             if (notifications.isEmpty) {
               return const Center(
@@ -75,8 +74,8 @@ class _HomeNotificationState extends State<HomeNotification> {
                             color: Colors.blueAccent),
                         onPressed: () async {
                           try {
-                            await notificationProvider.markNotificationAsRead(
-                                notification.id);
+                            final notifier = ref.read(notificationProvider.notifier);
+                            await notifier.markNotificationAsRead(notification.id);
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -87,7 +86,8 @@ class _HomeNotificationState extends State<HomeNotification> {
                       ),
                       onTap: () {
                         if (!notification.isRead) {
-                          notificationProvider.markNotificationAsRead(notification.id)
+                          final notifier = ref.read(notificationProvider.notifier);
+                          notifier.markNotificationAsRead(notification.id)
                               .catchError((e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

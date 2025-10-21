@@ -44,6 +44,8 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<CrimeReport | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isRejectMode, setIsRejectMode] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -135,6 +137,8 @@ export default function ReportsPage() {
         setIsModalOpen(false);
         setSelectedReport(null);
         setStatusMessage('');
+        setRejectionReason('');
+        setIsRejectMode(false);
         await fetchReports();
       } else {
         throw new Error(result.message || 'Failed to approve report');
@@ -145,31 +149,78 @@ export default function ReportsPage() {
     }
   };
 
+  const handleRejectReport = async () => {
+    if (!selectedReport) return;
+
+    if (!rejectionReason.trim()) {
+      setError('Please provide a rejection reason');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/reports/update-admin-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reportId: selectedReport.reportId,
+          adminStatus: 'REJECTED',
+          reviewedById: 1,
+          rejectionReason: rejectionReason.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to reject report: ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccessMessage('Report rejected successfully!');
+        setIsModalOpen(false);
+        setSelectedReport(null);
+        setStatusMessage('');
+        setRejectionReason('');
+        setIsRejectMode(false);
+        await fetchReports();
+      } else {
+        throw new Error(result.message || 'Failed to reject report');
+      }
+    } catch (err: any) {
+      console.error('Error rejecting report:', err);
+      setError(err.message || 'Failed to reject report');
+    }
+  };
+
   const handleOpenStatusModal = (report: CrimeReport) => {
     setSelectedReport(report);
+    setRejectionReason('');
+    setIsRejectMode(false);
 
-    if (report.adminStatus === 'ASSIGNED' && report.assignedOfficerId) {
-      setStatusMessage('');
-      setIsModalOpen(true);
-    } else if (!report.assignedOfficerId) {
-      setStatusMessage('Please assign an officer first to approve this report.');
-      setIsModalOpen(true);
-    } else if (report.adminStatus === 'APPROVED') {
+    if (report.adminStatus === 'APPROVED') {
       setStatusMessage('This report is already approved.');
-      setIsModalOpen(true);
     } else if (report.adminStatus === 'REJECTED') {
-      setStatusMessage('This report has been rejected and cannot be approved.');
-      setIsModalOpen(true);
+      setStatusMessage('This report has been rejected and cannot be changed.');
+    } else if (report.status !== 'ACCEPTED') {
+      setStatusMessage('This report needs ML approval before it can be processed.');
+    } else if (!report.assignedOfficerId) {
+      setStatusMessage('Please assign an officer first to process this report.');
     } else {
-      setStatusMessage('This report needs to be assigned before it can be approved.');
-      setIsModalOpen(true);
+      setStatusMessage('This report is ready for review.');
     }
+
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedReport(null);
     setStatusMessage('');
+    setRejectionReason('');
+    setIsRejectMode(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -332,8 +383,10 @@ export default function ReportsPage() {
     router.push(`/admin/reports/${reportId}`);
   };
 
-  const canApproveReport = (report: CrimeReport) => {
-    return report.adminStatus === 'ASSIGNED' && report.assignedOfficerId;
+  const canProcessReport = (report: CrimeReport) => {
+    return (report.adminStatus === 'PENDING' || report.adminStatus === 'ASSIGNED') &&
+           report.status === 'ACCEPTED' &&
+           report.assignedOfficerId;
   };
 
   return (
@@ -441,23 +494,27 @@ export default function ReportsPage() {
                         <td className="p-4 text-center space-x-2">
                           <button
                             onClick={() => handleOpenStatusModal(report)}
-                            disabled={!canApproveReport(report) && report.adminStatus !== 'APPROVED'}
+                            disabled={!canProcessReport(report) && report.adminStatus !== 'APPROVED' && report.adminStatus !== 'REJECTED'}
                             className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors duration-200 ${
-                              canApproveReport(report)
-                                ? 'text-green-400 hover:bg-green-800/50 hover:text-green-300 light:text-green-600 light:hover:bg-green-100 light:hover:text-green-800'
+                              canProcessReport(report)
+                                ? 'text-blue-400 hover:bg-blue-800/50 hover:text-blue-300 light:text-blue-600 light:hover:bg-blue-100 light:hover:text-blue-800'
                                 : report.adminStatus === 'APPROVED'
-                                ? 'text-gray-400 cursor-not-allowed light:text-gray-500'
+                                ? 'text-green-400 cursor-not-allowed light:text-green-500'
+                                : report.adminStatus === 'REJECTED'
+                                ? 'text-red-400 cursor-not-allowed light:text-red-500'
                                 : 'text-yellow-400 hover:bg-yellow-800/50 hover:text-yellow-300 light:text-yellow-600 light:hover:bg-yellow-100 light:hover:text-yellow-800'
                             }`}
                             title={
-                              canApproveReport(report)
-                                ? "Approve Report"
+                              canProcessReport(report)
+                                ? "Review Report"
                                 : report.adminStatus === 'APPROVED'
                                 ? "Already Approved"
-                                : "Assign an officer first to approve"
+                                : report.adminStatus === 'REJECTED'
+                                ? "Already Rejected"
+                                : "Cannot process at this time"
                             }
                           >
-                            {canApproveReport(report) ? '✅' : report.adminStatus === 'APPROVED' ? '✅' : '⏳'}
+                            {canProcessReport(report) ? '📋' : report.adminStatus === 'APPROVED' ? '✅' : report.adminStatus === 'REJECTED' ? '❌' : '⏳'}
                           </button>
                           <button
                             onClick={() => handleViewReport(report.reportId)}
@@ -529,7 +586,13 @@ export default function ReportsPage() {
                   <div className="bg-gray-700 rounded-lg p-4 light:bg-gray-100">
                     <h4 className="text-md font-semibold text-blue-300 light:text-blue-700 mb-2">Current Status</h4>
                     <p className="text-gray-300 light:text-gray-700">
+                      <strong>ML Status:</strong> {selectedReport.status}
+                    </p>
+                    <p className="text-gray-300 light:text-gray-700">
                       <strong>Admin Status:</strong> {selectedReport.adminStatus}
+                    </p>
+                    <p className="text-gray-300 light:text-gray-700">
+                      <strong>Police Status:</strong> {selectedReport.policeStatus}
                     </p>
                     <p className="text-gray-300 light:text-gray-700">
                       <strong>Assigned Officer:</strong> {selectedReport.assignedOfficerId ? `ID: ${selectedReport.assignedOfficerId}` : 'Not assigned'}
@@ -548,24 +611,62 @@ export default function ReportsPage() {
                     </div>
                   )}
 
-                  {canApproveReport(selectedReport) && (
+                  {canProcessReport(selectedReport) && !isRejectMode && (
                     <div className="space-y-3">
-                      <p className="text-green-300 light:text-green-600 font-medium">
-                        This report is assigned and ready for approval.
+                      <p className="text-blue-300 light:text-blue-600 font-medium">
+                        This report is ready for review. Choose an action:
                       </p>
-                      <Button
-                        onClick={handleApproveReport}
-                        className="w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white light:from-green-400 light:to-teal-500 light:hover:from-green-500 light:hover:to-teal-600"
-                      >
-                        Approve Report
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button
+                          onClick={handleApproveReport}
+                          className="flex-1 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white light:from-green-400 light:to-teal-500 light:hover:from-green-500 light:hover:to-teal-600"
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => setIsRejectMode(true)}
+                          className="flex-1 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white light:from-red-400 light:to-pink-500 light:hover:from-red-500 light:hover:to-pink-600"
+                        >
+                          Reject
+                        </Button>
+                      </div>
                     </div>
                   )}
 
-                  {!selectedReport.assignedOfficerId && (
+                  {isRejectMode && (
+                    <div className="space-y-3">
+                      <p className="text-red-300 light:text-red-600 font-medium">
+                        Please provide a reason for rejecting this report:
+                      </p>
+                      <textarea
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        placeholder="Enter rejection reason..."
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 light:bg-gray-100 light:border-gray-300 light:text-gray-900 light:placeholder-gray-500"
+                        rows={3}
+                      />
+                      <div className="flex space-x-2">
+                        <Button
+                          onClick={handleRejectReport}
+                          disabled={!rejectionReason.trim()}
+                          className="flex-1 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white disabled:opacity-50 light:from-red-400 light:to-pink-500 light:hover:from-red-500 light:hover:to-pink-600"
+                        >
+                          Confirm Reject
+                        </Button>
+                        <Button
+                          onClick={() => setIsRejectMode(false)}
+                          className="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white light:bg-gray-200 light:hover:bg-gray-300 light:text-gray-700"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!selectedReport.assignedOfficerId && selectedReport.status === 'ACCEPTED' && (
                     <div className="text-center">
                       <p className="text-yellow-300 light:text-yellow-600 mb-3">
-                        This report needs to be assigned to an officer before it can be approved.
+                        This report needs to be assigned to an officer before it can be processed.
                       </p>
                       <Button
                         onClick={() => {

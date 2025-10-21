@@ -1,55 +1,77 @@
-import 'package:flutter/material.dart';
-import 'package:Xpose/services/notification_service.dart';
-import 'package:Xpose/models/notification_model.dart' as notif_model;
 
-class NotificationProvider with ChangeNotifier {
-  int _unreadCount = 0;
-  int get unreadCount => _unreadCount;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/notification_service.dart';
+import '../models/notification_model.dart' as notif_model;
 
-  List<notif_model.Notification> _notifications = [];
-  List<notif_model.Notification> get notifications => _notifications;
+class NotificationState {
+  final int unreadCount;
+  final List<notif_model.Notification> notifications;
+  final bool isLoading;
 
-  NotificationProvider() {
-    fetchUnreadCount();
-    fetchNotifications();
+  NotificationState({
+    required this.unreadCount,
+    required this.notifications,
+    this.isLoading = false,
+  });
+
+  NotificationState copyWith({
+    int? unreadCount,
+    List<notif_model.Notification>? notifications,
+    bool? isLoading,
+  }) {
+    return NotificationState(
+      unreadCount: unreadCount ?? this.unreadCount,
+      notifications: notifications ?? this.notifications,
+      isLoading: isLoading ?? this.isLoading,
+    );
+  }
+}
+
+class NotificationNotifier extends StateNotifier<NotificationState> {
+  NotificationNotifier() : super(NotificationState(unreadCount: 0, notifications: [])) {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await fetchUnreadCount();
+    await fetchNotifications();
   }
 
   Future<void> fetchUnreadCount() async {
     try {
+      state = state.copyWith(isLoading: true);
+
       final userId = await NotificationService.getCurrentUserId();
       if (userId != null) {
         final unreadNotifications = await NotificationService.getUnreadNotificationsForUser(userId);
-        if (_unreadCount != unreadNotifications.length) {
-          _unreadCount = unreadNotifications.length;
-          notifyListeners();
-        }
+        state = state.copyWith(
+          unreadCount: unreadNotifications.length,
+          isLoading: false,
+        );
       } else {
-        if (_unreadCount != 0) {
-          _unreadCount = 0;
-          notifyListeners();
-        }
+        state = state.copyWith(unreadCount: 0, isLoading: false);
       }
     } catch (e) {
-      if (_unreadCount != 0) {
-        _unreadCount = 0;
-        notifyListeners();
-      }
+      state = state.copyWith(unreadCount: 0, isLoading: false);
     }
   }
 
   Future<void> fetchNotifications() async {
     try {
+      state = state.copyWith(isLoading: true);
+
       final userId = await NotificationService.getCurrentUserId();
       if (userId != null) {
-        _notifications = await NotificationService.getNotificationsForUser(userId);
-        notifyListeners();
+        final notifications = await NotificationService.getNotificationsForUser(userId);
+        state = state.copyWith(
+          notifications: notifications,
+          isLoading: false,
+        );
       } else {
-        _notifications = [];
-        notifyListeners();
+        state = state.copyWith(notifications: [], isLoading: false);
       }
     } catch (e) {
-      _notifications = [];
-      notifyListeners();
+      state = state.copyWith(notifications: [], isLoading: false);
     }
   }
 
@@ -63,3 +85,8 @@ class NotificationProvider with ChangeNotifier {
     }
   }
 }
+
+
+final notificationProvider = StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {
+  return NotificationNotifier();
+});
