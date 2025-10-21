@@ -21,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -55,6 +56,9 @@ public class ReportViewController {
 
     @Value("${app.upload.dir}")
     private String uploadDir;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping
     public ResponseEntity<?> getAllReports(
@@ -210,10 +214,19 @@ public class ReportViewController {
                     request.getReviewedById(),
                     request.getRejectionReason()
             );
-            if (!(Boolean) result.get("success")) {
-                logger.warn("Failed to update admin status for report ID: {}", request.getReportId());
-                return ResponseEntity.badRequest().body(result);
+
+            if ((Boolean) result.get("success")) {
+                Map<String, Object> update = Map.of(
+                        "reportId", request.getReportId(),
+                        "updateType", "ADMIN_STATUS_CHANGED",
+                        "adminStatus", request.getAdminStatus(),
+                        "timestamp", System.currentTimeMillis()
+                );
+
+                messagingTemplate.convertAndSend("/topic/report.updates", update);
+                logger.info("Broadcasted admin status update for report: {}", request.getReportId());
             }
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             logger.error("Error updating admin status for report ID {}: {}", request.getReportId(), e.getMessage(), e);
