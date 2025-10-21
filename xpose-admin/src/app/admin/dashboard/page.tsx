@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -49,6 +48,44 @@ interface StatCardProps {
   trend?: number;
   description?: string;
 }
+
+
+const addressToCoordinates = (address: string, city: string, state: string) => {
+
+  const keralaCities: { [key: string]: { lat: number; lng: number } } = {
+    'Pathanamthitta': { lat: 9.2649, lng: 76.7870 },
+    'Idukki': { lat: 9.8480, lng: 76.9393 },
+    'Kochi': { lat: 9.9312, lng: 76.2673 },
+    'Thiruvananthapuram': { lat: 8.5241, lng: 76.9366 },
+    'Kozhikode': { lat: 11.2588, lng: 75.7804 },
+    'Thrissur': { lat: 10.5276, lng: 76.2144 },
+    'Kottayam': { lat: 9.5916, lng: 76.5222 },
+    'Alappuzha': { lat: 9.4981, lng: 76.3388 },
+    'Palakkad': { lat: 10.7867, lng: 76.6548 },
+    'Malappuram': { lat: 11.0732, lng: 76.0730 },
+    'Kannur': { lat: 11.8745, lng: 75.3704 },
+    'Kasaragod': { lat: 12.4996, lng: 74.9869 }
+  };
+
+
+  const cityKey = Object.keys(keralaCities).find(key =>
+    city.toLowerCase().includes(key.toLowerCase()) ||
+    address.toLowerCase().includes(key.toLowerCase())
+  );
+
+  if (cityKey) {
+    const baseCoords = keralaCities[cityKey];
+
+    const variation = 0.02;
+    return {
+      lat: baseCoords.lat + (Math.random() - 0.5) * variation,
+      lng: baseCoords.lng + (Math.random() - 0.5) * variation
+    };
+  }
+
+
+  return { lat: 9.2649, lng: 76.7870 };
+};
 
 export default function AdminDashboard() {
   const [error, setError] = useState('');
@@ -158,6 +195,13 @@ export default function AdminDashboard() {
         const springData = await springResponse.json();
 
         const mergedReports: CrimeReport[] = (springData.reports || []).map((springReport: any) => {
+
+          const coords = addressToCoordinates(
+            springReport.address,
+            springReport.city,
+            springReport.state
+          );
+
           return {
             reportId: springReport.reportId,
             crimeTypeId: springReport.crimeTypeId,
@@ -176,8 +220,8 @@ export default function AdminDashboard() {
             urgency: springReport.urgency,
             submittedAt: springReport.submittedAt,
             assignedOfficerId: springReport.assignedOfficerId,
-            latitude: springReport.latitude,
-            longitude: springReport.longitude,
+            latitude: springReport.latitude || coords.lat,
+            longitude: springReport.longitude || coords.lng,
           };
         });
 
@@ -275,46 +319,43 @@ export default function AdminDashboard() {
   }, [reports]);
 
 
-  const mlPerformance = useMemo(() => {
-    const total = reports.length;
-    const accepted = reports.filter(r => r.status === 'ACCEPTED').length;
-    const rejected = reports.filter(r => r.status === 'REJECTED').length;
-    const pending = reports.filter(r => r.status === 'PENDING_REVIEW').length;
+  const mapCenter = useMemo(() => {
+    if (reports.length === 0) return { lat: 9.5916, lng: 76.5222 };
+
+
+    const mostRecent = [...reports].sort((a, b) =>
+      new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    )[0];
 
     return {
-      accepted,
-      rejected,
-      pending,
-      accuracy: total > 0 ? ((accepted + rejected) / total) * 100 : 0
+      lat: mostRecent.latitude || 9.5916,
+      lng: mostRecent.longitude || 76.5222
     };
   }, [reports]);
 
-
-  const recentReports = useMemo(() =>
-    [...reports]
-      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-      .slice(0, 5),
-  [reports]);
-
-
-  const mapCenter = useMemo(() => {
-    const reportWithCoords = reports.find(r => r.latitude && r.longitude);
-    return reportWithCoords ?
-      { lat: reportWithCoords.latitude!, lng: reportWithCoords.longitude! } :
-      { lat: 9.5916, lng: 76.5222 };
-  }, [reports]);
-
   const mapMarkers = useMemo(() => {
-    return reports
-      .filter(r => r.latitude && r.longitude)
-      .slice(0, 15)
-      .map(report => ({
-        lat: report.latitude!,
-        lng: report.longitude!,
-        title: `${report.crimeType} - ${report.city}`
-      }));
+    return reports.slice(0, 15).map(report => ({
+      lat: report.latitude!,
+      lng: report.longitude!,
+      title: `${report.crimeType} - ${report.city || 'Unknown Location'}`
+    }));
   }, [reports]);
 
+
+  const coordinatesDebug = useMemo(() => {
+    const reportsWithCoords = reports.filter(r => r.latitude && r.longitude);
+    return {
+      totalReports: reports.length,
+      reportsWithCoordinates: reportsWithCoords.length,
+      sampleCoordinates: reportsWithCoords.slice(0, 3).map(r => ({
+        lat: r.latitude,
+        lng: r.longitude,
+        city: r.city,
+        crimeType: r.crimeType,
+        address: r.address
+      }))
+    };
+  }, [reports]);
 
   const calculateTrends = () => {
     return {
@@ -703,9 +744,12 @@ export default function AdminDashboard() {
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-100 light:text-gray-800">
                     <span>🗺️</span> Crime Locations Map
+                    <span className="text-sm text-yellow-400 ml-2">
+                      ({mapMarkers.length} locations shown)
+                    </span>
                   </h2>
                   <div className="text-sm text-gray-400 light:text-gray-600">
-                    Showing {mapMarkers.length} crime locations
+                    Based on report locations in Kerala
                   </div>
                 </div>
                 <AdminMap
@@ -749,12 +793,12 @@ export default function AdminDashboard() {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {recentReports.length === 0 ? (
+                  {reports.length === 0 ? (
                     <div className="text-center text-gray-500 light:text-gray-400 py-4">
                       No recent activity
                     </div>
                   ) : (
-                    recentReports.map((report) => (
+                    reports.slice(0, 5).map((report) => (
                       <div key={report.reportId} className="flex items-center justify-between p-3 rounded-lg bg-gray-700 light:bg-gray-100 hover:bg-gray-600 light:hover:bg-gray-200 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className={`w-2 h-2 rounded-full ${
@@ -783,70 +827,6 @@ export default function AdminDashboard() {
           )}
         </motion.div>
       </main>
-
-      <style jsx>{`
-        .particle-layer,
-        .shimmer-layer {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-        }
-
-        .particle-layer::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
-            radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
-          animation: background-move 15s infinite alternate ease-in-out;
-        }
-
-        .shimmer-layer::after {
-          content: '';
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          background: linear-gradient(
-            to right,
-            transparent,
-            rgba(255, 255, 255, 0.05) 5%,
-            rgba(255, 255, 255, 0.1) 10%,
-            transparent 15%
-          );
-          transform: rotate(45deg);
-          animation: shimmer-background 8s infinite linear;
-        }
-
-        @keyframes background-move {
-          0% {
-            transform: translate(0, 0);
-            opacity: 0.2;
-          }
-          50% {
-            transform: translate(5%, 5%);
-            opacity: 0.3;
-          }
-          100% {
-            transform: translate(0, 0);
-            opacity: 0.2;
-          }
-        }
-
-        @keyframes shimmer-background {
-          0% {
-            transform: translateX(-100%) rotate(45deg);
-          }
-          100% {
-            transform: translateX(100%) rotate(45deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }
