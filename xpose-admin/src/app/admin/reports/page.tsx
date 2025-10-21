@@ -118,7 +118,7 @@ export default function ReportsPage() {
         body: JSON.stringify({
           reportId: selectedReport.reportId,
           adminStatus: 'APPROVED',
-          reviewedById: 1, // You might want to get this from user session
+          reviewedById: 1,
           rejectionReason: null,
         }),
       });
@@ -148,7 +148,6 @@ export default function ReportsPage() {
   const handleOpenStatusModal = (report: CrimeReport) => {
     setSelectedReport(report);
 
-    // Check if report can be approved
     if (report.adminStatus === 'ASSIGNED' && report.assignedOfficerId) {
       setStatusMessage('');
       setIsModalOpen(true);

@@ -231,6 +231,21 @@ public class ReportViewController {
     public ResponseEntity<?> updatePoliceStatus(@RequestBody UpdatePoliceStatusRequest request) {
         try {
             logger.info("Updating police status for report ID: {}", request.getReportId());
+
+            if (request.getReportId() == null || request.getReportId().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Report ID is required"
+                ));
+            }
+
+            if (request.getPoliceStatus() == null || request.getPoliceStatus().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Police status is required"
+                ));
+            }
+
             Map<String, Object> result = crimeReportService.updatePoliceStatus(
                     request.getReportId(),
                     request.getPoliceStatus(),
@@ -238,11 +253,14 @@ public class ReportViewController {
                     request.getFeedback(),
                     request.getActionProof()
             );
+
             if (!(Boolean) result.get("success")) {
                 logger.warn("Failed to update police status for report ID: {}", request.getReportId());
                 return ResponseEntity.badRequest().body(result);
             }
+
             return ResponseEntity.ok(result);
+
         } catch (Exception e) {
             logger.error("Error updating police status for report ID {}: {}", request.getReportId(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(

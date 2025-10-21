@@ -222,62 +222,63 @@ export default function PoliceReportsPage() {
   };
 
   const updatePoliceStatus = async (reportId: string, newPoliceStatus: string, feedback?: string) => {
-    if (!user?.id) return;
+      if (!user?.id) return;
 
-    try {
-      setUpdatingStatus(reportId);
+      try {
+          setUpdatingStatus(reportId);
 
-      const requestBody = {
-        reportId: reportId,
-        policeStatus: newPoliceStatus,
-        officerId: parseInt(user.id),
-        feedback: feedback || ''
-      };
+          const requestBody = {
+              reportId: reportId,
+              policeStatus: newPoliceStatus,
+              officerId: parseInt(user.id),
+              feedback: feedback || '',
+              actionProof: ''
+          };
 
-      const response = await fetch(`${API_URL}/api/reports/update-police-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
+          const response = await fetch(`${API_URL}/api/reports/update-police-status`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              },
+              body: JSON.stringify(requestBody),
+          });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to update police status: ${errorText}`);
+          if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Failed to update police status: ${errorText}`);
+          }
+
+          const result = await response.json();
+
+          if (result.success) {
+              setReports(prev =>
+                  prev.map(report =>
+                      report.reportId === reportId
+                          ? {
+                              ...report,
+                              policeStatus: newPoliceStatus as any,
+                              policeFeedback: feedback || '',
+                              actionTakenAt: result.actionTakenAt || new Date().toISOString()
+                          }
+                          : report
+                  )
+              );
+
+              setShowActionModal(false);
+              setSelectedReport(null);
+              setActionFeedback('');
+              setActionFiles([]);
+
+              alert(`Status updated to ${newPoliceStatus}`);
+          } else {
+              throw new Error(result.message || 'Failed to update police status');
+          }
+      } catch (err: any) {
+          alert('Failed to update police status: ' + err.message);
+      } finally {
+          setUpdatingStatus(null);
       }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setReports(prev =>
-          prev.map(report =>
-            report.reportId === reportId
-              ? {
-                  ...report,
-                  policeStatus: newPoliceStatus as any,
-                  policeFeedback: feedback,
-                  actionTakenAt: new Date().toISOString()
-                }
-              : report
-          )
-        );
-
-        setShowActionModal(false);
-        setSelectedReport(null);
-        setActionFeedback('');
-        setActionFiles([]);
-
-        alert(`Status updated to ${newPoliceStatus}`);
-      } else {
-        throw new Error(result.message || 'Failed to update police status');
-      }
-    } catch (err: any) {
-      alert('Failed to update police status: ' + err.message);
-    } finally {
-      setUpdatingStatus(null);
-    }
   };
 
   const uploadPoliceProof = async (reportId: string, files: File[]) => {
@@ -342,10 +343,8 @@ export default function PoliceReportsPage() {
     try {
       setUpdatingStatus(selectedReport.reportId);
 
-      // First update the status
       await updatePoliceStatus(selectedReport.reportId, selectedReport.policeStatus, actionFeedback);
 
-      // Then upload files if any
       if (actionFiles.length > 0) {
         const uploadSuccess = await uploadPoliceProof(selectedReport.reportId, actionFiles);
         if (!uploadSuccess) {

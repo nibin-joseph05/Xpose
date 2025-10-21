@@ -188,14 +188,16 @@ public class CrimeReportService {
             crimeReportRepository.save(report);
             logger.info("Admin status updated for report ID: {} to {}", reportId, report.getAdminStatus());
 
-            return Map.of(
-                    "success", true,
-                    "message", "Admin status updated successfully",
-                    "reportId", reportId,
-                    "adminStatus", report.getAdminStatus().toString(),
-                    "policeStatus", report.getPoliceStatus().toString(),
-                    "reviewedAt", report.getReviewedAt().toString()
-            );
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Admin status updated successfully");
+            response.put("reportId", reportId);
+            response.put("adminStatus", report.getAdminStatus().toString());
+            response.put("policeStatus", report.getPoliceStatus().toString());
+            response.put("reviewedAt", report.getReviewedAt() != null ? report.getReviewedAt().toString() : null);
+
+            return response;
+
         } catch (Exception e) {
             logger.error("Error updating admin status for report ID {}: {}", reportId, e.getMessage(), e);
             return Map.of("success", false, "message", "Error updating admin status: " + e.getMessage());
@@ -240,13 +242,15 @@ public class CrimeReportService {
             crimeReportRepository.save(report);
             logger.info("Police status updated for report ID: {} to {}", reportId, newStatus);
 
-            return Map.of(
-                    "success", true,
-                    "message", "Police status updated successfully",
-                    "reportId", reportId,
-                    "policeStatus", newStatus.toString(),
-                    "actionTakenAt", report.getActionTakenAt() != null ? report.getActionTakenAt().toString() : null
-            );
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Police status updated successfully");
+            response.put("reportId", reportId);
+            response.put("policeStatus", newStatus.toString());
+            response.put("actionTakenAt", report.getActionTakenAt() != null ? report.getActionTakenAt().toString() : null);
+
+            return response;
+
         } catch (IllegalArgumentException e) {
             logger.error("Invalid police status for report ID {}: {}", reportId, policeStatus, e);
             return Map.of("success", false, "message", "Invalid police status: " + policeStatus);
@@ -405,11 +409,53 @@ public class CrimeReportService {
         logger.info("=== END CRIME REPORT DETAILS ===");
     }
 
+    private String generateUniqueTrackingId() {
+        String trackingId;
+        int maxAttempts = 10;
+        int attempts = 0;
+
+        do {
+            trackingId = TrackingIdGenerator.newTrackingId();
+            attempts++;
+
+            if (attempts > maxAttempts) {
+                logger.error("Failed to generate unique tracking ID after {} attempts", maxAttempts);
+                trackingId = TrackingIdGenerator.newTrackingId() + "-" + System.currentTimeMillis();
+                break;
+            }
+
+        } while (crimeReportRepository.existsById(trackingId));
+
+        logger.info("Generated unique tracking ID: {} (attempts: {})", trackingId, attempts);
+        return trackingId;
+    }
+
+    private String generateUniqueRejectedId() {
+        String rejectedId;
+        int maxAttempts = 10;
+        int attempts = 0;
+
+        do {
+            rejectedId = TrackingIdGenerator.newRejectedId();
+            attempts++;
+
+            if (attempts > maxAttempts) {
+                logger.error("Failed to generate unique rejected ID after {} attempts", maxAttempts);
+                rejectedId = TrackingIdGenerator.newRejectedId() + "-" + System.currentTimeMillis();
+                break;
+            }
+
+        } while (crimeReportRepository.existsById(rejectedId));
+
+        logger.info("Generated unique rejected ID: {} (attempts: {})", rejectedId, attempts);
+        return rejectedId;
+    }
+
     private Map<String, Object> createSuccessResponse(CrimeReportRequest request,
                                                       String original,
                                                       String processed,
                                                       Map<String, Object> mlResult) {
-        String reportId = TrackingIdGenerator.newTrackingId();
+        String reportId = generateUniqueTrackingId();
         String status = determineReportStatus(mlResult);
 
         CrimeReport report = new CrimeReport();
@@ -488,7 +534,7 @@ public class CrimeReportService {
     }
 
     private Map<String, Object> createSpamResponse(String originalDescription, CrimeReportRequest request, Map<String, Object> mlResult) {
-        String reportId = TrackingIdGenerator.newRejectedId();
+        String reportId = generateUniqueRejectedId();
 
         CrimeReport report = new CrimeReport();
         report.setId(reportId);
@@ -545,7 +591,7 @@ public class CrimeReportService {
                                                        Map<String, Object> mlResult,
                                                        String rejectionPhase,
                                                        CrimeReportRequest request) {
-        String reportId = TrackingIdGenerator.newRejectedId();
+        String reportId = generateUniqueRejectedId();
         String rejectionReason = determineRejectionReason(mlResult);
 
         CrimeReport report = new CrimeReport();

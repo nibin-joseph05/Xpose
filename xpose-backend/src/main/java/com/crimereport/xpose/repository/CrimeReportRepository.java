@@ -49,4 +49,9 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
 
     @Query("SELECT cr FROM CrimeReport cr LEFT JOIN FETCH cr.assignedOfficerId a WHERE cr.id = ?1")
     Optional<CrimeReport> findReportWithOfficer(String reportId);
+
+    boolean existsById(String id);
+
+    @Query("SELECT COUNT(cr) > 0 FROM CrimeReport cr WHERE cr.id = :id")
+    boolean existsByReportId(@Param("id") String id);
 }
