@@ -126,6 +126,7 @@ public class ReportViewService {
                         logger.info("CrimeCategory found: ID={}, Name={}", report.getCrimeCategoryId(), categoryName);
                     }
                 }
+
             } catch (Exception e) {
                 logger.error("Failed to fetch CrimeType or CrimeCategory for report ID: {}", reportId, e);
             }
@@ -223,6 +224,21 @@ public class ReportViewService {
         dto.setPoliceActionProof(parseJsonToList(report.getPoliceActionProof()));
         dto.setActionTakenAt(report.getActionTakenAt());
         dto.setActionTakenBy(report.getActionTakenBy() != null ? report.getActionTakenBy().getId() : null);
+
+        if (report.getAssignedOfficer() != null) {
+            dto.setAssignedOfficerId(report.getAssignedOfficer().getId());
+            dto.setAssignedOfficerName(report.getAssignedOfficer().getName());
+        }
+
+        if (report.getActionTakenBy() != null) {
+            dto.setActionTakenBy(report.getActionTakenBy().getId());
+            dto.setActionTakenByName(report.getActionTakenBy().getName());
+        }
+
+        if (report.getReviewedBy() != null) {
+            dto.setReviewedById(report.getReviewedBy().getId());
+            dto.setReviewedByName(report.getReviewedBy().getName());
+        }
 
         return dto;
     }

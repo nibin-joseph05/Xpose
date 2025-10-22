@@ -1,4 +1,4 @@
-// lib/pages/report_details/report_details_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -381,19 +381,31 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
             SizedBox(height: 12),
             _buildDetailRow('Crime Type', report.crimeType),
             _buildDetailRow('Category', report.categoryName),
+
             if (report.crimeTypeId != null)
               _buildDetailRow('Crime Type ID', report.crimeTypeId.toString()),
             if (report.categoryId != null)
               _buildDetailRow('Category ID', report.categoryId.toString()),
-            if (report.assignedOfficerId != null)
-              _buildDetailRow('Assigned Officer', 'ID: ${report.assignedOfficerId}'),
-            _buildDetailRow('Police Station',
-                report.policeStation.isNotEmpty ? report.policeStation : 'Not assigned'),
+
+            if (report.assignedOfficerName != null &&
+                report.assignedOfficerName!.isNotEmpty)
+              _buildDetailRow('Assigned Officer', report.assignedOfficerName!)
+            else if (report.assignedOfficerId != null)
+              _buildDetailRow(
+                  'Assigned Officer', 'ID: ${report.assignedOfficerId}'),
+
+            _buildDetailRow(
+              'Police Station',
+              report.policeStation.isNotEmpty
+                  ? report.policeStation
+                  : 'Not assigned',
+            ),
           ],
         ),
       ),
     );
   }
+
 
   Widget _buildLocationSection(CrimeReportDetail report) {
     return Card(
@@ -547,6 +559,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
             Text(
               'Police Actions',
               style: TextStyle(
@@ -556,6 +569,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
               ),
             ),
             SizedBox(height: 12),
+
             if (report.policeFeedback != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,7 +601,9 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
                   SizedBox(height: 16),
                 ],
               ),
-            if (report.policeActionProof != null && report.policeActionProof!.isNotEmpty)
+
+            if (report.policeActionProof != null &&
+                report.policeActionProof!.isNotEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -600,34 +616,44 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
                     ),
                   ),
                   SizedBox(height: 8),
-                  ...report.policeActionProof!.map((proof) =>
-                      Container(
-                        margin: EdgeInsets.only(bottom: 8),
-                        padding: EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.greenAccent.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.attachment_rounded, size: 16, color: Colors.greenAccent),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                proof,
-                                style: TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontSize: 12,
-                                ),
+                  ...report.policeActionProof!.map(
+                        (proof) => Container(
+                      margin: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border:
+                        Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.attachment_rounded,
+                              size: 16, color: Colors.greenAccent),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              proof,
+                              style: TextStyle(
+                                color: Colors.greenAccent,
+                                fontSize: 12,
                               ),
                             ),
-                          ],
-                        ),
-                      )
+                          ),
+                        ],
+                      ),
+                    ),
                   ).toList(),
+                  SizedBox(height: 16),
                 ],
               ),
+
+            if (report.actionTakenByName != null)
+              _buildDetailRow('Action Taken By', report.actionTakenByName!)
+            else if (report.actionTakenBy != null)
+              _buildDetailRow(
+                  'Action Taken By', 'ID: ${report.actionTakenBy}'),
+
             if (report.actionTakenAt != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -653,6 +679,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
             Text(
               'Review Information',
               style: TextStyle(
@@ -662,6 +689,8 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
               ),
             ),
             SizedBox(height: 12),
+
+
             if (report.rejectionReason != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,15 +722,25 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
                   SizedBox(height: 12),
                 ],
               ),
+
+
             if (report.reviewedAt != null)
-              _buildDetailRow('Reviewed At', DateFormat('MMM dd, yyyy - HH:mm').format(report.reviewedAt!)),
-            if (report.reviewedById != null)
+              _buildDetailRow(
+                'Reviewed At',
+                DateFormat('MMM dd, yyyy - HH:mm').format(report.reviewedAt!),
+              ),
+
+
+            if (report.reviewedByName != null)
+              _buildDetailRow('Reviewed By', report.reviewedByName!)
+            else if (report.reviewedById != null)
               _buildDetailRow('Reviewed By', 'ID: ${report.reviewedById}'),
           ],
         ),
       ),
     );
   }
+
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(

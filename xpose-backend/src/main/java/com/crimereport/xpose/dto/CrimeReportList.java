@@ -21,6 +21,7 @@ public class CrimeReportList {
     private String urgency;
     private LocalDateTime submittedAt;
     private Long assignedOfficerId;
+    private String assignedOfficerName;
     private String adminStatus;
     private String policeStatus;
 
@@ -43,6 +44,7 @@ public class CrimeReportList {
             UrgencyLevel urgency,
             LocalDateTime submittedAt,
             Long assignedOfficerId,
+            String assignedOfficerName,
             AdminStatus adminStatus,
             PoliceStatus policeStatus
     ) {
@@ -61,6 +63,7 @@ public class CrimeReportList {
         this.urgency = urgency != null ? urgency.toString() : null;
         this.submittedAt = submittedAt;
         this.assignedOfficerId = assignedOfficerId;
+        this.assignedOfficerName = assignedOfficerName;
         this.adminStatus = adminStatus != null ? adminStatus.toString() : null;
         this.policeStatus = policeStatus != null ? policeStatus.toString() : null;
     }
@@ -183,6 +186,14 @@ public class CrimeReportList {
 
     public void setAssignedOfficerId(Long assignedOfficerId) {
         this.assignedOfficerId = assignedOfficerId;
+    }
+
+    public String getAssignedOfficerName() {
+        return assignedOfficerName;
+    }
+
+    public void setAssignedOfficerName(String assignedOfficerName) {
+        this.assignedOfficerName = assignedOfficerName;
     }
 
     public String getAdminStatus() {

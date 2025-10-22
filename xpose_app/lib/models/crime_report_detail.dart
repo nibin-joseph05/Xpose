@@ -28,6 +28,7 @@ class CrimeReportDetail {
   final double? latitude;
   final double? longitude;
   final int? assignedOfficerId;
+  final String? assignedOfficerName;
   final String? rawBlockchainData;
   final String adminStatus;
   final String policeStatus;
@@ -35,11 +36,13 @@ class CrimeReportDetail {
   final List<String>? policeActionProof;
   final DateTime? actionTakenAt;
   final int? actionTakenBy;
+  final String? actionTakenByName;
   final String? languageDetected;
   final String? translatedDescription;
   final String? rejectionReason;
   final DateTime? reviewedAt;
   final int? reviewedById;
+  final String? reviewedByName;
 
   CrimeReportDetail({
     required this.reportId,
@@ -68,6 +71,7 @@ class CrimeReportDetail {
     this.latitude,
     this.longitude,
     this.assignedOfficerId,
+    this.assignedOfficerName,
     this.rawBlockchainData,
     required this.adminStatus,
     required this.policeStatus,
@@ -75,22 +79,29 @@ class CrimeReportDetail {
     this.policeActionProof,
     this.actionTakenAt,
     this.actionTakenBy,
+    this.actionTakenByName,
     this.languageDetected,
     this.translatedDescription,
     this.rejectionReason,
     this.reviewedAt,
     this.reviewedById,
+    this.reviewedByName,
   });
 
   factory CrimeReportDetail.fromJson(Map<String, dynamic> data) {
     return CrimeReportDetail(
       reportId: data['reportId'] ?? data['id'] ?? '',
       crimeType: data['crimeType'] ?? 'Unknown',
-      crimeTypeId: data['crimeTypeId'] is int ? data['crimeTypeId'] : (data['crimeTypeId'] as num?)?.toInt(),
-      categoryId: data['categoryId'] is int ? data['categoryId'] : (data['categoryId'] as num?)?.toInt(),
+      crimeTypeId: data['crimeTypeId'] is int
+          ? data['crimeTypeId']
+          : (data['crimeTypeId'] as num?)?.toInt(),
+      categoryId: data['categoryId'] is int
+          ? data['categoryId']
+          : (data['categoryId'] as num?)?.toInt(),
       categoryName: data['categoryName'] ?? 'Unknown',
       originalDescription: data['originalDescription'] ?? '',
-      processedDescription: data['processedDescription'] ?? data['readabilityEnhancedDescription'],
+      processedDescription:
+      data['processedDescription'] ?? data['readabilityEnhancedDescription'],
       address: data['address'] ?? '',
       city: data['city'] ?? '',
       state: data['state'] ?? '',
@@ -98,7 +109,8 @@ class CrimeReportDetail {
       policeStation: data['policeStation'] ?? '',
       status: data['status'] ?? 'UNKNOWN',
       urgency: data['urgency'] ?? data['urgencyLevel'],
-      submittedAt: DateTime.parse(data['submittedAt'] ?? DateTime.now().toIso8601String()),
+      submittedAt:
+      DateTime.parse(data['submittedAt'] ?? DateTime.now().toIso8601String()),
       confidenceScore: data['confidenceScore']?.toDouble(),
       spamScore: data['spamScore']?.toDouble(),
       toxicityScores: data['toxicityScores'] is String
@@ -123,15 +135,19 @@ class CrimeReportDetail {
       blockchainTxId: data['blockchainTxId'],
       latitude: data['latitude']?.toDouble(),
       longitude: data['longitude']?.toDouble(),
+
       assignedOfficerId: data['assignedOfficerId'] is int
           ? data['assignedOfficerId']
           : (data['assignedOfficerId'] as num?)?.toInt(),
+      assignedOfficerName: data['assignedOfficerName'],
+
       rawBlockchainData: data['rawBlockchainData'],
       adminStatus: data['adminStatus'] ?? 'PENDING',
       policeStatus: data['policeStatus'] ?? 'NOT_VIEWED',
       policeFeedback: data['policeFeedback'],
       policeActionProof: data['policeActionProof'] is String
-          ? (data['policeActionProof'] != null && data['policeActionProof'].isNotEmpty
+          ? (data['policeActionProof'] != null &&
+          data['policeActionProof'].isNotEmpty
           ? List<String>.from(json.decode(data['policeActionProof']))
           : null)
           : (data['policeActionProof'] != null
@@ -139,19 +155,25 @@ class CrimeReportDetail {
           : null),
       actionTakenAt:
       data['actionTakenAt'] != null ? DateTime.parse(data['actionTakenAt']) : null,
+
       actionTakenBy: data['actionTakenBy'] is int
           ? data['actionTakenBy']
           : (data['actionTakenBy'] as num?)?.toInt(),
+      actionTakenByName: data['actionTakenByName'],
+
       languageDetected: data['languageDetected'],
       translatedDescription: data['translatedDescription'],
       rejectionReason: data['rejectionReason'],
       reviewedAt:
       data['reviewedAt'] != null ? DateTime.parse(data['reviewedAt']) : null,
+
       reviewedById: data['reviewedById'] is int
           ? data['reviewedById']
           : (data['reviewedById'] as num?)?.toInt(),
+      reviewedByName: data['reviewedByName'],
     );
   }
+
 
   Map<String, dynamic> toJson() {
     return {

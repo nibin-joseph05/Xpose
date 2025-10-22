@@ -33,6 +33,7 @@ public class CrimeReportDetail {
     private Double latitude;
     private Double longitude;
     private Long assignedOfficerId;
+    private String assignedOfficerName;
 
     private String adminStatus;
     private String policeStatus;
@@ -40,6 +41,9 @@ public class CrimeReportDetail {
     private List<String> policeActionProof;
     private LocalDateTime actionTakenAt;
     private Long actionTakenBy;
+    private String actionTakenByName;
+    private Long reviewedById;
+    private String reviewedByName;
 
     public String getReportId() {
         return reportId;
@@ -296,4 +300,37 @@ public class CrimeReportDetail {
     public void setActionTakenBy(Long actionTakenBy) {
         this.actionTakenBy = actionTakenBy;
     }
+
+    public String getAssignedOfficerName() {
+        return assignedOfficerName;
+    }
+
+    public void setAssignedOfficerName(String assignedOfficerName) {
+        this.assignedOfficerName = assignedOfficerName;
+    }
+
+    public String getActionTakenByName() {
+        return actionTakenByName;
+    }
+
+    public void setActionTakenByName(String actionTakenByName) {
+        this.actionTakenByName = actionTakenByName;
+    }
+
+    public String getReviewedByName() {
+        return reviewedByName;
+    }
+
+    public void setReviewedByName(String reviewedByName) {
+        this.reviewedByName = reviewedByName;
+    }
+
+    public Long getReviewedById() {
+        return reviewedById;
+    }
+
+    public void setReviewedById(Long reviewedById) {
+        this.reviewedById = reviewedById;
+    }
+
 }

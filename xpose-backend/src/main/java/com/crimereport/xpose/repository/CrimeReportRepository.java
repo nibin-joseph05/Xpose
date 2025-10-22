@@ -20,6 +20,7 @@ public interface CrimeReportRepository extends JpaRepository<CrimeReport, String
         cr.address, cr.city, cr.state, cr.policeStation,
         cr.status, cr.urgencyLevel, cr.submittedAt,
         ao.id,
+        ao.name,
         cr.adminStatus,
         cr.policeStatus  
     )
