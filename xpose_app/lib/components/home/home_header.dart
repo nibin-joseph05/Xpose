@@ -6,6 +6,8 @@ import 'package:Xpose/providers/notification_provider.dart';
 import 'package:Xpose/providers/search_provider.dart';
 import 'package:Xpose/models/crime_report.dart';
 import 'package:Xpose/services/search_service.dart';
+import 'package:Xpose/report_details/report_details_page.dart';
+import 'package:intl/intl.dart';
 
 class HomeHeader extends ConsumerStatefulWidget {
   const HomeHeader({super.key});
@@ -581,8 +583,8 @@ class CustomSearchDelegate extends SearchDelegate {
       onTap: () {
         if (text.contains('new report')) {
           Navigator.of(context).pop();
-          // Navigate to report submission page
-          // You might want to add navigation logic here
+
+
         }
       },
       child: Container(
@@ -610,42 +612,33 @@ class CustomSearchDelegate extends SearchDelegate {
     );
   }
 
+
   Widget _buildReportCard(CrimeReport report, BuildContext context) {
     Color getColorForStatus(String status) {
       switch (status) {
         case 'ACCEPTED':
         case 'APPROVED':
         case 'RESOLVED':
+        case 'ACTION_TAKEN':
           return Colors.green;
         case 'REJECTED':
           return Colors.red;
         case 'PENDING':
         case 'PENDING_REVIEW':
+        case 'VIEWED':
           return Colors.orange;
         case 'IN_PROGRESS':
+        case 'ASSIGNED':
           return Colors.blue;
+        case 'NOT_VIEWED':
+          return Colors.grey;
         default:
           return Colors.grey;
       }
     }
 
-    String getStatusMessage(String status) {
-      switch (status) {
-        case 'ACCEPTED':
-        case 'APPROVED':
-          return 'Your report has been accepted and is being processed';
-        case 'RESOLVED':
-          return 'Your report has been resolved';
-        case 'REJECTED':
-          return 'Your report was rejected';
-        case 'PENDING':
-        case 'PENDING_REVIEW':
-          return 'Your report is under review';
-        case 'IN_PROGRESS':
-          return 'Your report is being investigated';
-        default:
-          return 'Status: $status';
-      }
+    String getStatusDisplayName(String status) {
+      return status.replaceAll('_', ' ').toLowerCase();
     }
 
     return Card(
@@ -656,6 +649,7 @@ class CustomSearchDelegate extends SearchDelegate {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -670,35 +664,74 @@ class CustomSearchDelegate extends SearchDelegate {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: getColorForStatus(report.adminStatus).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: getColorForStatus(report.adminStatus)),
-                  ),
-                  child: Text(
-                    report.adminStatus.replaceAll('_', ' '),
-                    style: TextStyle(
-                      color: getColorForStatus(report.adminStatus),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReportDetailsPage(reportId: report.reportId),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blueAccent),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View Details',
+                          style: TextStyle(
+                            color: Colors.blueAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_rounded, size: 12, color: Colors.blueAccent),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
             SizedBox(height: 12),
-            Text(
-              getStatusMessage(report.adminStatus),
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 14,
-              ),
+
+
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Status Overview',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 8),
+
+
+                _buildStatusRow('Admin Status', report.adminStatus, getColorForStatus),
+                SizedBox(height: 4),
+
+
+                _buildStatusRow('Police Status', report.policeStatus, getColorForStatus),
+                SizedBox(height: 4),
+
+
+                _buildStatusRow('Report Status', report.status, getColorForStatus),
+              ],
             ),
             SizedBox(height: 12),
+
             Divider(color: Colors.white.withOpacity(0.3)),
             SizedBox(height: 8),
+
             Text(
               'Crime Type: ${report.crimeType}',
               style: TextStyle(
@@ -708,27 +741,67 @@ class CustomSearchDelegate extends SearchDelegate {
               ),
             ),
             SizedBox(height: 6),
+
             Text(
-              'Description:',
+              'Location: ${report.city}, ${report.state}',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withOpacity(0.8),
                 fontSize: 12,
-                fontWeight: FontWeight.w500,
               ),
             ),
-            SizedBox(height: 4),
+            SizedBox(height: 6),
+
             Text(
-              report.originalDescription.length > 150
-                  ? '${report.originalDescription.substring(0, 150)}...'
-                  : report.originalDescription,
+              'Police Station: ${report.policeStation.isNotEmpty ? report.policeStation : 'Not Assigned'}',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withOpacity(0.8),
                 fontSize: 12,
+              ),
+            ),
+            SizedBox(height: 6),
+
+            Text(
+              'Submitted: ${DateFormat('MMM dd, yyyy').format(report.submittedAt)}',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 11,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStatusRow(String label, String status, Color Function(String) colorGetter) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: colorGetter(status),
+            shape: BoxShape.circle,
+          ),
+        ),
+        SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          status.replaceAll('_', ' ').toLowerCase(),
+          style: TextStyle(
+            color: colorGetter(status),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 

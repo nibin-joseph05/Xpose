@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 
 import '../models/crime_report.dart';
+import 'package:Xpose/models/crime_report_detail.dart';
 
 class SearchService {
   static final String baseUrl = '${dotenv.env['API_BASE_URL']}';
@@ -49,6 +50,26 @@ class SearchService {
       }
     } catch (e) {
       throw Exception('Search error: $e');
+    }
+  }
+
+  Future<CrimeReportDetail> getReportDetails(String reportId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/reports/$reportId'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        return CrimeReportDetail.fromJson(responseData);
+      } else if (response.statusCode == 404) {
+        throw Exception('Report not found: $reportId');
+      } else {
+        throw Exception('Failed to load report details: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
     }
   }
 
