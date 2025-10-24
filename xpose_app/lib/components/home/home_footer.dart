@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:Xpose/pages/profile/profile_page.dart';
 import 'package:Xpose/pages/home/home.dart';
+import 'package:Xpose/pages/reports/reports_search_page.dart';
 
 class HomeFooter extends StatelessWidget {
   const HomeFooter({super.key});
@@ -55,7 +56,21 @@ class HomeFooter extends StatelessWidget {
                   },
                 ),
               ),
-              Expanded(child: _buildNavItem(context, Icons.assignment, 'Reports', navIconSize, onTap: () {})),
+              Expanded(
+                child: _buildNavItem(
+                  context,
+                  Icons.assignment,
+                  'Reports',
+                  navIconSize,
+                  isActive: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ReportSearchPage()),
+                    );
+                  },
+                ),
+              ),
               SizedBox(width: sosButtonDiameter + 20),
               Expanded(
                 child: _buildNavItem(
