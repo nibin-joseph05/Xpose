@@ -21,7 +21,7 @@ public class GeminiService {
     public GeminiService(@Value("${gemini.api.key}") String apiKey) {
         this.apiKey = apiKey;
         this.webClient = WebClient.builder()
-                .baseUrl("https://generativelanguage.googleapis.com/v1beta/models")
+                .baseUrl("https://generativelanguage.googleapis.com/v1beta")
                 .defaultHeader("Content-Type", "application/json")
                 .build();
     }
@@ -40,7 +40,10 @@ public class GeminiService {
             );
 
             Map response = webClient.post()
-                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -70,7 +73,10 @@ public class GeminiService {
             );
 
             Map response = webClient.post()
-                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -100,7 +106,10 @@ public class GeminiService {
             );
 
             Map response = webClient.post()
-                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -132,7 +141,10 @@ public class GeminiService {
             );
 
             Map response = webClient.post()
-                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -264,7 +276,10 @@ public class GeminiService {
             );
 
             Map response = webClient.post()
-                    .uri("/" + model + ":generateContent?key=" + apiKey)
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/models/" + model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)

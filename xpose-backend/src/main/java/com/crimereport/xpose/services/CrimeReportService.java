@@ -563,7 +563,7 @@ public class CrimeReportService {
         report.setProcessingPhase(CrimeReport.ProcessingPhase.GEMINI_ENRICHED);
         report.setStatus(CrimeReport.ReportStatus.REJECTED);
         report.setRejectionReason("SPAM_DETECTED_BY_GEMINI");
-        report.setAdminStatus(CrimeReport.AdminStatus.REJECTED);
+        report.setAdminStatus(CrimeReport.AdminStatus.PENDING);
         report.setPoliceStatus(CrimeReport.PoliceStatus.NOT_VIEWED);
 
         try {
@@ -624,7 +624,7 @@ public class CrimeReportService {
         report.setProcessingPhase(CrimeReport.ProcessingPhase.FINALIZED);
         report.setStatus(CrimeReport.ReportStatus.REJECTED);
         report.setRejectionReason(rejectionReason);
-        report.setAdminStatus(CrimeReport.AdminStatus.REJECTED);
+        report.setAdminStatus(CrimeReport.AdminStatus.PENDING);
         report.setPoliceStatus(CrimeReport.PoliceStatus.NOT_VIEWED);
 
         try {
