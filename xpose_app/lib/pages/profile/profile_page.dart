@@ -8,6 +8,8 @@ import 'package:Xpose/pages/profile/edit_profile_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:Xpose/pages/profile/security_privacy_page.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:Xpose/pages/about/about_page.dart';
+import 'package:Xpose/pages/help/help_support_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -320,11 +322,30 @@ class _ProfilePageState extends State<ProfilePage> {
                             }
                           },
                         ),
-                        _buildProfileOption(context, Icons.notifications_none, 'Notifications', 'Configure notification preferences'),
-                        _buildProfileOption(context, Icons.language, 'Language', 'Change app language'),
-                        _buildProfileOption(context, Icons.star_border, 'Rate Us', 'Leave a review for the app'),
-                        _buildProfileOption(context, Icons.help_outline, 'Help & Support', 'Get help or contact support'),
-                        _buildProfileOption(context, Icons.info_outline, 'About App', 'Information about the application'),
+                        _buildProfileOption(
+                          context,
+                          Icons.help_outline,
+                          'Help & Support',
+                          'Get help or contact support',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const HelpSupportPage()),
+                            );
+                          },
+                        ),
+                        _buildProfileOption(
+                          context,
+                          Icons.info_outline,
+                          'About App',
+                          'Information about the application',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const AboutPage()),
+                            );
+                          },
+                        ),
                         const SizedBox(height: 25),
                         _buildProfileOption(context, Icons.logout, 'Logout', null, isDestructive: true, onTap: _logout),
                       ],
