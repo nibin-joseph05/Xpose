@@ -7,8 +7,10 @@ import '../pages/auth/auth_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../pages/home/home.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
 import 'package:Xpose/providers/notification_provider.dart';
+import 'package:provider/provider.dart';
+import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,37 +33,50 @@ void main() async {
   ));
 
   runApp(
-    const ProviderScope(
-      child: XposeApp(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: const riverpod.ProviderScope(child: XposeApp()),
     ),
   );
+
 }
 
-class XposeApp extends ConsumerWidget {
+class XposeApp extends StatelessWidget {
   const XposeApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
-      title: 'Xpose',
-      debugShowCheckedModeBanner: false,
-      theme: _buildDarkTheme(),
-      home: Builder(
-        builder: (context) {
-          return const SplashScreen();
-        },
-      ),
+  Widget build(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Xpose',
+          debugShowCheckedModeBanner: false,
+          themeMode: themeProvider.themeMode,
+          theme: _buildLightTheme(),
+          darkTheme: _buildDarkTheme(),
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 
   ThemeData _buildDarkTheme() {
     return ThemeData(
-      scaffoldBackgroundColor: const Color(0xFF1A1A1A),
+      useMaterial3: true,
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF1A1A1A),
         foregroundColor: Colors.white,
         elevation: 0,
+        iconTheme: IconThemeData(size: 20, color: Colors.white),
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
       ),
+      scaffoldBackgroundColor: const Color(0xFF1A1A1A),
       colorScheme: const ColorScheme.dark(
         primary: Color(0xFF00BFFF),
         secondary: Color(0xFFFFB200),
@@ -72,36 +87,54 @@ class XposeApp extends ConsumerWidget {
         onSurface: Colors.white,
         onBackground: Colors.white,
       ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-        bodyLarge: TextStyle(color: Colors.white),
-        bodyMedium: TextStyle(color: Colors.white70),
-        titleLarge: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        titleMedium: TextStyle(color: Colors.white),
-      ),
-      textSelectionTheme: const TextSelectionThemeData(
-        cursorColor: Color(0xFFFFB200),
-        selectionColor: Color(0x3300BFFF),
-        selectionHandleColor: Color(0xFFFFB200),
-      ),
-      useMaterial3: true,
     );
   }
+
+  ThemeData _buildLightTheme() {
+    return ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: const Color(0xFFCCCCCC), // softer than white
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFFBFBFBF), // slightly darker than scaffold
+        foregroundColor: Colors.black87,
+        elevation: 1,
+        iconTheme: IconThemeData(size: 20, color: Colors.black87),
+        titleTextStyle: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
+      iconTheme: const IconThemeData(size: 20, color: Colors.black87),
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF00BFFF),
+        secondary: Color(0xFFFFB200),
+        surface: Color(0xFFD9D9D9),  // softer card color
+        background: Color(0xFFCCCCCC), // overall background
+        onPrimary: Colors.white,
+        onSecondary: Colors.black87,
+        onSurface: Colors.black87,
+        onBackground: Colors.black87,
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFFD9D9D9),
+        shadowColor: Colors.black26,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      dividerColor: Colors.black26,
+    );
+  }
+
 }
 
-class AuthCheck extends ConsumerWidget {
+class AuthCheck extends riverpod.ConsumerWidget {
   const AuthCheck({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context, riverpod.WidgetRef ref) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {

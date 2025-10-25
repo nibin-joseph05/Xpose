@@ -1,4 +1,4 @@
-// lib/pages/profile/profile_page.dart (updated)
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:Xpose/helpers/user_preferences.dart';
@@ -6,6 +6,8 @@ import 'package:Xpose/pages/auth/auth_page.dart';
 import 'package:Xpose/models/user_model.dart';
 import 'package:Xpose/pages/profile/edit_profile_page.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:Xpose/pages/profile/security_privacy_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -31,6 +33,7 @@ class _ProfilePageState extends State<ProfilePage> {
     });
     return user;
   }
+
 
   Future<void> _logout() async {
     bool confirmLogout = await showDialog(
@@ -246,15 +249,18 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 18),
                         Text(
                           userName,
-                          style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onPrimary,
                           ),
                           textAlign: TextAlign.center,
                         ),
+
                         const SizedBox(height: 6),
                         Text(
                           userEmail,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8),
                           ),
                           textAlign: TextAlign.center,
@@ -262,7 +268,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(height: 4),
                         Text(
                           'Mobile: $userMobile',
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8),
                           ),
                           textAlign: TextAlign.center,
@@ -296,7 +302,24 @@ class _ProfilePageState extends State<ProfilePage> {
                             }
                           },
                         ),
-                        _buildProfileOption(context, Icons.security, 'Security & Privacy', 'Update password and privacy settings'),
+                        _buildProfileOption(
+                          context,
+                          Icons.security,
+                          'Security & Privacy',
+                          'Manage theme & privacy settings',
+                          onTap: () {
+                            if (_currentUser?.isGuest ?? false) {
+                              _showGuestDialog();
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SecurityPrivacyPage(),
+                                ),
+                              );
+                            }
+                          },
+                        ),
                         _buildProfileOption(context, Icons.notifications_none, 'Notifications', 'Configure notification preferences'),
                         _buildProfileOption(context, Icons.language, 'Language', 'Change app language'),
                         _buildProfileOption(context, Icons.star_border, 'Rate Us', 'Leave a review for the app'),

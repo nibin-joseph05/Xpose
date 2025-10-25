@@ -60,10 +60,13 @@ class _HomeHeaderState extends ConsumerState<HomeHeader>
           const SizedBox(width: 12),
           Text(
             'Xpose',
-            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontSize: 35,
               color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.bold,
             ),
           ),
+
           const Spacer(),
           SizedBox(
             width: _iconButtonSize,

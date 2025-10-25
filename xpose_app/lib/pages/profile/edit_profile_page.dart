@@ -194,11 +194,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isGuestUser ? 'Profile (Guest Mode)' : 'Edit Profile'),
-        backgroundColor: Colors.blueGrey[900],
-        foregroundColor: Colors.white,
+        title: Text(
+          isGuestUser ? 'Profile (Guest Mode)' : 'Edit Profile',
+        ),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         centerTitle: true,
-        elevation: 0,
+        elevation: Theme.of(context).appBarTheme.elevation ?? 0,
       ),
       body: Container(
         color: Theme.of(context).scaffoldBackgroundColor,

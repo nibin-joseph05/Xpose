@@ -10,37 +10,26 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme customColorScheme = ColorScheme.dark(
-      primary: Colors.blueAccent,
-      onPrimary: Colors.white,
-      secondary: Colors.lightBlueAccent,
-      onSecondary: Colors.black,
-      surface: const Color(0xFF2E2E2E),
-      onSurface: Colors.white,
-      background: const Color(0xFF212121),
-      onBackground: Colors.white,
-      error: Colors.redAccent,
-      onError: Colors.white,
-    );
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: customColorScheme.background,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: HomeHeader(),
             ),
-            const Divider(
+            Divider(
               height: 1,
               thickness: 0.5,
-              color: Colors.white24,
+              color: colorScheme.onBackground.withOpacity(0.2),
               indent: 24,
               endIndent: 24,
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: HomeQuote(),
             ),
             const SizedBox(height: 8),
@@ -48,13 +37,13 @@ class HomePage extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: customColorScheme.surface,
+                  color: colorScheme.surface,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(32),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withOpacity(0.2),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -76,13 +65,16 @@ class HomePage extends StatelessWidget {
             Container(
               height: 80,
               decoration: BoxDecoration(
-                color: customColorScheme.surface,
-                border: const Border(
-                  top: BorderSide(color: Colors.white24, width: 0.5),
+                color: colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: colorScheme.onBackground.withOpacity(0.2),
+                    width: 0.5,
+                  ),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
+                    color: Colors.black.withOpacity(0.2),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),
@@ -95,4 +87,5 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+
 }
