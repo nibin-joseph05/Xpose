@@ -3,6 +3,7 @@ import 'package:Xpose/pages/profile/profile_page.dart';
 import 'package:Xpose/pages/home/home.dart';
 import 'package:Xpose/pages/reports/reports_search_page.dart';
 import 'package:Xpose/pages/crime_categories/crime_categories_page.dart';
+import 'package:Xpose/pages/sos/sos_page.dart';
 
 class HomeFooter extends StatelessWidget {
   const HomeFooter({super.key});
@@ -191,7 +192,13 @@ class HomeFooter extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SosPage()),
+            );
+          },
+
           borderRadius: BorderRadius.circular(diameter / 2),
           child: Center(
             child: Icon(
