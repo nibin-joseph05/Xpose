@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:Xpose/helpers/user_preferences.dart';
@@ -35,7 +34,6 @@ class _ProfilePageState extends State<ProfilePage> {
     });
     return user;
   }
-
 
   Future<void> _logout() async {
     bool confirmLogout = await showDialog(
@@ -286,7 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           context,
                           Icons.edit_note,
                           'Edit Details',
-                          isGuestUser ? 'Login to edit profile' : 'Update your profile information',
+                          'Update your profile information',
                           onTap: isGuestUser ? _showGuestDialog : () async {
                             if (_currentUser != null) {
                               final UserModel? updatedUser = await Navigator.push(
@@ -346,8 +344,17 @@ class _ProfilePageState extends State<ProfilePage> {
                             );
                           },
                         ),
-                        const SizedBox(height: 25),
-                        _buildProfileOption(context, Icons.logout, 'Logout', null, isDestructive: true, onTap: _logout),
+
+
+                        const SizedBox(height: 8),
+                        _buildProfileOption(
+                            context,
+                            Icons.logout,
+                            'Logout',
+                            'Sign out from your account',
+                            isDestructive: true,
+                            onTap: _logout
+                        ),
                       ],
                     ),
                   ),
