@@ -40,6 +40,8 @@ interface CrimeReportDetail {
   actionTakenBy?: number;
   reviewedAt?: string;
   rejectionReason?: string;
+  evidenceCount?: number;
+  attachments?: string[];
 }
 
 interface UserData {
@@ -60,11 +62,7 @@ export default function PoliceReportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [user, setUser] = useState<UserData | null>(null);
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [actionFeedback, setActionFeedback] = useState('');
-  const [actionFiles, setActionFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -113,83 +111,18 @@ export default function PoliceReportDetailPage() {
     }
   };
 
-  const updatePoliceStatus = async (newPoliceStatus: string, feedback?: string, files?: File[]) => {
-    if (!user?.id || !report) return;
+  const getEvidenceCount = () => {
+    if (!report) return 0;
 
-    try {
-      setUpdatingStatus(true);
-
-      const formData = new FormData();
-      formData.append('reportId', reportId);
-      formData.append('policeStatus', newPoliceStatus);
-      formData.append('officerId', user.id);
-      formData.append('feedback', feedback || '');
-
-      if (files && files.length > 0) {
-        files.forEach(file => {
-          formData.append('actionProof', file);
-        });
-      }
-
-      const response = await fetch(`${API_URL}/api/reports/update-police-status`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Failed to update police status');
-
-      setReport(prev => prev ? {
-        ...prev,
-        policeStatus: newPoliceStatus as any,
-        policeFeedback: feedback,
-        actionTakenAt: new Date().toISOString()
-      } : null);
-
-      setShowActionModal(false);
-      setActionFeedback('');
-      setActionFiles([]);
-
-      alert(`Police status updated to ${newPoliceStatus}`);
-    } catch (err: any) {
-      alert('Failed to update police status. Please try again.');
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
-  const handleStatusChange = (newStatus: string) => {
-    if (newStatus === 'ACTION_TAKEN' || newStatus === 'RESOLVED') {
-      setShowActionModal(true);
-    } else {
-      updatePoliceStatus(newStatus);
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setActionFiles(Array.from(e.target.files));
-    }
-  };
-
-  const submitActionWithFiles = () => {
-    if (!report) return;
-
-    const newStatus = report.policeStatus;
-
-    if (newStatus === 'RESOLVED' && actionFiles.length === 0) {
-      alert('Please upload evidence files when resolving a report.');
-      return;
+    if (report.evidenceCount !== undefined) {
+      return report.evidenceCount;
     }
 
-    if (!actionFeedback.trim()) {
-      alert('Please provide feedback about the action taken.');
-      return;
+    if (report.attachments && Array.isArray(report.attachments)) {
+      return report.attachments.length;
     }
 
-    updatePoliceStatus(newStatus, actionFeedback, actionFiles);
+    return 0;
   };
 
   const getStatusBadge = (status: string) => {
@@ -327,6 +260,35 @@ export default function PoliceReportDetailPage() {
     router.push('/police/reports');
   };
 
+  const getFileType = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext || '')) {
+      return 'image';
+    } else if (['pdf'].includes(ext || '')) {
+      return 'pdf';
+    } else if (['doc', 'docx'].includes(ext || '')) {
+      return 'document';
+    } else {
+      return 'file';
+    }
+  };
+
+  const handleViewEvidence = (fileName: string, isUserEvidence: boolean = true) => {
+    let downloadUrl: string;
+
+    if (isUserEvidence) {
+
+      downloadUrl = `${API_URL}/api/reports/evidence/${fileName}`;
+    } else {
+
+      const policeFileName = fileName.split('/').pop() || fileName;
+      downloadUrl = `${API_URL}/api/reports/police-proofs/${policeFileName}`;
+    }
+
+    console.log('Opening evidence file:', downloadUrl);
+    window.open(downloadUrl, '_blank');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#C3B091] to-[#8B7B5A] text-white flex items-center justify-center light:from-[#E6D4A8] light:to-[#A69875]">
@@ -398,21 +360,7 @@ export default function PoliceReportDetailPage() {
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Status</dt>
-                      <dd className="mt-1">
-                        <select
-                          value={report.policeStatus}
-                          onChange={(e) => handleStatusChange(e.target.value)}
-                          disabled={updatingStatus}
-                          className="rounded-lg border border-gray-600 bg-gray-700 px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-[#C3B091] light:border-gray-300 light:bg-white light:text-gray-900"
-                        >
-                          <option value="NOT_VIEWED">Not Viewed</option>
-                          <option value="VIEWED">Viewed</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="ACTION_TAKEN">Action Taken</option>
-                          <option value="RESOLVED">Resolved</option>
-                          <option value="CLOSED">Closed</option>
-                        </select>
-                      </dd>
+                      <dd className="mt-1">{getPoliceStatusBadge(report.policeStatus)}</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-400 light:text-gray-600">ML Status</dt>
@@ -429,6 +377,19 @@ export default function PoliceReportDetailPage() {
                     <div>
                       <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Submitted At</dt>
                       <dd className="mt-1 text-gray-200 light:text-gray-800">{new Date(report.submittedAt).toLocaleString()}</dd>
+                    </div>
+                    {/* Evidence Count Display */}
+                    <div>
+                      <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Evidence Submitted by User</dt>
+                      <dd className="mt-1">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          getEvidenceCount() > 0
+                            ? 'bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300'
+                            : 'bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300'
+                        }`}>
+                          {getEvidenceCount()} {getEvidenceCount() === 1 ? 'file' : 'files'}
+                        </span>
+                      </dd>
                     </div>
                   </dl>
                 </div>
@@ -453,6 +414,41 @@ export default function PoliceReportDetailPage() {
                     </div>
                   </dl>
                 </div>
+
+                {/* Evidence Files Section */}
+                {getEvidenceCount() > 0 && (
+                  <div className="md:col-span-2">
+                    <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Evidence Files</h4>
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {report.attachments?.map((fileName, index) => {
+                        const fileType = getFileType(fileName);
+
+                        return (
+                          <div key={index} className="bg-gray-700 rounded-lg p-4 light:bg-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-300 light:text-gray-700">
+                                {fileType.charAt(0).toUpperCase() + fileType.slice(1)}
+                              </span>
+                              <span className="text-xs text-gray-400 light:text-gray-500">
+                                #{index + 1}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-200 light:text-gray-800 truncate mb-3">
+                              {fileName}
+                            </p>
+                            <button
+                              onClick={() => handleViewEvidence(fileName, true)}
+                              className="w-full bg-[#C3B091] hover:bg-[#8B7B5A] text-white py-2 px-3 rounded text-sm transition-colors"
+                            >
+                              View Evidence
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="md:col-span-2">
                   <h4 className="text-lg font-semibold text-gray-300 light:text-gray-700">Description</h4>
                   <dl className="mt-4 space-y-4">
@@ -482,14 +478,17 @@ export default function PoliceReportDetailPage() {
                       )}
                       {report.policeActionProof && report.policeActionProof.length > 0 && (
                         <div>
-                          <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Evidence Files</dt>
+                          <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Police Evidence Files</dt>
                           <dd className="mt-1">
                             <ul className="list-disc list-inside">
                               {report.policeActionProof.map((proof, index) => (
                                 <li key={index} className="text-gray-200 light:text-gray-800">
-                                  <a href={proof} target="_blank" rel="noopener noreferrer" className="text-[#C3B091] hover:underline">
-                                    Evidence {index + 1}
-                                  </a>
+                                  <button
+                                    onClick={() => handleViewEvidence(proof, false)}
+                                    className="text-[#C3B091] hover:underline"
+                                  >
+                                    Police Evidence {index + 1}
+                                  </button>
                                 </li>
                               ))}
                             </ul>
@@ -521,69 +520,6 @@ export default function PoliceReportDetailPage() {
           )}
         </motion.div>
       </main>
-
-      {/* Action Taken Modal */}
-      {showActionModal && report && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg w-96 max-w-full mx-4 light:bg-white light:text-gray-900">
-            <h3 className="text-lg font-bold mb-4">
-              {report.policeStatus === 'ACTION_TAKEN' ? 'Action Taken Details' : 'Resolve Report'}
-            </h3>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Feedback *</label>
-              <textarea
-                value={actionFeedback}
-                onChange={(e) => setActionFeedback(e.target.value)}
-                placeholder={
-                  report.policeStatus === 'ACTION_TAKEN'
-                    ? "Describe the action taken..."
-                    : "Describe how the issue was resolved..."
-                }
-                className="w-full h-32 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white mb-4 light:bg-gray-100 light:border-gray-300 light:text-gray-900"
-                required
-              />
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                Upload Evidence {report.policeStatus === 'RESOLVED' && '*'}
-              </label>
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg p-2 text-white light:bg-gray-100 light:border-gray-300 light:text-gray-900"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              />
-              <p className="text-xs text-gray-400 mt-1 light:text-gray-600">
-                Supported formats: PDF, JPG, PNG, DOC (Max 10MB per file)
-                {report.policeStatus === 'RESOLVED' && ' - Required for resolution'}
-              </p>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => {
-                  setShowActionModal(false);
-                  setActionFeedback('');
-                  setActionFiles([]);
-                }}
-                className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-500 text-white light:bg-gray-300 light:hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitActionWithFiles}
-                disabled={updatingStatus || !actionFeedback.trim() || (report.policeStatus === 'RESOLVED' && actionFiles.length === 0)}
-                className="px-4 py-2 bg-[#C3B091] rounded-lg hover:bg-[#8B7B5A] text-white disabled:opacity-50 light:bg-[#8B7B5A] light:hover:bg-[#7A6A49]"
-              >
-                {updatingStatus ? 'Submitting...' : 'Submit'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style jsx>{`
         .particle-layer,

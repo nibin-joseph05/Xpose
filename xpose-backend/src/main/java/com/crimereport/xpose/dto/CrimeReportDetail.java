@@ -44,6 +44,8 @@ public class CrimeReportDetail {
     private String actionTakenByName;
     private Long reviewedById;
     private String reviewedByName;
+    private Integer evidenceCount;
+    private List<String> attachments;
 
     public String getReportId() {
         return reportId;
@@ -331,6 +333,22 @@ public class CrimeReportDetail {
 
     public void setReviewedById(Long reviewedById) {
         this.reviewedById = reviewedById;
+    }
+
+    public Integer getEvidenceCount() {
+        return evidenceCount;
+    }
+
+    public void setEvidenceCount(Integer evidenceCount) {
+        this.evidenceCount = evidenceCount;
+    }
+
+    public List<String> getAttachments() {
+        return attachments;
+    }
+
+    public void setAttachments(List<String> attachments) {
+        this.attachments = attachments;
     }
 
 }

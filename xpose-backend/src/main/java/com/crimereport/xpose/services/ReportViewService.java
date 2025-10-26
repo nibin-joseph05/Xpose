@@ -224,6 +224,9 @@ public class ReportViewService {
         dto.setPoliceActionProof(parseJsonToList(report.getPoliceActionProof()));
         dto.setActionTakenAt(report.getActionTakenAt());
         dto.setActionTakenBy(report.getActionTakenBy() != null ? report.getActionTakenBy().getId() : null);
+        List<String> attachments = parseJsonToList(report.getAttachments());
+        dto.setEvidenceCount(attachments != null ? attachments.size() : 0);
+        dto.setAttachments(attachments != null ? attachments : List.of());
 
         if (report.getAssignedOfficer() != null) {
             dto.setAssignedOfficerId(report.getAssignedOfficer().getId());

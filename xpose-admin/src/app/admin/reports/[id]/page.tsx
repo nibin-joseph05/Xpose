@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -40,6 +41,8 @@ interface CrimeReportDetail {
   actionTakenAt?: string;
   reviewedAt?: string;
   rejectionReason?: string;
+  evidenceCount?: number;
+  attachments?: string[];
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.220.2:8080';
@@ -225,6 +228,22 @@ export default function ReportDetailPage() {
     }
   };
 
+  const getEvidenceCount = () => {
+    if (!report) return 0;
+
+
+    if (report.evidenceCount !== undefined) {
+      return report.evidenceCount;
+    }
+
+
+    if (report.attachments && Array.isArray(report.attachments)) {
+      return report.attachments.length;
+    }
+
+    return 0;
+  };
+
   const handleBack = () => {
     router.push('/admin/reports');
   };
@@ -310,6 +329,19 @@ export default function ReportDetailPage() {
                       <div>
                         <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Submitted At</dt>
                         <dd className="mt-1 text-gray-200 light:text-gray-800">{report.submittedAt ? new Date(report.submittedAt).toLocaleString() : 'N/A'}</dd>
+                      </div>
+                      {/* Evidence Count Display */}
+                      <div>
+                        <dt className="text-sm font-medium text-gray-400 light:text-gray-600">Evidence Submitted</dt>
+                        <dd className="mt-1">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            getEvidenceCount() > 0
+                              ? 'bg-green-600/20 text-green-300 ring-1 ring-inset ring-green-600/30 light:bg-green-100 light:text-green-800 light:ring-green-300'
+                              : 'bg-gray-600/20 text-gray-300 ring-1 ring-inset ring-gray-600/30 light:bg-gray-100 light:text-gray-800 light:ring-gray-300'
+                          }`}>
+                            {getEvidenceCount()} {getEvidenceCount() === 1 ? 'file' : 'files'}
+                          </span>
+                        </dd>
                       </div>
                     </dl>
                   </div>

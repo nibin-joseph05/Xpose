@@ -12,6 +12,8 @@ import com.crimereport.xpose.services.CrimeReportService;
 import com.crimereport.xpose.services.ReportViewService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +21,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -56,6 +60,9 @@ public class ReportViewController {
 
     @Value("${app.upload.dir}")
     private String uploadDir;
+
+    @Value("${app.evidence.upload.dir}")
+    private String evidenceUploadDir;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -334,6 +341,131 @@ public class ReportViewController {
             logger.error("Unexpected error uploading police proof: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Unexpected error occurred"));
+        }
+    }
+
+    @GetMapping("/evidence/{fileName}")
+    public ResponseEntity<Resource> downloadEvidenceFile(@PathVariable String fileName) {
+        try {
+            Path filePath = Paths.get(evidenceUploadDir).resolve(fileName).normalize();
+            logger.info("Attempting to download evidence file: {}", filePath.toString());
+
+            if (!Files.exists(filePath)) {
+                logger.warn("Evidence file not found: {}", fileName);
+                return ResponseEntity.notFound().build();
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+
+            String originalFileName = fileName;
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + originalFileName + "\"")
+                    .body(resource);
+
+        } catch (IOException e) {
+            logger.error("Error downloading evidence file: {}", fileName, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/police-proofs/{fileName}")
+    public ResponseEntity<Resource> downloadPoliceProofFile(@PathVariable String fileName) {
+        try {
+            Path filePath = Paths.get(uploadDir, "police-proofs").resolve(fileName).normalize();
+            logger.info("Attempting to download police proof file: {}", filePath.toString());
+
+            if (!Files.exists(filePath)) {
+                logger.warn("Police proof file not found: {}", fileName);
+                return ResponseEntity.notFound().build();
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+
+            String originalFileName = fileName;
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + originalFileName + "\"")
+                    .body(resource);
+
+        } catch (IOException e) {
+            logger.error("Error downloading police proof file: {}", fileName, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+
+    @GetMapping("/download")
+    public ResponseEntity<Resource> downloadFile(@RequestParam String type, @RequestParam String filename) {
+        try {
+            Path filePath;
+
+            switch (type.toLowerCase()) {
+                case "evidence":
+                    filePath = Paths.get(evidenceUploadDir).resolve(filename).normalize();
+                    break;
+                case "police-proof":
+                    filePath = Paths.get(uploadDir, "police-proofs").resolve(filename).normalize();
+                    break;
+                case "profile":
+                    filePath = Paths.get(uploadDir, "profiles").resolve(filename).normalize();
+                    break;
+                default:
+                    return ResponseEntity.badRequest().build();
+            }
+
+            logger.info("Downloading file: {}", filePath.toString());
+
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + filename + "\"")
+                    .body(resource);
+
+        } catch (IOException e) {
+            logger.error("Error downloading file: {}", filename, e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 }
