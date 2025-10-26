@@ -44,6 +44,10 @@ class CrimeReportDetail {
   final int? reviewedById;
   final String? reviewedByName;
 
+
+  final List<String>? attachments;
+  final int? evidenceCount;
+
   CrimeReportDetail({
     required this.reportId,
     required this.crimeType,
@@ -86,6 +90,10 @@ class CrimeReportDetail {
     this.reviewedAt,
     this.reviewedById,
     this.reviewedByName,
+
+
+    this.attachments,
+    this.evidenceCount,
   });
 
   factory CrimeReportDetail.fromJson(Map<String, dynamic> data) {
@@ -171,9 +179,20 @@ class CrimeReportDetail {
           ? data['reviewedById']
           : (data['reviewedById'] as num?)?.toInt(),
       reviewedByName: data['reviewedByName'],
+
+
+      attachments: data['attachments'] is String
+          ? (data['attachments'] != null && data['attachments'].isNotEmpty
+          ? List<String>.from(json.decode(data['attachments']))
+          : null)
+          : (data['attachments'] != null
+          ? List<String>.from(data['attachments'])
+          : null),
+      evidenceCount: data['evidenceCount'] is int
+          ? data['evidenceCount']
+          : (data['evidenceCount'] as num?)?.toInt(),
     );
   }
-
 
   Map<String, dynamic> toJson() {
     return {
@@ -215,6 +234,9 @@ class CrimeReportDetail {
       'rejectionReason': rejectionReason,
       'reviewedAt': reviewedAt?.toIso8601String(),
       'reviewedById': reviewedById,
+
+      'attachments': attachments,
+      'evidenceCount': evidenceCount,
     };
   }
 }

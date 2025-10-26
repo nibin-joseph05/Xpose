@@ -1,9 +1,13 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:Xpose/models/crime_report_detail.dart';
 import 'package:Xpose/services/search_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 
 class ReportDetailsPage extends ConsumerStatefulWidget {
   final String reportId;
@@ -44,6 +48,45 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
           duration: Duration(seconds: 3),
         ),
       );
+    }
+  }
+
+  Future<void> _downloadAndOpenFile(String filePath, String fileType) async {
+    try {
+
+      String fileName = filePath.split('/').last;
+
+      _showSuccessSnackBar('Downloading file: $fileName');
+
+
+      String downloadUrl = '${SearchService.baseUrl}/api/reports/download?type=$fileType&filename=$fileName';
+
+      print('Download URL: $downloadUrl');
+
+
+      final response = await http.get(Uri.parse(downloadUrl));
+
+      if (response.statusCode == 200) {
+
+        final directory = await getDownloadsDirectory();
+        final filePath = '${directory?.path}/$fileName';
+        final file = File(filePath);
+
+
+        await file.writeAsBytes(response.bodyBytes);
+
+        _showSuccessSnackBar('File downloaded successfully!');
+
+
+        await OpenFilex.open(filePath);
+      } else {
+        _showErrorSnackBar('Failed to download file: ${response.statusCode}');
+        print('Download failed with status: ${response.statusCode}');
+        print('Response body: ${response.body}');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to download file: $e');
+      print('Download error: $e');
     }
   }
 
@@ -166,35 +209,27 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           _buildReportHeader(report),
           SizedBox(height: 24),
-
-
           _buildStatusSection(report),
           SizedBox(height: 24),
-
-
           _buildCrimeDetailsSection(report),
           SizedBox(height: 24),
-
-
           _buildLocationSection(report),
           SizedBox(height: 24),
-
-
           _buildDescriptionSection(report),
-          SizedBox(height: 24),
-
-
-          _buildAdditionalInfoSection(report),
           SizedBox(height: 24),
 
 
           if (report.policeFeedback != null ||
               (report.policeActionProof != null && report.policeActionProof!.isNotEmpty))
-            _buildPoliceActionsSection(report),
+            _buildPoliceActionSection(report),
 
+
+          _buildEvidenceSection(report),
+          SizedBox(height: 24),
+          _buildAdditionalInfoSection(report),
+          SizedBox(height: 24),
 
           if (report.rejectionReason != null || report.reviewedAt != null)
             _buildReviewSection(report),
@@ -202,6 +237,328 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
       ),
     );
   }
+
+  Widget _buildPoliceActionSection(CrimeReportDetail report) {
+    return Card(
+      color: Theme.of(context).colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.policy_rounded, color: Colors.blueAccent, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Police Action Details',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+
+
+            if (report.policeFeedback != null && report.policeFeedback!.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Action Taken:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      report.policeFeedback!,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+              ),
+
+
+            if (report.actionTakenAt != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Action Taken At:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    DateFormat('MMM dd, yyyy - HH:mm').format(report.actionTakenAt!),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+              ),
+
+
+            if (report.policeActionProof != null && report.policeActionProof!.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Police Evidence Files:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  ...report.policeActionProof!.asMap().entries.map(
+                        (entry) {
+                      final index = entry.key;
+                      final proof = entry.value;
+                      return _buildPoliceEvidenceFile(proof, index + 1);
+                    },
+                  ).toList(),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPoliceEvidenceFile(String proofPath, int index) {
+    String fileName = proofPath.split('/').last;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.greenAccent.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.greenAccent.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.attachment_rounded, size: 20, color: Colors.greenAccent),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Police Evidence #$index',
+                  style: TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  fileName,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.download_rounded, size: 20, color: Colors.greenAccent),
+            onPressed: () => _downloadAndOpenFile(proofPath, 'police-proof'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEvidenceSection(CrimeReportDetail report) {
+    bool hasUserEvidence = report.attachments != null && report.attachments!.isNotEmpty;
+    bool hasPoliceEvidence = report.policeActionProof != null && report.policeActionProof!.isNotEmpty;
+
+    if (!hasUserEvidence && !hasPoliceEvidence) {
+      return SizedBox.shrink();
+    }
+
+    return Card(
+      color: Theme.of(context).colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Evidence Files',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 16),
+
+
+            if (hasUserEvidence)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Evidence Submitted by User:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '${report.attachments!.length} files',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  ...report.attachments!.asMap().entries.map(
+                        (entry) {
+                      final index = entry.key;
+                      final attachment = entry.value;
+                      return _buildUserEvidenceFile(attachment, index + 1);
+                    },
+                  ).toList(),
+                  SizedBox(height: 16),
+                ],
+              ),
+
+
+            if (!hasUserEvidence && report.evidenceCount != null && report.evidenceCount! > 0)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Evidence Submitted by User:',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '${report.evidenceCount} files',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Evidence files are available but cannot be displayed at this time.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserEvidenceFile(String filePath, int index) {
+    String fileName = filePath.split('/').last;
+    bool isImage = fileName.toLowerCase().endsWith('.jpg') ||
+        fileName.toLowerCase().endsWith('.jpeg') ||
+        fileName.toLowerCase().endsWith('.png');
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blueAccent.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isImage ? Icons.image_rounded : Icons.description_rounded,
+            size: 20,
+            color: Colors.blueAccent,
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isImage ? 'Image #$index' : 'File #$index',
+                  style: TextStyle(
+                    color: Colors.blueAccent,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  fileName,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.download_rounded, size: 20, color: Colors.blueAccent),
+            onPressed: () => _downloadAndOpenFile(filePath, 'evidence'),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildReportHeader(CrimeReportDetail report) {
     return Card(
@@ -281,6 +638,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
         case 'APPROVED':
         case 'RESOLVED':
         case 'ACTION_TAKEN':
+        case 'CLOSED':
           return Colors.green;
         case 'REJECTED':
           return Colors.red;
@@ -371,7 +729,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Crime Details',
+              'General Information',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -379,21 +737,9 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
               ),
             ),
             SizedBox(height: 12),
-            _buildDetailRow('Crime Type', report.crimeType),
-            _buildDetailRow('Category', report.categoryName),
-
-            if (report.crimeTypeId != null)
-              _buildDetailRow('Crime Type ID', report.crimeTypeId.toString()),
-            if (report.categoryId != null)
-              _buildDetailRow('Category ID', report.categoryId.toString()),
-
-            if (report.assignedOfficerName != null &&
-                report.assignedOfficerName!.isNotEmpty)
-              _buildDetailRow('Assigned Officer', report.assignedOfficerName!)
-            else if (report.assignedOfficerId != null)
-              _buildDetailRow(
-                  'Assigned Officer', 'ID: ${report.assignedOfficerId}'),
-
+            _buildDetailRow('Crime Type', '${report.crimeType} (ID: ${report.crimeTypeId})'),
+            _buildDetailRow('Category', '${report.categoryName} (ID: ${report.categoryId})'),
+            _buildDetailRow('Priority', report.urgency ?? 'Not specified'),
             _buildDetailRow(
               'Police Station',
               report.policeStation.isNotEmpty
@@ -406,7 +752,6 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
     );
   }
 
-
   Widget _buildLocationSection(CrimeReportDetail report) {
     return Card(
       color: Theme.of(context).colorScheme.surface,
@@ -416,7 +761,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Location Information',
+              'Location Details',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -427,7 +772,6 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
             _buildDetailRow('Address', report.address),
             _buildDetailRow('City', report.city),
             _buildDetailRow('State', report.state),
-            _buildDetailRow('Country', report.country),
             if (report.latitude != null && report.longitude != null)
               _buildDetailRow('Coordinates',
                   '${report.latitude!.toStringAsFixed(4)}, ${report.longitude!.toStringAsFixed(4)}'),
@@ -446,7 +790,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Incident Description',
+              'Description',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -455,54 +799,50 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
             ),
             SizedBox(height: 12),
             Text(
-              report.originalDescription,
+              'Original Description:',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
-                height: 1.4,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            if (report.languageDetected != null) ...[
-              SizedBox(height: 8),
-              _buildDetailRow('Language Detected', report.languageDetected!),
-            ],
-            if (report.translatedDescription != null &&
-                report.translatedDescription!.isNotEmpty)
-              ...[
-                SizedBox(height: 16),
-                Text(
-                  'Translated Description:',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+            SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                report.originalDescription,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  height: 1.4,
                 ),
-                SizedBox(height: 8),
-                Text(
-                  report.translatedDescription!,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    height: 1.4,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
+              ),
+            ),
             if (report.processedDescription != null &&
-                report.processedDescription != report.originalDescription)
-              ...[
-                SizedBox(height: 16),
-                Text(
-                  'Enhanced Description:',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+                report.processedDescription != report.originalDescription) ...[
+              SizedBox(height: 16),
+              Text(
+                'Processed Description:',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
-                SizedBox(height: 8),
-                Text(
+              ),
+              SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
                   report.processedDescription!,
                   style: TextStyle(
                     color: Colors.white70,
@@ -510,7 +850,8 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
                     height: 1.4,
                   ),
                 ),
-              ],
+              ),
+            ],
           ],
         ),
       ),
@@ -526,7 +867,7 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Additional Information',
+              'Analysis Scores',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
@@ -551,126 +892,6 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
     );
   }
 
-  Widget _buildPoliceActionsSection(CrimeReportDetail report) {
-    return Card(
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-
-            Text(
-              'Police Actions',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            SizedBox(height: 12),
-
-            if (report.policeFeedback != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Feedback:',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      report.policeFeedback!,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                ],
-              ),
-
-            if (report.policeActionProof != null &&
-                report.policeActionProof!.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Action Proof:',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  ...report.policeActionProof!.map(
-                        (proof) => Container(
-                      margin: EdgeInsets.only(bottom: 8),
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.greenAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border:
-                        Border.all(color: Colors.greenAccent.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.attachment_rounded,
-                              size: 16, color: Colors.greenAccent),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              proof,
-                              style: TextStyle(
-                                color: Colors.greenAccent,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ).toList(),
-                  SizedBox(height: 16),
-                ],
-              ),
-
-            if (report.actionTakenByName != null)
-              _buildDetailRow('Action Taken By', report.actionTakenByName!)
-            else if (report.actionTakenBy != null)
-              _buildDetailRow(
-                  'Action Taken By', 'ID: ${report.actionTakenBy}'),
-
-            if (report.actionTakenAt != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  'Action taken on: ${DateFormat('MMM dd, yyyy - HH:mm').format(report.actionTakenAt!)}',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildReviewSection(CrimeReportDetail report) {
     return Card(
       color: Theme.of(context).colorScheme.surface,
@@ -679,7 +900,6 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             Text(
               'Review Information',
               style: TextStyle(
@@ -689,8 +909,6 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
               ),
             ),
             SizedBox(height: 12),
-
-
             if (report.rejectionReason != null)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -722,15 +940,11 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
                   SizedBox(height: 12),
                 ],
               ),
-
-
             if (report.reviewedAt != null)
               _buildDetailRow(
                 'Reviewed At',
                 DateFormat('MMM dd, yyyy - HH:mm').format(report.reviewedAt!),
               ),
-
-
             if (report.reviewedByName != null)
               _buildDetailRow('Reviewed By', report.reviewedByName!)
             else if (report.reviewedById != null)
@@ -740,7 +954,6 @@ class _ReportDetailsPageState extends ConsumerState<ReportDetailsPage> {
       ),
     );
   }
-
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(

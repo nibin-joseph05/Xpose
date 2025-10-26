@@ -420,7 +420,6 @@ public class ReportViewController {
         }
     }
 
-
     @GetMapping("/download")
     public ResponseEntity<Resource> downloadFile(@RequestParam String type, @RequestParam String filename) {
         try {
