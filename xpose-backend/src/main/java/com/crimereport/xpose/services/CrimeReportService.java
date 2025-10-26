@@ -10,9 +10,12 @@ import com.crimereport.xpose.util.TrackingIdGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -36,6 +39,12 @@ public class CrimeReportService {
 
     @Autowired
     private GeocodingService geocodingService;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
+    @Value("${app.evidence.upload.dir}")
+    private String evidenceUploadDir;
 
     private static final Logger logger = LoggerFactory.getLogger(CrimeReportService.class);
 
@@ -85,6 +94,24 @@ public class CrimeReportService {
     public Map<String, Object> submitCrimeReport(CrimeReportRequest request) {
         try {
             logger.info("=== CRIME REPORT PROCESSING STARTED ===");
+
+
+            List<String> savedEvidenceFiles = new ArrayList<>();
+            if (request.getEvidenceFiles() != null && !request.getEvidenceFiles().isEmpty()) {
+                logger.info("Processing {} evidence files", request.getEvidenceFiles().size());
+
+                for (MultipartFile file : request.getEvidenceFiles()) {
+                    try {
+                        String savedFileName = fileStorageService.storeEvidenceFile(file);
+                        savedEvidenceFiles.add(savedFileName);
+                        logger.info("Saved evidence file: {}", savedFileName);
+                    } catch (Exception e) {
+                        logger.error("Failed to save evidence file {}: {}", file.getOriginalFilename(), e.getMessage());
+
+                    }
+                }
+            }
+
             String originalDescription = request.getDescription();
             logger.info("Original Description: {}", originalDescription);
 
@@ -111,7 +138,7 @@ public class CrimeReportService {
 
             if (isPreProcessingSpamOrToxic) {
                 logger.warn("Report REJECTED in pre-processing phase due to spam/toxic/hate speech content");
-                return createRejectedResponse(originalDescription, originalDescription, preProcessingMLResult, "PRE_PROCESSING", request);
+                return createRejectedResponse(originalDescription, originalDescription, preProcessingMLResult, "PRE_PROCESSING", request, savedEvidenceFiles);
             }
 
             logger.info("=== PHASE 2: GEMINI PROCESSING FOR READABILITY ===");
@@ -120,7 +147,7 @@ public class CrimeReportService {
 
             if ("SPAM_DETECTED".equals(processedDescription)) {
                 logger.warn("Gemini detected additional spam patterns");
-                return createSpamResponse(originalDescription, request, preProcessingMLResult);
+                return createSpamResponse(originalDescription, request, preProcessingMLResult, savedEvidenceFiles);
             }
 
             logger.info("=== PHASE 3: POST-PROCESSING QUALITY CHECK ===");
@@ -138,12 +165,12 @@ public class CrimeReportService {
 
             if (isFinalSpamOrToxic) {
                 logger.warn("Report flagged as spam/toxic/hate speech in final validation");
-                return createRejectedResponse(originalDescription, processedDescription, validatedResult, "FINAL_VALIDATION", request);
+                return createRejectedResponse(originalDescription, processedDescription, validatedResult, "FINAL_VALIDATION", request, savedEvidenceFiles);
             }
 
             logReportDetails(request, originalDescription, processedDescription, validatedResult);
 
-            return createSuccessResponse(request, originalDescription, processedDescription, validatedResult);
+            return createSuccessResponse(request, originalDescription, processedDescription, validatedResult, savedEvidenceFiles);
 
         } catch (Exception e) {
             logger.error("Error processing crime report submission: {}", e.getMessage(), e);
@@ -454,7 +481,8 @@ public class CrimeReportService {
     private Map<String, Object> createSuccessResponse(CrimeReportRequest request,
                                                       String original,
                                                       String processed,
-                                                      Map<String, Object> mlResult) {
+                                                      Map<String, Object> mlResult,
+                                                      List<String> savedEvidenceFiles) {
         String reportId = generateUniqueTrackingId();
         String status = determineReportStatus(mlResult);
 
@@ -466,7 +494,10 @@ public class CrimeReportService {
         String translatedDesc = mlResult.getOrDefault("translated_description", original).toString();
         report.setTranslatedDescription(translatedDesc);
         report.setReadabilityEnhancedDescription(processed);
-        report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
+
+
+        report.setAttachments(!savedEvidenceFiles.isEmpty() ? convertFilesToJson(savedEvidenceFiles) : null);
+
         report.setAddress(request.getPlace());
         report.setCity(request.getDistrict());
         report.setState(request.getState());
@@ -529,11 +560,13 @@ public class CrimeReportService {
         response.put("requiresUrgentAttention", "HIGH".equals(mlResult.get("urgency")));
         response.put("qualityScore", mlResult.get("report_quality"));
         response.put("processingNotes", generateProcessingNotes(original, processed, mlResult));
+        response.put("evidenceFilesCount", savedEvidenceFiles.size());
+        response.put("evidenceFiles", savedEvidenceFiles);
 
         return response;
     }
 
-    private Map<String, Object> createSpamResponse(String originalDescription, CrimeReportRequest request, Map<String, Object> mlResult) {
+    private Map<String, Object> createSpamResponse(String originalDescription, CrimeReportRequest request, Map<String, Object> mlResult, List<String> savedEvidenceFiles) {
         String reportId = generateUniqueRejectedId();
 
         CrimeReport report = new CrimeReport();
@@ -541,7 +574,10 @@ public class CrimeReportService {
         report.setCrimeCategoryId((long) request.getCategoryId());
         report.setCrimeTypeId(getCrimeTypeIdFromName(request.getCrimeType()));
         report.setOriginalDescription(originalDescription);
-        report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
+
+
+        report.setAttachments(!savedEvidenceFiles.isEmpty() ? convertFilesToJson(savedEvidenceFiles) : null);
+
         report.setAddress(request.getPlace());
         report.setCity(request.getDistrict());
         report.setState(request.getState());
@@ -573,24 +609,26 @@ public class CrimeReportService {
             logger.error("Failed to save spam report: {}", e.getMessage());
         }
 
-        return Map.of(
-                "success", false,
-                "message", "Report rejected: Content identified as spam or inappropriate",
-                "reportId", reportId,
-                "timestamp", LocalDateTime.now().toString(),
-                "status", "REJECTED",
-                "reviewStatus", "REJECTED",
-                "originalDescription", originalDescription,
-                "rejectionReason", "SPAM_DETECTED_BY_GEMINI",
-                "rejectionPhase", "GEMINI_PROCESSING",
-                "requiresResubmission", true
+        return Map.ofEntries(
+                Map.entry("success", false),
+                Map.entry("message", "Report rejected: Content identified as spam or inappropriate"),
+                Map.entry("reportId", reportId),
+                Map.entry("timestamp", LocalDateTime.now().toString()),
+                Map.entry("status", "REJECTED"),
+                Map.entry("reviewStatus", "REJECTED"),
+                Map.entry("originalDescription", originalDescription),
+                Map.entry("rejectionReason", "SPAM_DETECTED_BY_GEMINI"),
+                Map.entry("rejectionPhase", "GEMINI_PROCESSING"),
+                Map.entry("requiresResubmission", true),
+                Map.entry("evidenceFilesCount", savedEvidenceFiles.size())
         );
     }
 
     private Map<String, Object> createRejectedResponse(String original, String processed,
                                                        Map<String, Object> mlResult,
                                                        String rejectionPhase,
-                                                       CrimeReportRequest request) {
+                                                       CrimeReportRequest request,
+                                                       List<String> savedEvidenceFiles) {
         String reportId = generateUniqueRejectedId();
         String rejectionReason = determineRejectionReason(mlResult);
 
@@ -602,7 +640,10 @@ public class CrimeReportService {
         String translatedDesc = mlResult.getOrDefault("translated_description", original).toString();
         report.setTranslatedDescription(translatedDesc);
         report.setReadabilityEnhancedDescription(processed);
-        report.setAttachments(request.getFiles() != null ? convertFilesToJson(request.getFiles()) : null);
+
+
+        report.setAttachments(!savedEvidenceFiles.isEmpty() ? convertFilesToJson(savedEvidenceFiles) : null);
+
         report.setAddress(request.getPlace());
         report.setCity(request.getDistrict());
         report.setState(request.getState());
@@ -651,6 +692,7 @@ public class CrimeReportService {
         response.put("mlClassification", mlResult);
         response.put("requiresResubmission", true);
         response.put("improvementSuggestions", generateImprovementSuggestions(mlResult));
+        response.put("evidenceFilesCount", savedEvidenceFiles.size());
 
         return response;
     }

@@ -31,7 +31,7 @@ public class GeminiService {
         try {
             logger.info("Processing text with Gemini (DEPRECATED): {}", text.substring(0, Math.min(50, text.length())));
 
-            String model = "gemini-1.5-flash";
+            String model = "gemini-2.5-flash";
             String prompt = buildComprehensivePrompt(text);
 
             Map<String, Object> requestBody = Map.of(
@@ -64,7 +64,7 @@ public class GeminiService {
         try {
             logger.info("Improving readability with Gemini: {}", text.substring(0, Math.min(50, text.length())));
 
-            String model = "gemini-1.5-flash";
+            String model = "gemini-2.5-flash";
             String prompt = buildReadabilityOnlyPrompt(text);
 
             Map<String, Object> requestBody = Map.of(
@@ -97,7 +97,7 @@ public class GeminiService {
         try {
             logger.info("Force translating text to English: {}", text.substring(0, Math.min(50, text.length())));
 
-            String model = "gemini-1.5-flash";
+            String model = "gemini-2.5-flash";
             String prompt = "Translate this text to English. Preserve the original tone, emotion, and intent. Only return the translated text, nothing else:\n\n" + text;
 
             Map<String, Object> requestBody = Map.of(
@@ -132,7 +132,7 @@ public class GeminiService {
 
     public boolean isTextInEnglish(String text) {
         try {
-            String model = "gemini-1.5-flash";
+            String model = "gemini-2.5-flash";
             String prompt = "Is this text primarily in English? Answer only 'YES' or 'NO'. Consider mixed language as 'NO':\n\n" + text;
 
             Map<String, Object> requestBody = Map.of(
@@ -267,7 +267,7 @@ public class GeminiService {
     public String detectLanguage(String text) {
         try {
             logger.info("Detecting language for text: {}", text.substring(0, Math.min(50, text.length())));
-            String model = "gemini-1.5-flash";
+            String model = "gemini-2.5-flash";
             String prompt = "Detect the primary language of this text and return only the language name (e.g., 'English', 'Hindi', 'Spanish'): \n\n" + text;
 
             Map<String, Object> requestBody = Map.of(

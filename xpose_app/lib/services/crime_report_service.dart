@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:http_parser/http_parser.dart';
+import 'dart:typed_data';
 
 class CrimeReportService {
   final String _baseUrl = dotenv.env['API_BASE_URL'] ?? 'http://192.168.220.2:8080';
@@ -113,55 +115,78 @@ class CrimeReportService {
     required List<PlatformFile> files,
   }) async {
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/crime-reports/submit'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'categoryId': categoryId,
-          'categoryName': categoryName,
-          'crimeType': crimeType,
-          'description': description,
-          'place': place,
-          'state': state,
-          'district': district,
-          'policeStation': policeStation,
-          'files': files.map((file) => file.name).toList(),
-        }),
-      );
+      var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/api/crime-reports/submit'));
+
+
+      request.fields['crimeReport'] = json.encode({
+        'categoryId': categoryId,
+        'categoryName': categoryName,
+        'crimeType': crimeType,
+        'description': description,
+        'place': place,
+        'state': state,
+        'district': district,
+        'policeStation': policeStation,
+        'files': files.map((file) => file.name).toList(),
+      });
+
+
+      for (var file in files) {
+        if (file.path != null) {
+          try {
+            var multipartFile = await http.MultipartFile.fromPath(
+              'evidenceFiles',
+              file.path!,
+              filename: file.name,
+            );
+            request.files.add(multipartFile);
+            print('Added file: ${file.name} from path: ${file.path}');
+          } catch (e) {
+            print('Error adding file ${file.name}: $e');
+
+          }
+        } else {
+          print('File ${file.name} has null path, skipping');
+        }
+      }
+
+      print('Sending multipart request with ${request.files.length} files');
+      print('Crime report data: ${request.fields['crimeReport']}');
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final responseData = json.decode(response.body);
+        final responseJson = json.decode(response.body);
 
         return {
-          'success': responseData['success'] ?? false,
-          'reportId': responseData['reportId'] ?? 'Unknown ID',
-          'message': responseData['message'] ?? 'Response received',
-          'rejectionReason': responseData['rejectionReason'],
-          'improvementSuggestions': responseData['improvementSuggestions'] ?? [],
-          'status': responseData['status'],
-          'timestamp': responseData['timestamp'],
-          'requiresResubmission': responseData['requiresResubmission'] ?? false,
+          'success': responseJson['success'] ?? false,
+          'reportId': responseJson['reportId'] ?? 'Unknown ID',
+          'message': responseJson['message'] ?? 'Response received',
+          'rejectionReason': responseJson['rejectionReason'],
+          'improvementSuggestions': responseJson['improvementSuggestions'] ?? [],
+          'status': responseJson['status'],
+          'timestamp': responseJson['timestamp'],
+          'requiresResubmission': responseJson['requiresResubmission'] ?? false,
           'statusCode': response.statusCode
         };
-      } else if (response.statusCode == 400) {
+      } else {
         final errorData = json.decode(response.body);
         return {
           'success': false,
-          'reportId': 'VALIDATION_FAILED',
-          'message': errorData['message'] ?? 'Validation failed',
-          'error': errorData['error'] ?? 'BAD_REQUEST',
+          'reportId': 'ERROR_${response.statusCode}',
+          'message': errorData['message'] ?? 'Server error occurred',
+          'error': errorData['error'] ?? 'SERVER_ERROR',
           'statusCode': response.statusCode
         };
-      } else {
-        final errorData = json.decode(response.body);
-        throw Exception('Server error: ${errorData['message'] ?? 'Unknown error'} (${response.statusCode})');
       }
     } catch (e) {
-      if (e is Exception) {
-        rethrow;
-      } else {
-        throw Exception('Network error: $e');
-      }
+      print('Error in submitReport: $e');
+      print('Stack trace: ${e.toString()}');
+      rethrow;
     }
   }
 }

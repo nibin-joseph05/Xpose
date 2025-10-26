@@ -2,13 +2,17 @@ package com.crimereport.xpose.controllers;
 
 import com.crimereport.xpose.dto.CrimeReportRequest;
 import com.crimereport.xpose.services.CrimeReportService;
+import com.crimereport.xpose.services.FileStorageService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,11 +25,29 @@ public class CrimeReportController {
     @Autowired
     private CrimeReportService crimeReportService;
 
-    @PostMapping("/submit")
-    public ResponseEntity<?> submitCrimeReport(@RequestBody CrimeReportRequest request) {
+    @Autowired
+    private FileStorageService fileStorageService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @PostMapping(value = "/submit", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> submitCrimeReport(
+            @RequestPart("crimeReport") String crimeReportJson,
+            @RequestPart(value = "evidenceFiles", required = false) List<MultipartFile> evidenceFiles) {
+
         try {
-            logger.info("Received crime report submission request");
-            logger.debug("Request details: {}", request.toString());
+            logger.info("Received crime report submission request with {} evidence files",
+                    evidenceFiles != null ? evidenceFiles.size() : 0);
+
+            CrimeReportRequest request = objectMapper.readValue(crimeReportJson, CrimeReportRequest.class);
+
+            logger.info("Parsed crime report request: categoryId={}, crimeType={}",
+                    request.getCategoryId(), request.getCrimeType());
+
+            if (evidenceFiles != null && !evidenceFiles.isEmpty()) {
+                request.setEvidenceFiles(evidenceFiles);
+            }
 
             if (!crimeReportService.validateCrimeReport(request)) {
                 logger.warn("Crime report validation failed");

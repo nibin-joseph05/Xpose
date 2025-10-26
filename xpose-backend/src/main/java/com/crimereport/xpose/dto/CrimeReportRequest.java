@@ -1,5 +1,7 @@
 package com.crimereport.xpose.dto;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 public class CrimeReportRequest {
@@ -14,6 +16,7 @@ public class CrimeReportRequest {
     private String district;
     private String policeStation;
     private List<String> files;
+    private List<MultipartFile> evidenceFiles;
     private Double latitude;
     private Double longitude;
 
@@ -116,6 +119,13 @@ public class CrimeReportRequest {
 
     public void setFiles(List<String> files) {
         this.files = files;
+    }
+    public List<MultipartFile> getEvidenceFiles() {
+        return evidenceFiles;
+    }
+
+    public void setEvidenceFiles(List<MultipartFile> evidenceFiles) {
+        this.evidenceFiles = evidenceFiles;
     }
 
     public Double getLatitude() {

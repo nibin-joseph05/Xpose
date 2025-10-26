@@ -5,3 +5,4 @@ xpose_chain/.env
 xpose_fastapi/.env
 # Ignore uploaded police proofs
 xpose-backend/uploads/police-proofs/
+xpose-backend/uploads/evidence/

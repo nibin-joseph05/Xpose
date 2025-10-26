@@ -117,14 +117,6 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
 
   Future<void> _pickFiles() async {
     try {
-      final formData = {
-        'description': _descriptionController.text,
-        'place': _placeController.text,
-        'selectedState': _selectedState,
-        'selectedDistrict': _selectedDistrict,
-        'selectedPoliceStation': _selectedPoliceStation,
-        'isRecaptchaVerified': _isRecaptchaVerified,
-      };
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
@@ -132,22 +124,24 @@ class _CrimeReportPageState extends State<CrimeReportPage> {
         withData: false,
         allowCompression: true,
       );
+
       if (result != null && result.files.isNotEmpty) {
         const int maxFileSize = 50 * 1024 * 1024;
         List<PlatformFile> validFiles = [];
         List<String> rejectedFiles = [];
+
         for (var file in result.files) {
-          if (file.size <= maxFileSize) {
+          if (file.size <= maxFileSize && file.path != null) {
             validFiles.add(file);
-          } else {
+            print('Selected file: ${file.name}, path: ${file.path}');
+          } else if (file.size > maxFileSize) {
             rejectedFiles.add('${file.name} (too large)');
+          } else {
+            rejectedFiles.add('${file.name} (no file path)');
           }
         }
         setState(() {
           _selectedFiles.addAll(validFiles);
-          if (_descriptionController.text.isEmpty && formData['description'] != null) {
-            _descriptionController.text = formData['description'] as String;
-          }
         });
         if (validFiles.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
