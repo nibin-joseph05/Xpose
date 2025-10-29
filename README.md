@@ -1,104 +1,254 @@
-Xpose - Smart Crime Reporting System
-A secure, anonymous, and AI-powered platform for reporting crimes, enhancing public safety through technology.
+Xpose – Smart Crime Reporting System
 
-Overview
-Xpose is a comprehensive crime reporting system that bridges the gap between citizens and law enforcement. 
-It enables anonymous crime reporting, AI-powered content validation, real-time status tracking, and immutable record-keeping using blockchain technology.
+Xpose is an AI-powered smart crime reporting system that revolutionizes public safety networks using blockchain technology and artificial intelligence. The system provides citizens with a secure, anonymous, and efficient platform for reporting crimes while ensuring data immutability and intelligent processing.
 
-Key Features:
-  Anonymous Reporting: Submit crimes without revealing identity.
+Features
 
-  AI-Powered Validation: Automated spam, toxicity, and urgency classification using BERT and Detoxify models.
-  
-  Blockchain Storage: Tamper-proof record-keeping with a custom Go-based blockchain.
-  
-  Multilingual Support: Language translation via Gemini AI.
-  
-  Real-Time Notifications: Live updates via WebSocket.
-  
-  Emergency SOS: Instant alerts with location sharing.
-  
-  Police and Admin Dashboards: Case management and analytics via Next.js portals.
-  
-  Guest Mode: Report without registration.
-
-Technology Stack:
-  Frontend: Flutter (Mobile App)
-  
-  Backend: Spring Boot (REST APIs)
-  
-  AI/ML: FastAPI, BERT, Detoxify, SHAP, Gemini API
-  
-  Blockchain: Go, LevelDB
-  
-  Database: PostgreSQL
-  
-  Authentication: Firebase OTP, JWT
-  
-  Web Dashboards: Next.js
-  
-  APIs: Google Maps, Places, NewsAPI
-
-Project Structure:
-  Xpose/
-  ├── xpose_app/                 # Flutter Mobile App
-  │   ├── lib/
-  │   │   ├── components/        # Reusable UI components
-  │   │   ├── helpers/           # Utility functions
-  │   │   ├── models/            # Data models
-  │   │   ├── pages/             # App screens
-  │   │   ├── providers/         # State management
-  │   │   ├── services/          # API services
-  │   │   └── main.dart          # App entry point
-  │   └── pubspec.yaml           # Dependencies
-  ├── xpose-backend/             # Spring Boot Backend
-  │   └── src/main/java/com/crimereport/xpose/
-  │       ├── config/            # Security, WebSocket config
-  │       ├── controllers/       # REST API endpoints
-  │       ├── models/            # JPA entities
-  │       ├── repository/        # Data access layer
-  │       ├── services/          # Business logic
-  │       └── resources/         # Application config
-  ├── xpose-admin/               # Next.js Admin & Police Portal
-  │   └── src/app/
-  │       ├── admin/             # Admin dashboard pages
-  │       ├── police/            # Police dashboard pages
-  │       └── components/        # Shared components
-  ├── xpose_fastapi/             # Python ML Service
-  │   ├── xpose_ml/
-  │   │   ├── classifier.py      # ML classification logic
-  │   │   ├── models.py          # Pydantic models
-  │   │   └── routes.py          # FastAPI endpoints
-  │   └── requirements.txt       # Python dependencies
-  └── xpose_chain/               # Go Blockchain Service
-      ├── blockchain/            # Blockchain core logic
-      ├── handlers/              # HTTP handlers
-      ├── routes/                # API routes
-      └── main.go                # Service entry point
-
+    Anonymous crime reporting with complete user privacy
     
-System Workflow:
-  Users submit crime reports via the Flutter app (anonymous or registered).
-  
-  Reports undergo AI validation (spam, toxicity, urgency).
-  
-  Validated reports are stored immutably on the blockchain.
-  
-  Law enforcement accesses and updates cases via the Next.js dashboard.
-  
-  Real-time notifications keep users informed of case progress.
+    AI-powered content validation (spam detection, toxicity analysis, urgency classification)
+    
+    Blockchain integration for tamper-proof record keeping
+    
+    Multilingual support via Google Gemini API
+    
+    Real-time status updates and notifications
+    
+    Emergency SOS functionality with location sharing
+    
+    Police station discovery and mapping
+    
+    Guest mode for immediate reporting without registration
+    
+    Comprehensive admin and police dashboards
+    
+    Evidence management with secure file uploads
 
-Future Enhancements:
-  Offline report drafting
-  
-  Voice-to-text reporting
-  
-  Predictive crime analytics
-  
-  Enhanced regional language support
-  
-  Integration with law enforcement databases
+Technology Stack
+Frontend
 
-Conclusion:
-Xpose demonstrates the effective use of modern technologies to improve public safety, foster transparency, and build trust between citizens and law enforcement.
+    Flutter (cross-platform mobile apps)
+    
+    Next.js (admin & police web portals)
 
+Backend
+
+    Spring Boot (microservices)
+    
+    FastAPI (AI/ML services)
+    
+    Go (blockchain implementation)
+
+AI/ML Integration
+
+    BERT models for NLP classification
+    
+    Detoxify for toxicity analysis
+    
+    SHAP for model explainability
+    
+    Google Gemini API for multilingual translation
+
+Database & Storage
+
+    PostgreSQL (application data)
+    
+    LevelDB (blockchain storage)
+    
+    Firebase (authentication & cloud storage)
+    
+    APIs & Services
+    
+    Google Maps API (geolocation)
+    
+    Google Places API (police station discovery)
+    
+    WebSocket (real-time communication)
+    
+    JWT (authentication)
+
+
+Project Structure
+
+    Xpose/
+    ├── xpose_app/                 # Flutter mobile application
+    │   ├── lib/
+    │   │   ├── components/        # Reusable UI components
+    │   │   ├── helpers/           # Utility functions
+    │   │   ├── models/            # Data models
+    │   │   ├── pages/             # Screen components
+    │   │   ├── providers/         # State management
+    │   │   └── services/          # API services
+    │   └── assets/               # Images, fonts, icons
+    ├── xpose-backend/            # Spring Boot main API
+    │   └── src/main/java/com/crimereport/xpose/
+    │       ├── config/           # Security, WebSocket config
+    │       ├── controllers/      # REST API endpoints
+    │       ├── models/           # JPA entities
+    │       ├── repository/       # Data access layer
+    │       └── services/         # Business logic
+    ├── xpose-admin/              # Next.js admin & police portal
+    │   └── src/app/
+    │       ├── admin/            # Admin dashboard pages
+    │       └── police/           # Police dashboard pages
+    ├── xpose_fastapi/            # Python ML service
+    │   └── xpose_ml/
+    │       ├── classifier.py     # ML classification logic
+    │       ├── models.py         # Pydantic models
+    │       └── routes.py         # FastAPI endpoints
+    └── xpose_chain/              # Go blockchain service
+        ├── blockchain/           # Blockchain core logic
+        ├── handlers/             # HTTP handlers
+        └── routes/               # API routes
+
+Installation and Setup
+Prerequisites
+
+    Java 21
+    
+    Spring Boot 3.2.0
+    
+    Python 3.12
+    
+    Go 1.19+
+    
+    Flutter 3.0+
+    
+    Node.js (for Next.js)
+    
+    PostgreSQL
+    
+    Firebase account
+
+Backend (Spring Boot)
+
+    cd xpose-backend
+    ./mvnw clean install
+    ./mvnw spring-boot:run
+
+    Configure src/main/resources/application.properties with your database credentials.
+
+Machine Learning Service (FastAPI)
+
+    cd xpose_fastapi
+    python -m venv xpose_env
+    source xpose_env/bin/activate  # Windows: xpose_env\Scripts\activate
+    pip install -r requirements.txt
+    export GEMINI_API_KEY=your_gemini_api_key
+    python start.py
+
+Blockchain Service (Go)
+
+    cd xpose_chain
+    go mod download
+    go run main.go
+
+Mobile Application (Flutter)
+
+    cd xpose_app
+    flutter pub get
+    flutter run
+
+    Configure Firebase (google-services.json for Android, GoogleService-Info.plist for iOS).
+
+Web Portals (Next.js)
+
+    cd xpose-admin
+    npm install
+    npm run dev
+
+
+Set environment variables in .env.local:
+
+    NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    NEXT_PUBLIC_WS_URL=ws://localhost:8080/ws
+
+Database Setup
+
+    Create PostgreSQL database xpose_db
+    
+    Tables are auto-generated by Spring Boot JPA
+    
+    Key tables: users, authorities, crime_categories, crime_types, crime_reports, police_stations, notifications
+
+API Endpoints
+Core Endpoints
+
+    POST /api/auth/register – User registration with OTP
+    
+    POST /api/auth/verify-otp – OTP verification
+    
+    POST /api/auth/guest – Guest session creation
+    
+    POST /api/reports/submit – Crime report submission
+    
+    POST /api/reports/emergency-sos – Emergency SOS
+    
+    GET /api/reports/track/{trackingId} – Track report status
+    
+    GET /api/stations/nearby – Nearby police stations
+
+ML Service Endpoints
+
+    POST /ml/validate – Content validation & classification
+    
+    POST /ml/translate – Language translation
+    
+    Blockchain Endpoints
+    
+    POST /blockchain/add – Add block
+    
+    GET /blockchain/verify – Verify chain integrity
+
+Usage
+Citizens
+
+    Install the Xpose mobile app
+    
+    Register or use guest mode
+    
+    Report crimes with descriptions & evidence
+    
+    Track report status in real-time
+    
+    Use emergency SOS in critical situations
+
+Police Officers
+
+    Access police portal
+    
+    View and update assigned cases
+    
+    Upload evidence & provide feedback
+    
+    Monitor case progress & statistics
+
+Administrators
+
+    Access admin portal
+    
+    Manage users & police stations
+    
+    Assign crime reports
+    
+    Monitor analytics & performance
+    
+    Configure crime categories & types
+
+Future Enhancements
+
+    Offline support in mobile app
+    
+    Advanced AI for image/video analysis
+    
+    Expanded multilingual support
+    
+    Integration with law enforcement record systems
+    
+    Community safety & neighborhood watch features
+
+License
+
+This project is submitted in partial fulfillment of the requirements for the degree of Master of Computer Applications at Mahatma Gandhi University, Kottayam.
+    
+        
